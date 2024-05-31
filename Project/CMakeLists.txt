@@ -45,7 +45,8 @@ set(SOURCES
     "Engine/DescriptorPool.cpp"
     "Engine/Pipeline.h"
     "Engine/Pipeline.cpp"   
-
+    "Engine/vulkanVars.h"
+    "Engine/vulkanVars.cpp"
     # Add other source files here
     "labwork/Week01.cpp"
     "labwork/Week02.cpp"      

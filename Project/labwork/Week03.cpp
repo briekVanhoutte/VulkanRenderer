@@ -1,6 +1,7 @@
 #include "vulkanbase/VulkanBase.h"
 
 void VulkanBase::createFrameBuffers() {
+	auto& vulkan_vars = vulkanVars::GetInstance();
 	swapChainFramebuffers.resize(swapChainImageViews.size());
 	for (size_t i = 0; i < swapChainImageViews.size(); i++) {
 		std::array<VkImageView, 2> attachments = {
@@ -10,20 +11,22 @@ void VulkanBase::createFrameBuffers() {
 
 		VkFramebufferCreateInfo framebufferInfo{};
 		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		framebufferInfo.renderPass = renderPass;
+		framebufferInfo.renderPass = vulkan_vars.renderPass;
 		framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
 		framebufferInfo.pAttachments = attachments.data();
-		framebufferInfo.width = swapChainExtent.width;
-		framebufferInfo.height = swapChainExtent.height;
+		framebufferInfo.width = vulkan_vars.swapChainExtent.width;
+		framebufferInfo.height = vulkan_vars.swapChainExtent.height;
 		framebufferInfo.layers = 1;
 
-		if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS) {
+		if (vkCreateFramebuffer(vulkan_vars.device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create framebuffer!");
 		}
 	}
 }
 
 void VulkanBase::createRenderPass() {
+	auto& vulkan_vars = vulkanVars::GetInstance();
+
 	VkAttachmentDescription colorAttachment{};
 	colorAttachment.format = swapChainImageFormat;
 	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -36,8 +39,8 @@ void VulkanBase::createRenderPass() {
 
 
 	VkAttachmentDescription depthAttachment{};
-	std::cout << Pipeline::findDepthFormat(physicalDevice, device) << std::endl;
-	depthAttachment.format = Pipeline::findDepthFormat(physicalDevice, device);
+	std::cout << Pipeline::findDepthFormat(vulkan_vars.physicalDevice, vulkan_vars.device) << std::endl;
+	depthAttachment.format = Pipeline::findDepthFormat(vulkan_vars.physicalDevice, vulkan_vars.device);
 	depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -78,7 +81,7 @@ void VulkanBase::createRenderPass() {
 	renderPassInfo.dependencyCount = 1;
 	renderPassInfo.pDependencies = &dependency;
 
-	if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
+	if (vkCreateRenderPass(vulkan_vars.device, &renderPassInfo, nullptr, &vulkan_vars.renderPass) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create render pass!");
 	}
 }
