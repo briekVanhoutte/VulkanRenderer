@@ -1,0 +1,32 @@
+#pragma once
+
+#include "vulkan\vulkan_core.h"
+#include "vulkanbase\VulkanUtil.h"
+#include <glm/glm.hpp>
+#include "Engine\DataBuffer.h"
+
+class Mesh {
+public:
+	Mesh(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices);
+	void initialize(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue);
+	void destroyMesh(const VkDevice& device);
+
+	void setPosition(glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles);
+
+	void addVertex(glm::vec3 pos, glm::vec3 color, glm::vec3 normal);
+	void addTriangle(uint16_t i1, uint16_t i2, uint16_t i3, uint16_t offset = 0);
+
+	void draw(VkPipelineLayout pipelineLayout, VkCommandBuffer commandBuffer);
+private:
+	std::vector<Vertex> m_Vertices;
+	std::vector<uint16_t> m_Indices;
+	std::unique_ptr<DataBuffer> m_VertexBuffer;
+	std::unique_ptr<DataBuffer> m_IndexBuffer;
+
+	//VertexConstant m_VertexConstant;
+
+	MeshData m_VertexConstant;
+
+	void CreateVertexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue);
+	void CreateIndexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue);
+}; 

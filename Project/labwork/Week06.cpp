@@ -36,27 +36,35 @@ void VulkanBase::createSyncObjects() {
 
 }
 
-void VulkanBase::drawFrame() {
+void VulkanBase::drawFrame3d() {
 	vkWaitForFences(device, 1, &inFlightFence, VK_TRUE, UINT64_MAX);
 	vkResetFences(device, 1, &inFlightFence);
 
 	uint32_t imageIndex;
 	vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 
-	vkResetCommandBuffer(commandBuffer, /*VkCommandBufferResetFlagBits*/ 0);
-	recordCommandBuffer(commandBuffer, imageIndex);
+	UniformBufferObject vp{};
+
+	vp.view = { glm::inverse( m_Camera.CalculateCameraToWorld()) };
+	vp.proj = glm::perspective(glm::radians(m_Camera.fovAngle), m_Camera.aspectRatio, m_Camera.nearPlane, m_Camera.farPlane);
+
+
+	m_Pipeline3d.setUbo(vp);
+	m_Pipeline3d.Record(imageIndex, renderPass, swapChainFramebuffers, swapChainExtent);
+	//m_Pipeline2d.Record(imageIndex, renderPass, swapChainFramebuffers, swapChainExtent);
 
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
 	VkSemaphore waitSemaphores[] = { imageAvailableSemaphore };
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+
 	submitInfo.waitSemaphoreCount = 1;
 	submitInfo.pWaitSemaphores = waitSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
 
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &commandBuffer;
+	m_Pipeline3d.m_Buffer.submit(submitInfo);
+	//m_Pipeline2d.m_Buffer.submit(submitInfo);
 
 	VkSemaphore signalSemaphores[] = { renderFinishedSemaphore };
 	submitInfo.signalSemaphoreCount = 1;
@@ -79,7 +87,11 @@ void VulkanBase::drawFrame() {
 	presentInfo.pImageIndices = &imageIndex;
 
 	vkQueuePresentKHR(presentQueue, &presentInfo);
+
 }
+
+
+
 
 bool checkValidationLayerSupport() {
 	uint32_t layerCount;
@@ -105,6 +117,9 @@ bool checkValidationLayerSupport() {
 
 	return true;
 }
+
+
+
 
 std::vector<const char*> VulkanBase::getRequiredExtensions() {
 	uint32_t glfwExtensionCount = 0;

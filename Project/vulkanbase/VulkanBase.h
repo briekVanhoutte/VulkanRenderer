@@ -1,9 +1,17 @@
 #pragma once
 
+#define VK_USE_PLATFORM_WIN32_KHR
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
+
 #include "VulkanUtil.h"
+#include "../Project/Engine/ShaderBase.h"
+#include "../Project/Engine/CommandPool.h"
+#include "../Project/Engine/Mesh.h"
+#include "../Project/Engine/Pipeline.h"
+
 
 #include <iostream>
 #include <stdexcept>
@@ -15,7 +23,9 @@
 #include <set>
 #include <limits>
 #include <algorithm>
-
+#include "engine/Scene.h"
+#include "Engine/Camera.h"
+#include <chrono>
 
 const std::vector<const char*> validationLayers = {
 	"VK_LAYER_KHRONOS_validation"
@@ -25,62 +35,121 @@ const std::vector<const char*> deviceExtensions = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
-struct QueueFamilyIndices {
-	std::optional<uint32_t> graphicsFamily;
-	std::optional<uint32_t> presentFamily;
 
-	bool isComplete() {
-		return graphicsFamily.has_value() && presentFamily.has_value();
-	}
-};
-
-struct SwapChainSupportDetails {
-	VkSurfaceCapabilitiesKHR capabilities;
-	std::vector<VkSurfaceFormatKHR> formats;
-	std::vector<VkPresentModeKHR> presentModes;
-};
 
 class VulkanBase {
 public:
 	void run() {
 		initWindow();
+	
 		initVulkan();
+
 		mainLoop();
 		cleanup();
 	}
 
 private:
+	CommandPool m_CommandPool{};
+	Pipeline m_Pipeline3d;
+
+	std::vector<int> keysDown{};
+	std::vector<int> mouseDown{};
+
+	Scene m_Scene = Scene{};
+	Camera m_Camera = Camera{};
+
+	void initCamera() {
+		float fov{ 90.f };
+		float aspectRatio{ float(WIDTH) / float(HEIGHT) };
+		glm::vec3 cameraStartLocation{ 0.f,0.f,-40.f };
+
+		m_Camera.Initialize(fov, cameraStartLocation, aspectRatio);
+	}
+
+	void initScene() {
+		std::vector<Vertex> vertices{};
+		std::vector< uint16_t> indices{};
+		ParseOBJ("Resources/vehicle.obj", vertices, indices,{0.2f,0.6f,0.2f}, false);
+		glm::vec3 pos{ 20.f,0.f,0.f };
+		glm::vec3 scale{0.9f,0.9f,0.9f };
+		glm::vec3 rot{ 0,0.f,0.f };
+
+		if (vertices.size() > 0 && indices.size() > 0) {
+			m_Scene.addModel(vertices, indices, pos, scale, rot);
+		}
+		else
+		{
+			std::cout << "object 1 did not load correctly" << std::endl;
+		}
+		
+
+		std::vector<Vertex> vertices2{};
+		std::vector< uint16_t> indices2{};
+		ParseOBJ("Resources/tuktuk.obj", vertices2, indices2, { 0.6f,0.2f,0.2f }, false);
+
+		glm::vec3 pos2{ -20.f,-10.f,0.f };
+		glm::vec3 scale2{ 1.f,1.f,1.f };
+		glm::vec3 rot2{ 0.f,90.f,0.f };
+
+		if (vertices2.size() > 0 && indices2.size() > 0) {
+			m_Scene.addModel(vertices2, indices2, pos2, scale2, rot2);
+		}
+		else
+		{
+			std::cout << "object 2 did not load correctly" << std::endl;
+		}
+
+		
+	}
+
+	void initPipeLine()
+	{
+		//initScene();
+		initScene();
+		m_Pipeline3d.SetScene(m_Scene);
+		m_Pipeline3d.Initialize(physicalDevice,device,m_CommandPool, "shaders/shader3d.vert.spv", "shaders/shader3d.frag.spv",renderPass, graphicsQueue, swapChainExtent);
+	}
+
 	void initVulkan() {
-		// week 06
 		createInstance();
 		setupDebugMessenger();
 		createSurface();
 
-		// week 05
 		pickPhysicalDevice();
 		createLogicalDevice();
 
-		// week 04 
 		createSwapChain();
 		createImageViews();
-		
-		// week 03
-		createRenderPass();
-		createGraphicsPipeline();
-		createFrameBuffers();
-		// week 02
-		createCommandPool();
-		createCommandBuffer();
 
-		// week 06
+		createRenderPass();
+
+		initCamera();
+
+		m_CommandPool.initialize(device, findQueueFamilies(physicalDevice));
+
+		initPipeLine();
+		createFrameBuffers();
+
 		createSyncObjects();
 	}
 
 	void mainLoop() {
+		
+		auto startTime = std::chrono::high_resolution_clock::now();
+		float deltaTime = 0.f;
+
 		while (!glfwWindowShouldClose(window)) {
+			auto currentTime = std::chrono::high_resolution_clock::now();
+			deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+			startTime = currentTime;
+
 			glfwPollEvents();
 			// week 06
-			drawFrame();
+			drawFrame3d();
+			HandleKeyInputs(deltaTime);
+			HandleMouseInputs(deltaTime);
+			m_Camera.update();
+
 		}
 		vkDeviceWaitIdle(device);
 	}
@@ -90,23 +159,26 @@ private:
 		vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
 		vkDestroyFence(device, inFlightFence, nullptr);
 
-		vkDestroyCommandPool(device, commandPool, nullptr);
+		vkDestroyCommandPool(device, m_CommandPool.m_CommandPool  , nullptr);
 		for (auto framebuffer : swapChainFramebuffers) {
 			vkDestroyFramebuffer(device, framebuffer, nullptr);
 		}
 
-		vkDestroyPipeline(device, graphicsPipeline, nullptr);
-		vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 		vkDestroyRenderPass(device, renderPass, nullptr);
 
 		for (auto imageView : swapChainImageViews) {
 			vkDestroyImageView(device, imageView, nullptr);
 		}
 
+		m_Scene.deleteScene(device);
+		//m_Mesh.destroyMesh(device);
+		m_Pipeline3d.Destroy(device);
+
 		if (enableValidationLayers) {
 			DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
 		}
 		vkDestroySwapchainKHR(device, swapChain, nullptr);
+
 		vkDestroyDevice(device, nullptr);
 
 		vkDestroySurfaceKHR(instance, surface, nullptr);
@@ -117,7 +189,8 @@ private:
 	}
 
 	
-
+	void HandleKeyInputs(float deltaTime);
+	void HandleMouseInputs(float deltaTime);
 	
 
 	void createSurface() {
@@ -126,54 +199,26 @@ private:
 		}
 	}
 
-	
-
-	// Week 01: 
-	// Actual window
-	// simple fragment + vertex shader creation functions
-	// These 5 functions should be refactored into a separate C++ class
-	// with the correct internal state.
-
 	GLFWwindow* window;
 	void initWindow();
 
-	VkPipelineShaderStageCreateInfo createFragmentShaderInfo();
-	VkPipelineShaderStageCreateInfo createVertexShaderInfo();
-	VkPipelineVertexInputStateCreateInfo createVertexInputStateInfo();
-	VkPipelineInputAssemblyStateCreateInfo createInputAssemblyStateInfo();
-	VkShaderModule createShaderModule(const std::vector<char>& code);
+	void keyEvent(int key, int scancode, int action, int mods);
 
-	void drawScene();
+	void mouseMove(GLFWwindow* window, double xpos, double ypos);
 
-	// Week 02
-	// Queue families
-	// CommandBuffer concept
+	void mouseEvent(GLFWwindow* window, int button, int action, int mods);
 
-	VkCommandPool commandPool;
-	VkCommandBuffer commandBuffer;
+	float m_Radius;
+	float m_Rotation;
+	glm::vec2 m_LastMousePos;
 
 	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 
-	void drawFrame(uint32_t imageIndex);
-	void createCommandBuffer();
-	void createCommandPool(); 
-	void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
-	
-	// Week 03
-	// Renderpass concept
-	// Graphics pipeline
-	
 	std::vector<VkFramebuffer> swapChainFramebuffers;
-	VkPipelineLayout pipelineLayout;
-	VkPipeline graphicsPipeline;
 	VkRenderPass renderPass;
 
 	void createFrameBuffers();
 	void createRenderPass();
-	void createGraphicsPipeline();
-
-	// Week 04
-	// Swap chain and image view support
 
 	VkSwapchainKHR swapChain;
 	std::vector<VkImage> swapChainImages;
@@ -189,9 +234,6 @@ private:
 	void createSwapChain();
 	void createImageViews();
 
-	// Week 05 
-	// Logical and physical device
-
 	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 	VkQueue graphicsQueue;
 	VkQueue presentQueue;
@@ -199,9 +241,6 @@ private:
 	void pickPhysicalDevice();
 	bool isDeviceSuitable(VkPhysicalDevice device);
 	void createLogicalDevice();
-
-	// Week 06
-	// Main initialization
 
 	VkInstance instance;
 	VkDebugUtilsMessengerEXT debugMessenger;
@@ -219,7 +258,7 @@ private:
 	void createInstance();
 
 	void createSyncObjects();
-	void drawFrame();
+	void drawFrame3d();
 
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
 		std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;

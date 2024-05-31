@@ -1,4 +1,5 @@
 #include "VulkanUtil.h"
+#include <optional>
 
 VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
 	auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
@@ -33,3 +34,5 @@ std::vector<char> readFile(const std::string& filename) {
 	file.close();
 	return buffer;
 }
+
+
