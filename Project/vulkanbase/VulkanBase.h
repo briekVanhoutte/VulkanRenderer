@@ -12,6 +12,7 @@
 #include "../Project/Engine/Mesh.h"
 #include "../Project/Engine/Pipeline.h"
 
+#include "../Project/Engine/PhysxBase.h"
 
 #include <iostream>
 #include <stdexcept>
@@ -26,6 +27,8 @@
 #include "engine/Scene.h"
 #include "Engine/Camera.h"
 #include <chrono>
+#include <iomanip>
+//#include <PxPhysicsAPI.h>
 
 const std::vector<const char*> validationLayers = {
 	"VK_LAYER_KHRONOS_validation"
@@ -41,7 +44,9 @@ class VulkanBase {
 public:
 	void run() {
 		initWindow();
-	
+
+		initPhysx();
+
 		initVulkan();
 
 		mainLoop();
@@ -65,6 +70,11 @@ private:
 
 		m_Camera.Initialize(fov, cameraStartLocation, aspectRatio);
 	}
+
+	void initPhysx() {
+		auto& physx = PhysxBase::GetInstance();
+		physx.initPhysics(false);
+	};
 
 	void initScene() {
 		std::vector<Vertex> vertices{};
@@ -108,6 +118,15 @@ private:
 		initScene();
 		m_Pipeline3d.SetScene(m_Scene);
 		m_Pipeline3d.Initialize(physicalDevice,device,m_CommandPool, "shaders/shader3d.vert.spv", "shaders/shader3d.frag.spv",renderPass, graphicsQueue, swapChainExtent);
+
+		// Add the new shader paths
+		std::string particleVertexShaderPath = "path/to/particleShader.vert";
+		std::string particleFragmentShaderPath = "path/to/particleShader.frag";
+
+		// Create shader base for particle shaders
+		std::unique_ptr<ShaderBase> particleShader = std::make_unique<ShaderBase>(particleVertexShaderPath, particleFragmentShaderPath);
+		particleShader->initialize(physicalDevice, device);
+		particleShader->createDescriptorSetLayout(device);
 	}
 
 	void initVulkan() {
@@ -137,7 +156,10 @@ private:
 		
 		auto startTime = std::chrono::high_resolution_clock::now();
 		float deltaTime = 0.f;
-
+		float totalTime = 0.f;
+		auto& physx = PhysxBase::GetInstance();
+		int frameCount = 0;
+		int fps = 1000;
 		while (!glfwWindowShouldClose(window)) {
 			auto currentTime = std::chrono::high_resolution_clock::now();
 			deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
@@ -145,11 +167,22 @@ private:
 
 			glfwPollEvents();
 			// week 06
+
+			physx.stepPhysics(false);
 			drawFrame3d();
-			HandleKeyInputs(deltaTime);
-			HandleMouseInputs(deltaTime);
+			HandleKeyInputs(deltaTime/fps);
+			HandleMouseInputs(deltaTime/fps);
 			m_Camera.update();
 
+			frameCount++;
+			totalTime += deltaTime;
+			if (totalTime >= 1.0f) {
+				fps = frameCount / deltaTime;
+				//std::cout << "FPS: " << std::fixed << std::setprecision(2) << fps << std::endl;
+				frameCount = 0;
+				startTime = std::chrono::high_resolution_clock::now(); // Reset start time
+				totalTime = 0.f;
+			}
 		}
 		vkDeviceWaitIdle(device);
 	}

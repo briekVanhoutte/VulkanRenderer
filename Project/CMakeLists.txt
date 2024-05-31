@@ -35,6 +35,9 @@ set(SOURCES
     "Engine/ShaderBase.h" 
     "Engine/ShaderBase.cpp" 
     "Engine/CommandPool.h" 
+    "Engine/PhysxBase.h" 
+    "Engine/PhysxBase.cpp" 
+    "Engine/Singleton.h" 
     "Engine/CommandPool.cpp"
     "Engine/DataBuffer.cpp"
     "Engine/DataBuffer.h"
@@ -59,5 +62,15 @@ add_executable(${PROJECT_NAME} ${SOURCES} ${GLSL_SOURCE_FILES}  "vulkanbase/Vulk
 add_dependencies(${PROJECT_NAME} Shaders)
 # Link libraries
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/vcpkg/installed/x64-windows/include/physx")
+
+target_link_libraries(${PROJECT_NAME} PRIVATE ${PhysX} ${PhysX_Common} ${PhysX_FOUNDATION} ${PhysX_COOKER} $<$<CONFIG:DEBUG>:${PhysX_EXTENSIONS}> $<$<CONFIG:DEBUG>:${PhysX_PVD}>)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${Vulkan_LIBRARIES} glfw)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${Vulkan_LIBRARIES} glm)
+
+if(CMAKE_BUILD_TYPE MATCHES "Debug")
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/vcpkg/packages/physx_x64-windows/debug/bin"
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+endif()
