@@ -18,6 +18,10 @@ public:
         mesh->setPosition(position, scale, rotationAngles);
     }
 
+    glm::vec3 getPosition() {
+        return mesh->getPostion();
+    }
+
     void init(VkPhysicalDevice& physicalDevice, VkDevice& device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue) {
         mesh->initialize(physicalDevice, device, commandPool, graphicsQueue);
     }

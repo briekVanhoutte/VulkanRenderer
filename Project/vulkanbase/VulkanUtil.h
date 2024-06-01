@@ -64,6 +64,16 @@ struct Vertex
 	glm::vec3 normal;
 	glm::vec3 color;
 
+	Vertex(glm::vec3 pos, glm::vec3 normal,	glm::vec3 color)
+	:pos(pos),normal(normal),color(color)
+	{}
+	Vertex()
+	{
+		pos = {};
+		normal = {};
+		color = {};
+	}
+
 	static VkVertexInputBindingDescription getBindingDescription() {
 		VkVertexInputBindingDescription bindingDescription{};
 		bindingDescription.binding = 0;

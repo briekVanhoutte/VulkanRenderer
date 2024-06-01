@@ -72,7 +72,7 @@ private:
 	void initCamera() {
 		float fov{ 90.f };
 		float aspectRatio{ float(WIDTH) / float(HEIGHT) };
-		glm::vec3 cameraStartLocation{ 0.f,0.f,-40.f };
+		glm::vec3 cameraStartLocation{ -4.f,-3.f,-25.f };
 
 		m_Camera.Initialize(fov, cameraStartLocation, aspectRatio);
 	}
@@ -82,11 +82,14 @@ private:
 		physx.initPhysics(false);
 	};
 
+	unsigned int m_MovingwallIndex;
+
 	void initScene() {
 		auto& vulkan_vars = vulkanVars::GetInstance();
 		auto& physxBase = PhysxBase::GetInstance();
 
-		std::vector<Vertex> vertices{};
+		// add models to pipeline
+		/*std::vector<Vertex> vertices{};
 		std::vector< uint16_t> indices{};
 		ParseOBJ("Resources/vehicle.obj", vertices, indices,{0.2f,0.6f,0.2f}, false);
 		glm::vec3 pos{ 20.f,0.f,0.f };
@@ -116,18 +119,47 @@ private:
 		else
 		{
 			std::cout << "object 2 did not load correctly" << std::endl;
-		}
+		}*/
 
-
-		
-
-		m_Scene.initObject(vulkan_vars.physicalDevice, vulkan_vars.device, vulkan_vars.commandPoolModelPipeline.m_CommandPool, vulkan_vars.graphicsQueue);
 
 		glm::vec3 posParticles{ 0.f,-10.f,-10.f };
 		glm::vec3 scaleParticles{ 1.f,1.f,1.f };
 		glm::vec3 rotParticles{ 0.f,0.f,0.f };
 
-		m_Scene2.addParticleGroup(physxBase.getParticleBuffer()->getPositionInvMasses(),physxBase.getParticleBuffer()->getNbActiveParticles(), physxBase.m_Particles , posParticles, scaleParticles, rotParticles);
+		m_Scene2.addParticleGroup(physxBase.getParticleBuffer()->getPositionInvMasses(), physxBase.getParticleBuffer()->getNbActiveParticles(), physxBase.m_Particles, posParticles, scaleParticles, rotParticles);
+
+		// create container for particles
+
+		posParticles.y += 3.f;
+
+		// back
+		glm::vec3 posBackWall{ posParticles };
+		posBackWall.z += 3.f;
+		posBackWall.x -= 3.f;
+		m_Scene.addRectangle({ 0.f, 0.f, -1.f }, { 0.f,0.9f,0.f }, 12.f, 6.f, posBackWall, scaleParticles, rotParticles);
+
+		auto& physx_base = PhysxBase::GetInstance();
+
+		// right
+		glm::vec3 posLeftWall{ posParticles };
+		posLeftWall.x += physx_base.getRightWallLocation();
+		m_MovingwallIndex = m_Scene.addRectangle({ 1.f, 0.f, 0.f }, { 0.f,0.9f,0.f }, 6.f, 6.f, posLeftWall, scaleParticles, rotParticles);
+		
+		// left
+		glm::vec3 posRightWall{ posParticles };
+		posRightWall.x += 3.f;
+		m_Scene.addRectangle({ -1.f, 0.f, 0.f }, { 0.f,0.9f,0.f }, 6.f, 6.f, posRightWall, scaleParticles, rotParticles);
+
+		// bot
+		glm::vec3 posBotWall{ posParticles };
+		posBotWall.y -= 3.f;
+		posBotWall.x -= 3.f;
+		m_Scene.addRectangle({ 0.f, 1.f, 0.f }, { 0.f,0.9f,0.f }, 12.f, 6.f, posBotWall, scaleParticles, rotParticles);
+		
+
+		m_Scene.initObject(vulkan_vars.physicalDevice, vulkan_vars.device, vulkan_vars.commandPoolModelPipeline.m_CommandPool, vulkan_vars.graphicsQueue);
+
+		
 		
 	}
 
@@ -172,6 +204,11 @@ private:
 
 	void mainLoop() {
 		auto& vulkan_vars = vulkanVars::GetInstance();
+
+		std::cout << "Controls: " << std::endl;
+		std::cout << "movement: wasd " << std::endl;
+		std::cout << "camera: lmb + mouse " << std::endl;
+		std::cout << "move wall: arrow left + right " << std::endl;
 
 		auto startTime = std::chrono::high_resolution_clock::now();
 		float deltaTime = 0.f;

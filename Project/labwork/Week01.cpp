@@ -103,6 +103,35 @@ void VulkanBase::HandleKeyInputs(float deltaTime) {
 	if (std::find(keysDown.begin(), keysDown.end(), GLFW_KEY_A) != keysDown.end()) {
 		m_Camera.translateRight(-MoveSpeed);
 	}
+
+	if (std::find(keysDown.begin(), keysDown.end(), GLFW_KEY_LEFT) != keysDown.end()) {
+		auto& physx_base = PhysxBase::GetInstance();
+		physx_base.wallMoveLeft = true;
+
+		auto wallLoc = m_Scene.getLocation(m_MovingwallIndex);
+		wallLoc.x = physx_base.getRightWallLocation();
+
+		glm::vec3 scaleParticles{ 1.f,1.f,1.f };
+		glm::vec3 rotParticles{ 0.f,0.f,0.f };
+
+		m_Scene.updateLocationObject(m_MovingwallIndex, wallLoc, scaleParticles, rotParticles);
+	}
+
+	if (std::find(keysDown.begin(), keysDown.end(), GLFW_KEY_RIGHT) != keysDown.end()) {
+		auto& physx_base = PhysxBase::GetInstance();
+		physx_base.wallMoveRight = true;
+
+		
+
+		auto wallLoc = m_Scene.getLocation(m_MovingwallIndex);
+		wallLoc.x = physx_base.getRightWallLocation();
+
+		glm::vec3 scaleParticles{ 1.f,1.f,1.f };
+		glm::vec3 rotParticles{ 0.f,0.f,0.f };
+
+		m_Scene.updateLocationObject(m_MovingwallIndex, wallLoc, scaleParticles, rotParticles);
+	}
+
 }
 
 void VulkanBase::HandleMouseInputs(float deltaTime)

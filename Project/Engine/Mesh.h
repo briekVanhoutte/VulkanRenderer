@@ -12,7 +12,7 @@ public:
 	void destroyMesh(const VkDevice& device);
 
 	void setPosition(glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles);
-
+	glm::vec3 getPostion() { return m_Position; }
 	void addVertex(glm::vec3 pos, glm::vec3 color, glm::vec3 normal);
 	void addTriangle(uint16_t i1, uint16_t i2, uint16_t i3, uint16_t offset = 0);
 
@@ -26,6 +26,8 @@ private:
 	//VertexConstant m_VertexConstant;
 
 	MeshData m_VertexConstant;
+
+	glm::vec3 m_Position = {};
 
 	void CreateVertexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue);
 	void CreateIndexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue);

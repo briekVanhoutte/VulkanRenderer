@@ -287,31 +287,47 @@ class PhysxBase : public Singleton<PhysxBase>
 			}
 			shape->release();
 		}
+		bool wallMoveLeft = false;
+		bool wallMoveRight = false;
 
-		void stepPhysics(bool /*interactive*/)
+		float getRightWallLocation() {
+			return movingWall->getGlobalPose().p.x;
+		}
+
+		void stepPhysics(bool interactive)
 		{
 			if (gIsRunning || gStep)
 			{
 				gStep = false;
-				const PxReal dt = 1.0f / 60.0f;
+				PxReal dt = 1.0f / 60.0f;
+				//const PxReal dt = deltaTime;
 
 				if (movingWall)
 				{
-					static bool moveOut = false;
-					const PxReal speed = 3.0f;
+					PxReal speed = 3.f;
+
+
 					PxTransform pose = movingWall->getGlobalPose();
-					if (moveOut)
+					if (wallMoveRight)
 					{
-						pose.p.x += dt * speed;
-						if (pose.p.x > -7.f)
-							moveOut = false;
+						
+
+						if (pose.p.x - dt * speed > -9.f) {
+							pose.p.x -= dt * speed;
+						}
 					}
-					else
+					if (wallMoveLeft)
 					{
-						pose.p.x -= dt * speed;
-						if (pose.p.x < -15.f)
-							moveOut = true;
+						if (pose.p.x + dt * speed < -3.f)
+						{
+							pose.p.x += dt * speed;
+						}
+
+
 					}
+					wallMoveLeft = false;
+					wallMoveRight = false;
+
 					movingWall->setKinematicTarget(pose);
 				}
 
