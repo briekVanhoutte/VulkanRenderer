@@ -12,6 +12,10 @@
 #include "../Project/Engine/Mesh.h"
 #include "../Project/Engine/Pipeline.h"
 
+#include "../Project/Engine/PhysxBase.h"
+#include "../Project/Engine/vulkanVars.h"
+#include "../Project/Engine/MeshScene.h"
+#include "../Project/Engine/ParticleScene.h"
 
 #include <iostream>
 #include <stdexcept>
@@ -26,6 +30,9 @@
 #include "engine/Scene.h"
 #include "Engine/Camera.h"
 #include <chrono>
+#include <iomanip>
+#include <PxPhysicsAPI.h>
+
 
 const std::vector<const char*> validationLayers = {
 	"VK_LAYER_KHRONOS_validation"
@@ -41,7 +48,9 @@ class VulkanBase {
 public:
 	void run() {
 		initWindow();
-	
+
+		initPhysx();
+
 		initVulkan();
 
 		mainLoop();
@@ -49,13 +58,15 @@ public:
 	}
 
 private:
-	CommandPool m_CommandPool{};
 	Pipeline m_Pipeline3d;
+	Pipeline m_PipelineParticles;
 
 	std::vector<int> keysDown{};
 	std::vector<int> mouseDown{};
 
-	Scene m_Scene = Scene{};
+	MeshScene m_Scene = MeshScene{};
+	ParticleScene m_Scene2 = ParticleScene{};
+
 	Camera m_Camera = Camera{};
 
 	void initCamera() {
@@ -66,7 +77,15 @@ private:
 		m_Camera.Initialize(fov, cameraStartLocation, aspectRatio);
 	}
 
+	void initPhysx() {
+		auto& physx = PhysxBase::GetInstance();
+		physx.initPhysics(false);
+	};
+
 	void initScene() {
+		auto& vulkan_vars = vulkanVars::GetInstance();
+		auto& physxBase = PhysxBase::GetInstance();
+
 		std::vector<Vertex> vertices{};
 		std::vector< uint16_t> indices{};
 		ParseOBJ("Resources/vehicle.obj", vertices, indices,{0.2f,0.6f,0.2f}, false);
@@ -99,15 +118,30 @@ private:
 			std::cout << "object 2 did not load correctly" << std::endl;
 		}
 
+
+		
+
+		m_Scene.initObject(vulkan_vars.physicalDevice, vulkan_vars.device, vulkan_vars.commandPoolModelPipeline.m_CommandPool, vulkan_vars.graphicsQueue);
+
+		glm::vec3 posParticles{ 0.f,-10.f,-10.f };
+		glm::vec3 scaleParticles{ 1.f,1.f,1.f };
+		glm::vec3 rotParticles{ 0.f,0.f,0.f };
+
+		m_Scene2.addParticleGroup(physxBase.getParticleBuffer()->getPositionInvMasses(),physxBase.getParticleBuffer()->getNbActiveParticles(), physxBase.m_Particles , posParticles, scaleParticles, rotParticles);
 		
 	}
 
 	void initPipeLine()
 	{
+		
 		//initScene();
+		auto& vulkan_vars = vulkanVars::GetInstance();
 		initScene();
-		m_Pipeline3d.SetScene(m_Scene);
-		m_Pipeline3d.Initialize(physicalDevice,device,m_CommandPool, "shaders/shader3d.vert.spv", "shaders/shader3d.frag.spv",renderPass, graphicsQueue, swapChainExtent);
+		
+		vulkan_vars.commandBuffer = vulkan_vars.commandPoolModelPipeline.createCommandBuffer();
+
+		m_Pipeline3d.Initialize( "shaders/shader3d.vert.spv", "shaders/shader3d.frag.spv", Vertex::getBindingDescription(),Vertex::getAttributeDescriptions() , VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+		m_PipelineParticles.Initialize( "shaders/computeShader.vert.spv", "shaders/computeShader.frag.spv",  Particle::getBindingDescription(), Particle::getAttributeDescriptions() , VK_PRIMITIVE_TOPOLOGY_POINT_LIST);
 	}
 
 	void initVulkan() {
@@ -124,8 +158,11 @@ private:
 		createRenderPass();
 
 		initCamera();
-
-		m_CommandPool.initialize(device, findQueueFamilies(physicalDevice));
+		
+		auto& vulkan_vars = vulkanVars::GetInstance();
+		vulkan_vars.commandPoolModelPipeline.initialize( findQueueFamilies(vulkan_vars.physicalDevice));
+		vulkan_vars.commandPoolParticlesPipeline.initialize( findQueueFamilies(vulkan_vars.physicalDevice));
+		//m_CommandPool.initialize(device, findQueueFamilies(physicalDevice));
 
 		initPipeLine();
 		createFrameBuffers();
@@ -134,10 +171,14 @@ private:
 	}
 
 	void mainLoop() {
-		
+		auto& vulkan_vars = vulkanVars::GetInstance();
+
 		auto startTime = std::chrono::high_resolution_clock::now();
 		float deltaTime = 0.f;
-
+		float totalTime = 0.f;
+		auto& physx = PhysxBase::GetInstance();
+		int frameCount = 0;
+		int fps = 50;
 		while (!glfwWindowShouldClose(window)) {
 			auto currentTime = std::chrono::high_resolution_clock::now();
 			deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
@@ -145,41 +186,57 @@ private:
 
 			glfwPollEvents();
 			// week 06
+
+			physx.stepPhysics(false);
 			drawFrame3d();
-			HandleKeyInputs(deltaTime);
-			HandleMouseInputs(deltaTime);
+			HandleKeyInputs(deltaTime /fps);
+			HandleMouseInputs(deltaTime /fps);
 			m_Camera.update();
 
+			frameCount++;
+			totalTime += deltaTime;
+			if (totalTime >= 1.0f) {
+				fps = frameCount;
+				//std::cout << "FPS: " << std::fixed << std::setprecision(2) << fps << std::endl;
+				frameCount = 0;
+				startTime = std::chrono::high_resolution_clock::now(); // Reset start time
+				totalTime = 0.f;
+			}
 		}
-		vkDeviceWaitIdle(device);
+		vkDeviceWaitIdle(vulkan_vars.device);
 	}
 
 	void cleanup() {
-		vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
-		vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
-		vkDestroyFence(device, inFlightFence, nullptr);
+		auto& vulkan_vars = vulkanVars::GetInstance();
 
-		vkDestroyCommandPool(device, m_CommandPool.m_CommandPool  , nullptr);
+		vkDestroySemaphore(vulkan_vars.device, renderFinishedSemaphore, nullptr);
+		vkDestroySemaphore(vulkan_vars.device, imageAvailableSemaphore, nullptr);
+		vkDestroyFence(vulkan_vars.device, inFlightFence, nullptr);
+
+		vkDestroyCommandPool(vulkan_vars.device, vulkan_vars.commandPoolModelPipeline.m_CommandPool  , nullptr);
+		vkDestroyCommandPool(vulkan_vars.device, vulkan_vars.commandPoolParticlesPipeline.m_CommandPool  , nullptr);
 		for (auto framebuffer : swapChainFramebuffers) {
-			vkDestroyFramebuffer(device, framebuffer, nullptr);
+			vkDestroyFramebuffer(vulkan_vars.device, framebuffer, nullptr);
 		}
 
-		vkDestroyRenderPass(device, renderPass, nullptr);
+		vkDestroyRenderPass(vulkan_vars.device, vulkan_vars.renderPass, nullptr);
 
 		for (auto imageView : swapChainImageViews) {
-			vkDestroyImageView(device, imageView, nullptr);
+			vkDestroyImageView(vulkan_vars.device, imageView, nullptr);
 		}
 
-		m_Scene.deleteScene(device);
+		m_Scene.deleteScene(vulkan_vars.device);
+		m_Scene2.deleteScene(vulkan_vars.device);
 		//m_Mesh.destroyMesh(device);
-		m_Pipeline3d.Destroy(device);
+		m_Pipeline3d.Destroy(vulkan_vars.device);
+		m_PipelineParticles.Destroy(vulkan_vars.device);
 
 		if (enableValidationLayers) {
 			DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
 		}
-		vkDestroySwapchainKHR(device, swapChain, nullptr);
+		vkDestroySwapchainKHR(vulkan_vars.device, swapChain, nullptr);
 
-		vkDestroyDevice(device, nullptr);
+		vkDestroyDevice(vulkan_vars.device, nullptr);
 
 		vkDestroySurfaceKHR(instance, surface, nullptr);
 		vkDestroyInstance(instance, nullptr);
@@ -215,7 +272,6 @@ private:
 	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 
 	std::vector<VkFramebuffer> swapChainFramebuffers;
-	VkRenderPass renderPass;
 
 	void createFrameBuffers();
 	void createRenderPass();
@@ -223,7 +279,6 @@ private:
 	VkSwapchainKHR swapChain;
 	std::vector<VkImage> swapChainImages;
 	VkFormat swapChainImageFormat;
-	VkExtent2D swapChainExtent;
 
 	std::vector<VkImageView> swapChainImageViews;
 
@@ -234,8 +289,6 @@ private:
 	void createSwapChain();
 	void createImageViews();
 
-	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-	VkQueue graphicsQueue;
 	VkQueue presentQueue;
 	
 	void pickPhysicalDevice();
@@ -244,7 +297,6 @@ private:
 
 	VkInstance instance;
 	VkDebugUtilsMessengerEXT debugMessenger;
-	VkDevice device = VK_NULL_HANDLE;
 	VkSurfaceKHR surface;
 
 	VkSemaphore imageAvailableSemaphore;

@@ -21,6 +21,7 @@ void VulkanBase::setupDebugMessenger() {
 }
 
 void VulkanBase::createSyncObjects() {
+	auto& vulkan_vars = vulkanVars::GetInstance();
 	VkSemaphoreCreateInfo semaphoreInfo{};
 	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -28,20 +29,21 @@ void VulkanBase::createSyncObjects() {
 	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-	if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailableSemaphore) != VK_SUCCESS ||
-		vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphore) != VK_SUCCESS ||
-		vkCreateFence(device, &fenceInfo, nullptr, &inFlightFence) != VK_SUCCESS) {
+	if (vkCreateSemaphore(vulkan_vars.device, &semaphoreInfo, nullptr, &imageAvailableSemaphore) != VK_SUCCESS ||
+		vkCreateSemaphore(vulkan_vars.device, &semaphoreInfo, nullptr, &renderFinishedSemaphore) != VK_SUCCESS ||
+		vkCreateFence(vulkan_vars.device, &fenceInfo, nullptr, &inFlightFence) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create synchronization objects for a frame!");
 	}
 
 }
 
 void VulkanBase::drawFrame3d() {
-	vkWaitForFences(device, 1, &inFlightFence, VK_TRUE, UINT64_MAX);
-	vkResetFences(device, 1, &inFlightFence);
+	auto& vulkan_vars = vulkanVars::GetInstance();
+	vkWaitForFences(vulkan_vars.device, 1, &inFlightFence, VK_TRUE, UINT64_MAX);
+	vkResetFences(vulkan_vars.device, 1, &inFlightFence);
 
 	uint32_t imageIndex;
-	vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+	vkAcquireNextImageKHR(vulkan_vars.device, swapChain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 
 	UniformBufferObject vp{};
 
@@ -50,7 +52,34 @@ void VulkanBase::drawFrame3d() {
 
 
 	m_Pipeline3d.setUbo(vp);
-	m_Pipeline3d.Record(imageIndex, renderPass, swapChainFramebuffers, swapChainExtent);
+	m_PipelineParticles.setUbo(vp);
+
+	vulkan_vars.commandBuffer.reset();
+	vulkan_vars.commandBuffer.beginRecording();
+
+	VkRenderPassBeginInfo renderPassInfo{};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassInfo.renderPass = vulkan_vars.renderPass;
+	renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
+	renderPassInfo.renderArea.offset = { 0, 0 };
+	renderPassInfo.renderArea.extent = vulkan_vars.swapChainExtent;
+
+	std::array<VkClearValue, 2> clearValues{};
+	clearValues[0].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
+	clearValues[1].depthStencil = { 1.0f, 0 };
+
+	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+	renderPassInfo.pClearValues = clearValues.data();
+
+	vkCmdBeginRenderPass(vulkan_vars.commandBuffer.m_VkCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+
+	m_PipelineParticles.Record(imageIndex, vulkan_vars.renderPass, swapChainFramebuffers, vulkan_vars.swapChainExtent, m_Scene2);
+	m_Pipeline3d.Record(imageIndex, vulkan_vars.renderPass, swapChainFramebuffers, vulkan_vars.swapChainExtent, m_Scene);
+
+	vkCmdEndRenderPass(vulkan_vars.commandBuffer.m_VkCommandBuffer);
+
+	vulkan_vars.commandBuffer.endRecording();
 	//m_Pipeline2d.Record(imageIndex, renderPass, swapChainFramebuffers, swapChainExtent);
 
 	VkSubmitInfo submitInfo{};
@@ -63,14 +92,15 @@ void VulkanBase::drawFrame3d() {
 	submitInfo.pWaitSemaphores = waitSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
 
-	m_Pipeline3d.m_Buffer.submit(submitInfo);
+	vulkan_vars.commandBuffer.submit(submitInfo);
+	
 	//m_Pipeline2d.m_Buffer.submit(submitInfo);
 
 	VkSemaphore signalSemaphores[] = { renderFinishedSemaphore };
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
-	if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFence) != VK_SUCCESS) {
+	if (vkQueueSubmit(vulkan_vars.graphicsQueue, 1, &submitInfo, inFlightFence) != VK_SUCCESS) {
 		throw std::runtime_error("failed to submit draw command buffer!");
 	}
 

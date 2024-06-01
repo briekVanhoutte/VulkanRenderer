@@ -4,7 +4,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <chrono>
-
+#include "Engine/vulkanVars.h"
 Pipeline::Pipeline()
 {
 	m_Ubo = {};
@@ -17,10 +17,6 @@ Pipeline::~Pipeline()
 {
 }
 
-void Pipeline::SetScene(const Scene& scene)
-{
-	m_Scene = scene;
-}
 
 void Pipeline::Destroy(const VkDevice& vkDevice)
 {
@@ -29,35 +25,34 @@ void Pipeline::Destroy(const VkDevice& vkDevice)
 	vkDestroyPipelineLayout(vkDevice, m_PipelineLayout, nullptr);
 
 	m_Shader->Destroy( vkDevice);
-	m_Scene.deleteScene(vkDevice);
+	//m_Scene.deleteScene(vkDevice);
 
 	vkDestroyImage(vkDevice, m_DepthImage, nullptr);
 	vkFreeMemory(vkDevice, m_DepthImageMemory, nullptr);
 	vkDestroyImageView(vkDevice, m_DepthImageView, nullptr);
-
-
-
 }
 
-void Pipeline::Initialize(VkPhysicalDevice& vkPhysicalDevice, VkDevice& vkDevice, const CommandPool& commandPool, const std::string& vertexShaderPath, const std::string& fragmentShaderPath, VkRenderPass renderPass, const VkQueue& graphicsQueue,const VkExtent2D& swapChainExtent)
+void Pipeline::Initialize( const std::string& vertexShaderPath, const std::string& fragmentShaderPath, const VkVertexInputBindingDescription& vkVertexInputBindingDesc, std::vector<VkVertexInputAttributeDescription>& vkVertexInputAttributeDesc, VkPrimitiveTopology topology)
 {
-	m_Scene.initObject(vkPhysicalDevice, vkDevice, commandPool.m_CommandPool, graphicsQueue);
+	auto& vulkan_vars = vulkanVars::GetInstance();
+
+	//m_Scene.initObject(vkPhysicalDevice, vkDevice, commandPool.m_CommandPool, graphicsQueue);
 	// create m_Shader;
 	m_Shader = std::make_unique<ShaderBase>(vertexShaderPath, fragmentShaderPath);
-	m_Shader->initialize(vkPhysicalDevice, vkDevice);
-	m_Shader->createDescriptorSetLayout(vkDevice);
+	m_Shader->initialize(vulkan_vars.physicalDevice, vulkan_vars.device, vkVertexInputBindingDesc, vkVertexInputAttributeDesc);
+	m_Shader->createDescriptorSetLayout(vulkan_vars.device);
 	// create scene
 	
 
 	// create m_Buffer;
-	m_Buffer = commandPool.createCommandBuffer();
+
 
 
 	// create depth buffer:
-	createDepthResources(vkPhysicalDevice, vkDevice, swapChainExtent);
+	createDepthResources(vulkan_vars.physicalDevice, vulkan_vars.device, vulkan_vars.swapChainExtent);
 
 	// create m_Pipeline3d;
-	CreatePipeline(vkDevice,renderPass);
+	CreatePipeline(vulkan_vars.device , vulkan_vars.renderPass, topology);
 
 
 	//std::vector<VkFramebuffer> swapChainFramebuffers;
@@ -65,37 +60,20 @@ void Pipeline::Initialize(VkPhysicalDevice& vkPhysicalDevice, VkDevice& vkDevice
 	//VkExtent2D swapChainExtent;
 }
 
-void Pipeline::Record(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent)
+void Pipeline::Record(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene)
 {
 
+	drawScene(imageIndex,renderPass,swapChainFramebuffers,swapChainExtent, scene);
 
-	m_Buffer.reset();
-	m_Buffer.beginRecording();
-	drawScene(imageIndex,renderPass,swapChainFramebuffers,swapChainExtent);
-	m_Buffer.endRecording();
 
 	updateUniformBuffer(imageIndex, swapChainExtent);
 }
 
-void Pipeline::drawScene(uint32_t imageIndex, VkRenderPass renderPass,const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent)
+void Pipeline::drawScene(uint32_t imageIndex, VkRenderPass renderPass,const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene)
 {
-	VkRenderPassBeginInfo renderPassInfo{};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = renderPass;
-	renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
-	renderPassInfo.renderArea.offset = { 0, 0 };
-	renderPassInfo.renderArea.extent = swapChainExtent;
+	auto& vulkan_vars = vulkanVars::GetInstance();
 
-	std::array<VkClearValue, 2> clearValues{};
-	clearValues[0].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
-	clearValues[1].depthStencil = { 1.0f, 0 };
-
-	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-	renderPassInfo.pClearValues = clearValues.data();
-
-	vkCmdBeginRenderPass(m_Buffer.m_VkCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-	vkCmdBindPipeline(m_Buffer.m_VkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline3d);
+	vkCmdBindPipeline(vulkan_vars.commandBuffer.m_VkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline3d);
 
 	VkViewport viewport{};
 	viewport.x = 0.0f;
@@ -104,25 +82,25 @@ void Pipeline::drawScene(uint32_t imageIndex, VkRenderPass renderPass,const std:
 	viewport.height = (float)swapChainExtent.height;
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
-	vkCmdSetViewport(m_Buffer.m_VkCommandBuffer, 0, 1, &viewport);
+	vkCmdSetViewport(vulkan_vars.commandBuffer.m_VkCommandBuffer, 0, 1, &viewport);
 
 	VkRect2D scissor{};
 	scissor.offset = { 0, 0 };
 	scissor.extent = swapChainExtent;
-	vkCmdSetScissor(m_Buffer.m_VkCommandBuffer, 0, 1, &scissor);
+	vkCmdSetScissor(vulkan_vars.commandBuffer.m_VkCommandBuffer, 0, 1, &scissor);
 
 	
 
-	vkCmdBindPipeline(m_Buffer.m_VkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline3d);
+	//vkCmdBindPipeline(vulkan_vars.commandBuffer.m_VkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline3d);
 
-	m_Shader->bindDescriptorSet(m_Buffer.m_VkCommandBuffer, m_PipelineLayout, imageIndex);
+	m_Shader->bindDescriptorSet(vulkan_vars.commandBuffer.m_VkCommandBuffer, m_PipelineLayout, imageIndex);
 
-	m_Scene.drawScene(m_PipelineLayout,m_Buffer.m_VkCommandBuffer);
+	scene.drawScene(m_PipelineLayout, vulkan_vars.commandBuffer.m_VkCommandBuffer);
 
-	vkCmdEndRenderPass(m_Buffer.m_VkCommandBuffer);
+	
 }
 
-void Pipeline::CreatePipeline(VkDevice device, VkRenderPass renderPass ) {
+void Pipeline::CreatePipeline(VkDevice device, VkRenderPass renderPass, VkPrimitiveTopology topology) {
 	VkPipelineViewportStateCreateInfo viewportState{};
 	viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
 	viewportState.viewportCount = 1;
@@ -208,7 +186,7 @@ void Pipeline::CreatePipeline(VkDevice device, VkRenderPass renderPass ) {
 	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
 	pipelineInfo.pVertexInputState = &m_Shader->getVertexInputStateInfo();
-	pipelineInfo.pInputAssemblyState = &m_Shader->getInputAssemblyStateInfo();
+	pipelineInfo.pInputAssemblyState = &m_Shader->getInputAssemblyStateInfo(topology);
 
 
 

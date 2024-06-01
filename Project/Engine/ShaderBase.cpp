@@ -31,13 +31,13 @@ void ShaderBase::Destroy(const VkDevice& vkDevice)
 }
 
 // Initialize shader modules
-void ShaderBase::initialize(const VkPhysicalDevice& vkPhysicalDevice, const VkDevice& vkDevice) {
+void ShaderBase::initialize(const VkPhysicalDevice& vkPhysicalDevice, const VkDevice& vkDevice, const VkVertexInputBindingDescription& vkVertexInputBindingDesc, std::vector<VkVertexInputAttributeDescription>& vkVertexInputAttributeDesc) {
     device_ = vkDevice;
 
     vertexShaderModule_ = createShaderModule(vertexShaderCode_);
     fragmentShaderModule_ = createShaderModule(fragmentShaderCode_);
-    m_VkVertexInputBindingDesc = Vertex::getBindingDescription();
-    m_VkVertexInputAttributeDesc = Vertex::getAttributeDescriptions();
+    m_VkVertexInputBindingDesc = vkVertexInputBindingDesc;
+    m_VkVertexInputAttributeDesc = vkVertexInputAttributeDesc;
 
     m_UBOBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
@@ -144,10 +144,10 @@ VkPipelineVertexInputStateCreateInfo ShaderBase::getVertexInputStateInfo() {
 }
 
 
-VkPipelineInputAssemblyStateCreateInfo ShaderBase::getInputAssemblyStateInfo()  {
+VkPipelineInputAssemblyStateCreateInfo ShaderBase::getInputAssemblyStateInfo(VkPrimitiveTopology topology)  {
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
 	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-	inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	inputAssembly.topology = topology ; //VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST
 	inputAssembly.primitiveRestartEnable = VK_FALSE;
 	return inputAssembly;
 }

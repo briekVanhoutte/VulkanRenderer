@@ -12,14 +12,11 @@ class Pipeline
 public:
 	Pipeline();
 	~Pipeline();
-
-	void SetScene(const Scene& scene);
-
 	void Destroy(const VkDevice& vkDevice);
 
-	void Initialize( VkPhysicalDevice& vkPhysicalDevice, VkDevice& vkDevice, const CommandPool& commandPool, const std::string& vertexShaderPath, const std::string& fragmentShaderPath, VkRenderPass renderPass, const VkQueue& graphicsQueue, const VkExtent2D& swapChainExtent);
-	void Record(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent);
-	CommandBuffer m_Buffer;
+	void Initialize(const std::string& vertexShaderPath, const std::string& fragmentShaderPath, const VkVertexInputBindingDescription& vkVertexInputBindingDesc, std::vector<VkVertexInputAttributeDescription>& vkVertexInputAttributeDesc, VkPrimitiveTopology topology);
+	void Record(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene);
+	//CommandBuffer m_Buffer;
 
 	void setUbo(const UniformBufferObject& ubo) { m_Ubo = ubo; }
 
@@ -29,14 +26,13 @@ public:
 	VkImageView getDepthImageView() { return m_DepthImageView; };
 
 private:
-	void drawScene(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent);
+	void drawScene(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene);
 
-	void CreatePipeline(VkDevice device, VkRenderPass renderPass);
+	void CreatePipeline(VkDevice device, VkRenderPass renderPass, VkPrimitiveTopology topology);
 
 
 	VkPipeline m_Pipeline3d;
 	std::unique_ptr<ShaderBase> m_Shader;
-	Scene m_Scene;
 
 	UniformBufferObject m_Ubo;
 

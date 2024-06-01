@@ -1,6 +1,9 @@
 #include "vulkanbase/VulkanBase.h"
 
 void VulkanBase::pickPhysicalDevice() {
+
+	auto& vulkan_vars = vulkanVars::GetInstance();
+
 	uint32_t deviceCount = 0;
 	vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
 
@@ -17,12 +20,12 @@ void VulkanBase::pickPhysicalDevice() {
 
 	for (const auto& device : devices) {
 		if (isDeviceSuitable(device)) {
-			physicalDevice = device;
+			vulkan_vars.physicalDevice = device;
 			break;
 		}
 	}
 
-	if (physicalDevice == VK_NULL_HANDLE) {
+	if (vulkan_vars.physicalDevice == VK_NULL_HANDLE) {
 		throw std::runtime_error("failed to find a suitable GPU!");
 	}
 }
@@ -35,7 +38,9 @@ bool VulkanBase::isDeviceSuitable(VkPhysicalDevice device) {
 }
 
 void VulkanBase::createLogicalDevice() {
-	QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+	auto& vulkan_vars = vulkanVars::GetInstance();
+
+	QueueFamilyIndices indices = findQueueFamilies(vulkan_vars.physicalDevice);
 
 	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 	std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
@@ -76,10 +81,10 @@ void VulkanBase::createLogicalDevice() {
 		createInfo.enabledLayerCount = 0;
 	}
 
-	if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS) {
+	if (vkCreateDevice(vulkan_vars.physicalDevice, &createInfo, nullptr, &vulkan_vars.device) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create logical device!");
 	}
 
-	vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
-	vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
+	vkGetDeviceQueue(vulkan_vars.device, indices.graphicsFamily.value(), 0, &vulkan_vars.graphicsQueue);
+	vkGetDeviceQueue(vulkan_vars.device, indices.presentFamily.value(), 0, &presentQueue);
 }

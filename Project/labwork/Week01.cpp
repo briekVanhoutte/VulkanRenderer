@@ -86,7 +86,7 @@ void VulkanBase::mouseEvent(GLFWwindow* window, int button, int action, int mods
 
 void VulkanBase::HandleKeyInputs(float deltaTime) {
 
-	const float MoveSpeed = deltaTime * 10.f;
+	const float MoveSpeed = deltaTime * 1000.f;
 
 	if (std::find(keysDown.begin(), keysDown.end(), GLFW_KEY_W) != keysDown.end()) {
 		m_Camera.translateForward(-MoveSpeed);

@@ -21,7 +21,7 @@ public:
     void Destroy(const VkDevice& vkDevice);
 
     // Public interface for ShaderBase
-    void initialize(const VkPhysicalDevice& vkPhysicalDevice, const VkDevice& vkDevice);
+    void initialize(const VkPhysicalDevice& vkPhysicalDevice, const VkDevice& vkDevice, const VkVertexInputBindingDescription& vkVertexInputBindingDesc, std::vector<VkVertexInputAttributeDescription>& vkVertexInputAttributeDesc);
 
     void createDescriptorSetLayout(const VkDevice& vkDevice);
     const VkDescriptorSetLayout& getDescriptorSetLayout()
@@ -35,7 +35,7 @@ public:
     VkPipelineShaderStageCreateInfo getVertexShaderStageInfo() ;
     VkPipelineShaderStageCreateInfo getFragmentShaderStageInfo() ;
     VkPipelineVertexInputStateCreateInfo getVertexInputStateInfo() ;
-    VkPipelineInputAssemblyStateCreateInfo getInputAssemblyStateInfo() ;
+    VkPipelineInputAssemblyStateCreateInfo getInputAssemblyStateInfo(VkPrimitiveTopology topology) ;
 
 private:
     VkDevice device_;
@@ -43,7 +43,7 @@ private:
     std::vector<char> fragmentShaderCode_;
 
     VkVertexInputBindingDescription m_VkVertexInputBindingDesc;
-    std::array<VkVertexInputAttributeDescription, 3> m_VkVertexInputAttributeDesc;
+    std::vector<VkVertexInputAttributeDescription> m_VkVertexInputAttributeDesc;
        
     VkShaderModule vertexShaderModule_;
     VkShaderModule fragmentShaderModule_;
