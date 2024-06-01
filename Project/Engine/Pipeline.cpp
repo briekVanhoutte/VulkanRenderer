@@ -30,9 +30,6 @@ void Pipeline::Destroy(const VkDevice& vkDevice)
 	vkDestroyImage(vkDevice, m_DepthImage, nullptr);
 	vkFreeMemory(vkDevice, m_DepthImageMemory, nullptr);
 	vkDestroyImageView(vkDevice, m_DepthImageView, nullptr);
-
-
-
 }
 
 void Pipeline::Initialize( const std::string& vertexShaderPath, const std::string& fragmentShaderPath, const VkVertexInputBindingDescription& vkVertexInputBindingDesc, std::vector<VkVertexInputAttributeDescription>& vkVertexInputAttributeDesc, VkPrimitiveTopology topology)

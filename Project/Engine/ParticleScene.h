@@ -12,9 +12,10 @@
 class ParticleScene : public Scene {
 public:
 
-    void addParticleGroup(physx::PxVec4* particleBuffer, int ParticleCount , std::vector<Particle> particles)
+    void addParticleGroup(physx::PxVec4* particleBuffer, int ParticleCount , std::vector<Particle> particles, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles)
     {
         ParticleGroup* object = new ParticleGroup{ particleBuffer , ParticleCount , particles};
+        object->setPosition(position, scale, rotationAngles);
 
         m_ParticleGroups.push_back(object);
     }

@@ -8,15 +8,17 @@
 
 #include <vector>
 
+#include <iostream>
+
 #include "PxPhysicsAPI.h"
 #include "cudamanager/PxCudaContext.h"
 #include "cudamanager/PxCudaContextManager.h"
+
 #include "engine/Singleton.h"
 #define CUDA_SUCCESS 0
 #define SHOW_SOLID_SDF_SLICE 0
 #define IDX(i, j, k, offset) ((i) + dimX * ((j) + dimY * ((k) + dimZ * (offset))))
 #define PVD_HOST "127.0.0.1"
-#define ENABLE_DIRECT_GPU_API
 
 using namespace physx;
 using namespace ExtGpu;
@@ -50,12 +52,12 @@ static void initObstacles()
 	gScene->addActor(*body);
 	shape->release();
 
-	shape = gPhysics->createShape(PxBoxGeometry(1.0f, 1.0f, 5.0f), *gMaterial);
+	//shape = gPhysics->createShape(PxBoxGeometry(1.0f, 1.0f, 5.0f), *gMaterial);
 	body = gPhysics->createRigidDynamic(PxTransform(PxVec3(3.5f, 0.75f, 0)));
-	body->attachShape(*shape);
+	//body->attachShape(*shape);
 	body->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
 	gScene->addActor(*body);
-	shape->release();
+	//shape->release();
 }
 
 static void initScene()
@@ -249,17 +251,17 @@ class PhysxBase : public Singleton<PhysxBase>
 			const PxU32 maxDiffuseParticles = useLargeFluid ? 2000000 : 100000;
 			initParticles(50, 120 * (useLargeFluid ? 5 : 1), 30, PxVec3(-2.5f, 3.f, 0.5f), 0.1f, fluidDensity, maxDiffuseParticles);
 
-			initObstacles();
+			//initObstacles();
 
 			// Setup container
 			gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(0.f, 1.f, 0.f, 0.0f), *gMaterial));
-			gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(-1.f, 0.f, 0.f, 7.5f), *gMaterial));
-			gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(0.f, 0.f, 1.f, 7.5f), *gMaterial));
-			gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(0.f, 0.f, -1.f, 7.5f), *gMaterial));
+			gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(-1.f, 0.f, 0.f, 3.f), *gMaterial));
+			gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(0.f, 0.f, 1.f, 3.f), *gMaterial));
+			gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(0.f, 0.f, -1.f, 3.f), *gMaterial));
 
 			if (!useMovingWall)
 			{
-				gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(1.f, 0.f, 0.f, 7.5f), *gMaterial));
+				gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(1.f, 0.f, 0.f, 3.f), *gMaterial));
 				movingWall = NULL;
 			}
 			else
@@ -316,6 +318,7 @@ class PhysxBase : public Singleton<PhysxBase>
 				gScene->simulate(dt);
 				gScene->fetchResults(true);
 				gScene->fetchResultsParticleSystem();
+				getParticles();
 			}
 		}
 
@@ -335,11 +338,50 @@ class PhysxBase : public Singleton<PhysxBase>
 			printf("SnippetPBFFluid done.\n");
 		}	
 
-		std::vector<Particle> getParticles(void* bufferLocation) {
+		void getParticles() {
+			// Determine the size of the buffer
+			size_t bufferSize = getParticleBuffer()->getNbActiveParticles() * sizeof(PxVec4);
+
+			// Allocate normal host memory for bufferLocation
+			void* bufferLocation = malloc(bufferSize);
+			if (bufferLocation == nullptr) {
+				std::cerr << "Failed to allocate host memory" << std::endl;
+				return;
+			}
+
+			// Get the positions of the particles
 			PxVec4* bufferPos = getParticleBuffer()->getPositionInvMasses();
 
-			auto cudaContextManager = gScene->getCudaContextManager(); 
-			cudaContextManager->acquireContext();
-			//->memcpyHtoDAsync(bufferPos, bufferLocation, getParticleBuffer()->getNbActiveParticles() * sizeof(PxVec4), 0);
+			// Cast the bufferPos to CUdeviceptr
+			CUdeviceptr ptr = reinterpret_cast<CUdeviceptr>(bufferPos);
+
+			// Get the CUDA context manager and context
+			auto cudaContextManager = gScene->getCudaContextManager();
+			auto cudaContext = cudaContextManager->getCudaContext();
+
+			// Perform the asynchronous memory copy from device to host
+			cudaContext->memcpyDtoH(bufferLocation, ptr, bufferSize);
+			
+			// Cast the bufferLocation to PxVec4* to read the values
+			PxVec4* positions = static_cast<PxVec4*>(bufferLocation);
+
+			// Create a vector to hold the positions
+			//std::vector<PxVec4> particlePositions(getParticleBuffer()->getNbActiveParticles());
+			
+			m_Particles.clear();
+			m_Particles.resize(getParticleBuffer()->getNbActiveParticles());
+
+			// Copy the positions into the vector
+			for (size_t i = 0; i < getParticleBuffer()->getNbActiveParticles(); ++i) {
+				m_Particles[i].pos.x = positions[i].x;
+				m_Particles[i].pos.y = positions[i].y;
+				m_Particles[i].pos.z = positions[i].z;
+				m_Particles[i].pos.w = positions[i].w;
+			}
+
+			// Free the allocated host memory
+			free(bufferLocation);
 		};
+
+		std::vector<Particle> m_Particles = { {} };
 };

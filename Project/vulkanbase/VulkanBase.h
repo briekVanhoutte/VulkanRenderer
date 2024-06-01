@@ -83,6 +83,9 @@ private:
 	};
 
 	void initScene() {
+		auto& vulkan_vars = vulkanVars::GetInstance();
+		auto& physxBase = PhysxBase::GetInstance();
+
 		std::vector<Vertex> vertices{};
 		std::vector< uint16_t> indices{};
 		ParseOBJ("Resources/vehicle.obj", vertices, indices,{0.2f,0.6f,0.2f}, false);
@@ -115,22 +118,16 @@ private:
 			std::cout << "object 2 did not load correctly" << std::endl;
 		}
 
-		auto& vulkan_vars = vulkanVars::GetInstance();
+
+		
 
 		m_Scene.initObject(vulkan_vars.physicalDevice, vulkan_vars.device, vulkan_vars.commandPoolModelPipeline.m_CommandPool, vulkan_vars.graphicsQueue);
-		
-		auto& physxBase = PhysxBase::GetInstance();
 
-		//std::cout << physxBase.getParticleBuffer()->getNbActiveParticles();
-		Particle p1 = { {1.f,0.f,0.f,0.5f} };
-		Particle p2 = { {10.f,0.f,0.f,0.5f} };
-		Particle p3 = { {1.f,10.f,0.f,0.5f} };
-		Particle p4 = { {10.f,10.f,0.f,0.5f} };
+		glm::vec3 posParticles{ 0.f,-10.f,-10.f };
+		glm::vec3 scaleParticles{ 1.f,1.f,1.f };
+		glm::vec3 rotParticles{ 0.f,0.f,0.f };
 
-		std::vector<Particle> particles = { p1,p2,p3,p4 };
-
-		m_Scene2.addParticleGroup( particles);
-		//m_Scene2.initObject(vulkan_vars.physicalDevice, vulkan_vars.device, vulkan_vars.commandPoolModelPipeline.m_CommandPool, vulkan_vars.graphicsQueue);
+		m_Scene2.addParticleGroup(physxBase.getParticleBuffer()->getPositionInvMasses(),physxBase.getParticleBuffer()->getNbActiveParticles(), physxBase.m_Particles , posParticles, scaleParticles, rotParticles);
 		
 	}
 
@@ -181,7 +178,7 @@ private:
 		float totalTime = 0.f;
 		auto& physx = PhysxBase::GetInstance();
 		int frameCount = 0;
-		int fps = 1000;
+		int fps = 50;
 		while (!glfwWindowShouldClose(window)) {
 			auto currentTime = std::chrono::high_resolution_clock::now();
 			deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();

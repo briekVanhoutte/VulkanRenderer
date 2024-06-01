@@ -98,6 +98,7 @@ struct Particle {
 	glm::vec4 pos;
 
 	Particle(glm::vec4 p) { pos = p; }
+	Particle() { pos = {}; }
 
 	static VkVertexInputBindingDescription getBindingDescription() {
 		VkVertexInputBindingDescription bindingDescription{};
