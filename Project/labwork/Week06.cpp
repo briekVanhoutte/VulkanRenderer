@@ -52,7 +52,34 @@ void VulkanBase::drawFrame3d() {
 
 
 	m_Pipeline3d.setUbo(vp);
-	m_Pipeline3d.Record(imageIndex, vulkan_vars.renderPass, swapChainFramebuffers, vulkan_vars.swapChainExtent);
+	m_PipelineParticles.setUbo(vp);
+
+	vulkan_vars.commandBuffer.reset();
+	vulkan_vars.commandBuffer.beginRecording();
+
+	VkRenderPassBeginInfo renderPassInfo{};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassInfo.renderPass = vulkan_vars.renderPass;
+	renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
+	renderPassInfo.renderArea.offset = { 0, 0 };
+	renderPassInfo.renderArea.extent = vulkan_vars.swapChainExtent;
+
+	std::array<VkClearValue, 2> clearValues{};
+	clearValues[0].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
+	clearValues[1].depthStencil = { 1.0f, 0 };
+
+	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+	renderPassInfo.pClearValues = clearValues.data();
+
+	vkCmdBeginRenderPass(vulkan_vars.commandBuffer.m_VkCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+
+	m_PipelineParticles.Record(imageIndex, vulkan_vars.renderPass, swapChainFramebuffers, vulkan_vars.swapChainExtent, m_Scene2);
+	m_Pipeline3d.Record(imageIndex, vulkan_vars.renderPass, swapChainFramebuffers, vulkan_vars.swapChainExtent, m_Scene);
+
+	vkCmdEndRenderPass(vulkan_vars.commandBuffer.m_VkCommandBuffer);
+
+	vulkan_vars.commandBuffer.endRecording();
 	//m_Pipeline2d.Record(imageIndex, renderPass, swapChainFramebuffers, swapChainExtent);
 
 	VkSubmitInfo submitInfo{};
@@ -65,7 +92,8 @@ void VulkanBase::drawFrame3d() {
 	submitInfo.pWaitSemaphores = waitSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
 
-	m_Pipeline3d.m_Buffer.submit(submitInfo);
+	vulkan_vars.commandBuffer.submit(submitInfo);
+	
 	//m_Pipeline2d.m_Buffer.submit(submitInfo);
 
 	VkSemaphore signalSemaphores[] = { renderFinishedSemaphore };

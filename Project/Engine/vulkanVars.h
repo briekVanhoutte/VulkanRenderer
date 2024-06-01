@@ -7,7 +7,8 @@
 
 class vulkanVars : public Singleton<vulkanVars> {
 public:
-	CommandPool commandPool{};
+	CommandPool commandPoolModelPipeline{};
+	CommandPool commandPoolParticlesPipeline{};
 	VkDevice device = VK_NULL_HANDLE;
 	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 	std::string vertexShaderPat;
@@ -15,4 +16,5 @@ public:
 	VkRenderPass renderPass = VK_NULL_HANDLE;
 	VkQueue graphicsQueue = VK_NULL_HANDLE;
 	VkExtent2D swapChainExtent;
+	CommandBuffer commandBuffer;
 };

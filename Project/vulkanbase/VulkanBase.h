@@ -57,11 +57,13 @@ public:
 
 private:
 	Pipeline m_Pipeline3d;
+	Pipeline m_PipelineParticles;
 
 	std::vector<int> keysDown{};
 	std::vector<int> mouseDown{};
 
 	Scene m_Scene = Scene{};
+	Scene m_Scene2 = Scene{};
 	Camera m_Camera = Camera{};
 
 	void initCamera() {
@@ -103,13 +105,17 @@ private:
 		glm::vec3 rot2{ 0.f,90.f,0.f };
 
 		if (vertices2.size() > 0 && indices2.size() > 0) {
-			m_Scene.addModel(vertices2, indices2, pos2, scale2, rot2);
+			m_Scene2.addModel(vertices2, indices2, pos2, scale2, rot2);
 		}
 		else
 		{
 			std::cout << "object 2 did not load correctly" << std::endl;
 		}
 
+		auto& vulkan_vars = vulkanVars::GetInstance();
+
+		m_Scene.initObject(vulkan_vars.physicalDevice, vulkan_vars.device, vulkan_vars.commandPoolModelPipeline.m_CommandPool, vulkan_vars.graphicsQueue);
+		m_Scene2.initObject(vulkan_vars.physicalDevice, vulkan_vars.device, vulkan_vars.commandPoolModelPipeline.m_CommandPool, vulkan_vars.graphicsQueue);
 		
 	}
 
@@ -119,8 +125,13 @@ private:
 		//initScene();
 		auto& vulkan_vars = vulkanVars::GetInstance();
 		initScene();
-		m_Pipeline3d.SetScene(m_Scene);
-		m_Pipeline3d.Initialize(vulkan_vars.physicalDevice, vulkan_vars.device, vulkan_vars.commandPool, "shaders/shader3d.vert.spv", "shaders/shader3d.frag.spv", vulkan_vars.renderPass, vulkan_vars.graphicsQueue, vulkan_vars.swapChainExtent);
+		
+		vulkan_vars.commandBuffer = vulkan_vars.commandPoolModelPipeline.createCommandBuffer();
+
+		m_Pipeline3d.Initialize(vulkan_vars.physicalDevice, vulkan_vars.device, "shaders/shader3d.vert.spv", "shaders/shader3d.frag.spv", vulkan_vars.renderPass, vulkan_vars.graphicsQueue, vulkan_vars.swapChainExtent);
+		m_PipelineParticles.Initialize(vulkan_vars.physicalDevice, vulkan_vars.device, "shaders/shader3d.vert.spv", "shaders/shader3d.frag.spv", vulkan_vars.renderPass, vulkan_vars.graphicsQueue, vulkan_vars.swapChainExtent);
+
+
 	}
 
 	void initVulkan() {
@@ -139,7 +150,8 @@ private:
 		initCamera();
 		
 		auto& vulkan_vars = vulkanVars::GetInstance();
-		vulkan_vars.commandPool.initialize(vulkan_vars.device, findQueueFamilies(vulkan_vars.physicalDevice));
+		vulkan_vars.commandPoolModelPipeline.initialize(vulkan_vars.device, findQueueFamilies(vulkan_vars.physicalDevice));
+		vulkan_vars.commandPoolParticlesPipeline.initialize(vulkan_vars.device, findQueueFamilies(vulkan_vars.physicalDevice));
 		//m_CommandPool.initialize(device, findQueueFamilies(physicalDevice));
 
 		initPipeLine();
@@ -191,7 +203,8 @@ private:
 		vkDestroySemaphore(vulkan_vars.device, imageAvailableSemaphore, nullptr);
 		vkDestroyFence(vulkan_vars.device, inFlightFence, nullptr);
 
-		vkDestroyCommandPool(vulkan_vars.device, vulkan_vars.commandPool.m_CommandPool  , nullptr);
+		vkDestroyCommandPool(vulkan_vars.device, vulkan_vars.commandPoolModelPipeline.m_CommandPool  , nullptr);
+		vkDestroyCommandPool(vulkan_vars.device, vulkan_vars.commandPoolParticlesPipeline.m_CommandPool  , nullptr);
 		for (auto framebuffer : swapChainFramebuffers) {
 			vkDestroyFramebuffer(vulkan_vars.device, framebuffer, nullptr);
 		}
@@ -203,8 +216,10 @@ private:
 		}
 
 		m_Scene.deleteScene(vulkan_vars.device);
+		m_Scene2.deleteScene(vulkan_vars.device);
 		//m_Mesh.destroyMesh(device);
 		m_Pipeline3d.Destroy(vulkan_vars.device);
+		m_PipelineParticles.Destroy(vulkan_vars.device);
 
 		if (enableValidationLayers) {
 			DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
