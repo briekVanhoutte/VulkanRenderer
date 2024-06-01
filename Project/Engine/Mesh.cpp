@@ -45,6 +45,7 @@ void Mesh::CreateVertexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, 
 	);
 
 
+
 	m_VertexBuffer->copyBuffer(VertexStagingBuffer->getVkBuffer(), commandPool, device, vertexBufferSize, graphicsQueue);
 	VertexStagingBuffer->destroy(device);
 }

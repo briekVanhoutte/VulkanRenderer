@@ -35,13 +35,15 @@ void Pipeline::Destroy(const VkDevice& vkDevice)
 
 }
 
-void Pipeline::Initialize(VkPhysicalDevice& vkPhysicalDevice, VkDevice& vkDevice, const std::string& vertexShaderPath, const std::string& fragmentShaderPath, VkRenderPass renderPass, const VkQueue& graphicsQueue,const VkExtent2D& swapChainExtent)
+void Pipeline::Initialize( const std::string& vertexShaderPath, const std::string& fragmentShaderPath, const VkVertexInputBindingDescription& vkVertexInputBindingDesc, std::vector<VkVertexInputAttributeDescription>& vkVertexInputAttributeDesc, VkPrimitiveTopology topology)
 {
+	auto& vulkan_vars = vulkanVars::GetInstance();
+
 	//m_Scene.initObject(vkPhysicalDevice, vkDevice, commandPool.m_CommandPool, graphicsQueue);
 	// create m_Shader;
 	m_Shader = std::make_unique<ShaderBase>(vertexShaderPath, fragmentShaderPath);
-	m_Shader->initialize(vkPhysicalDevice, vkDevice);
-	m_Shader->createDescriptorSetLayout(vkDevice);
+	m_Shader->initialize(vulkan_vars.physicalDevice, vulkan_vars.device, vkVertexInputBindingDesc, vkVertexInputAttributeDesc);
+	m_Shader->createDescriptorSetLayout(vulkan_vars.device);
 	// create scene
 	
 
@@ -50,10 +52,10 @@ void Pipeline::Initialize(VkPhysicalDevice& vkPhysicalDevice, VkDevice& vkDevice
 
 
 	// create depth buffer:
-	createDepthResources(vkPhysicalDevice, vkDevice, swapChainExtent);
+	createDepthResources(vulkan_vars.physicalDevice, vulkan_vars.device, vulkan_vars.swapChainExtent);
 
 	// create m_Pipeline3d;
-	CreatePipeline(vkDevice,renderPass);
+	CreatePipeline(vulkan_vars.device , vulkan_vars.renderPass, topology);
 
 
 	//std::vector<VkFramebuffer> swapChainFramebuffers;
@@ -101,7 +103,7 @@ void Pipeline::drawScene(uint32_t imageIndex, VkRenderPass renderPass,const std:
 	
 }
 
-void Pipeline::CreatePipeline(VkDevice device, VkRenderPass renderPass ) {
+void Pipeline::CreatePipeline(VkDevice device, VkRenderPass renderPass, VkPrimitiveTopology topology) {
 	VkPipelineViewportStateCreateInfo viewportState{};
 	viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
 	viewportState.viewportCount = 1;
@@ -187,7 +189,7 @@ void Pipeline::CreatePipeline(VkDevice device, VkRenderPass renderPass ) {
 	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
 	pipelineInfo.pVertexInputState = &m_Shader->getVertexInputStateInfo();
-	pipelineInfo.pInputAssemblyState = &m_Shader->getInputAssemblyStateInfo();
+	pipelineInfo.pInputAssemblyState = &m_Shader->getInputAssemblyStateInfo(topology);
 
 
 

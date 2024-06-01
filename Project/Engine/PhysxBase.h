@@ -16,6 +16,7 @@
 #define SHOW_SOLID_SDF_SLICE 0
 #define IDX(i, j, k, offset) ((i) + dimX * ((j) + dimY * ((k) + dimZ * (offset))))
 #define PVD_HOST "127.0.0.1"
+#define ENABLE_DIRECT_GPU_API
 
 using namespace physx;
 using namespace ExtGpu;
@@ -33,6 +34,7 @@ static PxPBDParticleSystem* gParticleSystem = NULL;
 static PxParticleAndDiffuseBuffer* gParticleBuffer = NULL;
 static bool								gIsRunning = true;
 static bool								gStep = true;
+
 
 static PxRigidDynamic* movingWall = nullptr;
 
@@ -218,7 +220,7 @@ class PhysxBase : public Singleton<PhysxBase>
 			cleanupPhysics(false);
 		}
 
-		void initPhysics(bool /*interactive*/)
+		void initPhysics(bool useLargeFluid)
 		{
 			gFoundation = PxCreateFoundation(PX_PHYSICS_VERSION, gAllocator, gErrorCallback);
 
@@ -240,7 +242,6 @@ class PhysxBase : public Singleton<PhysxBase>
 			gMaterial = gPhysics->createMaterial(0.5f, 0.5f, 0.6f);
 
 			// Setup PBF
-			bool useLargeFluid = true;
 			bool useMovingWall = true;
 
 			const PxReal fluidDensity = 1000.0f;
@@ -333,4 +334,12 @@ class PhysxBase : public Singleton<PhysxBase>
 
 			printf("SnippetPBFFluid done.\n");
 		}	
+
+		std::vector<Particle> getParticles(void* bufferLocation) {
+			PxVec4* bufferPos = getParticleBuffer()->getPositionInvMasses();
+
+			auto cudaContextManager = gScene->getCudaContextManager(); 
+			cudaContextManager->acquireContext();
+			//->memcpyHtoDAsync(bufferPos, bufferLocation, getParticleBuffer()->getNbActiveParticles() * sizeof(PxVec4), 0);
+		};
 };

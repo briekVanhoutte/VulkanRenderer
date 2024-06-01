@@ -14,7 +14,7 @@ public:
 
 	}*/
 	
-	void initialize(const VkDevice& device, const QueueFamilyIndices& queue);
+	void initialize( const QueueFamilyIndices& queue);
 	void destroy();
 
 	CommandBuffer createCommandBuffer() const;

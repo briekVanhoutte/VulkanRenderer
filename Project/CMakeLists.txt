@@ -47,6 +47,10 @@ set(SOURCES
     "Engine/Pipeline.cpp"   
     "Engine/vulkanVars.h"
     "Engine/vulkanVars.cpp"
+    "Engine/ParticleScene.h"
+    "Engine/ParticleGroup.h"
+    "Engine/ParticleGroup.cpp"
+    "Engine/MeshScene.h"
     # Add other source files here
     "labwork/Week01.cpp"
     "labwork/Week02.cpp"      
@@ -56,7 +60,7 @@ set(SOURCES
     "labwork/Week06.cpp"
  "Engine/CommandBuffer.cpp" "Engine/Mesh.h" "Engine/Mesh.cpp" "Engine/Scene.h"  "Engine/Objects/BaseObject.h" "Engine/Camera.h" "Engine/Camera.cpp")
   
-  
+        
    
 # Create the executable
 add_executable(${PROJECT_NAME} ${SOURCES} ${GLSL_SOURCE_FILES}  "vulkanbase/VulkanUtil.cpp" "labwork/Week03.cpp")

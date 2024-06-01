@@ -14,6 +14,8 @@
 
 #include "../Project/Engine/PhysxBase.h"
 #include "../Project/Engine/vulkanVars.h"
+#include "../Project/Engine/MeshScene.h"
+#include "../Project/Engine/ParticleScene.h"
 
 #include <iostream>
 #include <stdexcept>
@@ -29,7 +31,7 @@
 #include "Engine/Camera.h"
 #include <chrono>
 #include <iomanip>
-//#include <PxPhysicsAPI.h>
+#include <PxPhysicsAPI.h>
 
 
 const std::vector<const char*> validationLayers = {
@@ -62,8 +64,9 @@ private:
 	std::vector<int> keysDown{};
 	std::vector<int> mouseDown{};
 
-	Scene m_Scene = Scene{};
-	Scene m_Scene2 = Scene{};
+	MeshScene m_Scene = MeshScene{};
+	ParticleScene m_Scene2 = ParticleScene{};
+
 	Camera m_Camera = Camera{};
 
 	void initCamera() {
@@ -105,7 +108,7 @@ private:
 		glm::vec3 rot2{ 0.f,90.f,0.f };
 
 		if (vertices2.size() > 0 && indices2.size() > 0) {
-			m_Scene2.addModel(vertices2, indices2, pos2, scale2, rot2);
+			m_Scene.addModel(vertices2, indices2, pos2, scale2, rot2);
 		}
 		else
 		{
@@ -115,7 +118,19 @@ private:
 		auto& vulkan_vars = vulkanVars::GetInstance();
 
 		m_Scene.initObject(vulkan_vars.physicalDevice, vulkan_vars.device, vulkan_vars.commandPoolModelPipeline.m_CommandPool, vulkan_vars.graphicsQueue);
-		m_Scene2.initObject(vulkan_vars.physicalDevice, vulkan_vars.device, vulkan_vars.commandPoolModelPipeline.m_CommandPool, vulkan_vars.graphicsQueue);
+		
+		//auto& physxBase = PhysxBase::GetInstance();
+
+		//std::cout << physxBase.getParticleBuffer()->getNbActiveParticles();
+		Particle p1 = { {1.f,0.f,0.f,0.5f} };
+		Particle p2 = { {10.f,0.f,0.f,0.5f} };
+		Particle p3 = { {1.f,10.f,0.f,0.5f} };
+		Particle p4 = { {10.f,10.f,0.f,0.5f} };
+
+		std::vector<Particle> particles = { p1,p2,p3,p4 };
+
+		m_Scene2.addParticleGroup(/*physxBase.getParticleBuffer()->getPositionInvMasses()*/ /*physxBase.getParticleBuffer()->getNbActiveParticles()*/ particles);
+		//m_Scene2.initObject(vulkan_vars.physicalDevice, vulkan_vars.device, vulkan_vars.commandPoolModelPipeline.m_CommandPool, vulkan_vars.graphicsQueue);
 		
 	}
 
@@ -128,10 +143,8 @@ private:
 		
 		vulkan_vars.commandBuffer = vulkan_vars.commandPoolModelPipeline.createCommandBuffer();
 
-		m_Pipeline3d.Initialize(vulkan_vars.physicalDevice, vulkan_vars.device, "shaders/shader3d.vert.spv", "shaders/shader3d.frag.spv", vulkan_vars.renderPass, vulkan_vars.graphicsQueue, vulkan_vars.swapChainExtent);
-		m_PipelineParticles.Initialize(vulkan_vars.physicalDevice, vulkan_vars.device, "shaders/shader3d.vert.spv", "shaders/shader3d.frag.spv", vulkan_vars.renderPass, vulkan_vars.graphicsQueue, vulkan_vars.swapChainExtent);
-
-
+		m_Pipeline3d.Initialize( "shaders/shader3d.vert.spv", "shaders/shader3d.frag.spv", Vertex::getBindingDescription(),Vertex::getAttributeDescriptions() , VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+		m_PipelineParticles.Initialize( "shaders/computeShader.vert.spv", "shaders/computeShader.frag.spv",  Particle::getBindingDescription(), Particle::getAttributeDescriptions() , VK_PRIMITIVE_TOPOLOGY_POINT_LIST);
 	}
 
 	void initVulkan() {
@@ -150,8 +163,8 @@ private:
 		initCamera();
 		
 		auto& vulkan_vars = vulkanVars::GetInstance();
-		vulkan_vars.commandPoolModelPipeline.initialize(vulkan_vars.device, findQueueFamilies(vulkan_vars.physicalDevice));
-		vulkan_vars.commandPoolParticlesPipeline.initialize(vulkan_vars.device, findQueueFamilies(vulkan_vars.physicalDevice));
+		vulkan_vars.commandPoolModelPipeline.initialize( findQueueFamilies(vulkan_vars.physicalDevice));
+		vulkan_vars.commandPoolParticlesPipeline.initialize( findQueueFamilies(vulkan_vars.physicalDevice));
 		//m_CommandPool.initialize(device, findQueueFamilies(physicalDevice));
 
 		initPipeLine();
@@ -179,15 +192,15 @@ private:
 
 			physx.stepPhysics(false);
 			drawFrame3d();
-			HandleKeyInputs(deltaTime/fps);
-			HandleMouseInputs(deltaTime/fps);
+			HandleKeyInputs(deltaTime /fps);
+			HandleMouseInputs(deltaTime /fps);
 			m_Camera.update();
 
 			frameCount++;
 			totalTime += deltaTime;
 			if (totalTime >= 1.0f) {
-				fps = frameCount / deltaTime;
-				//std::cout << "FPS: " << std::fixed << std::setprecision(2) << fps << std::endl;
+				fps = frameCount;
+				std::cout << "FPS: " << std::fixed << std::setprecision(2) << fps << std::endl;
 				frameCount = 0;
 				startTime = std::chrono::high_resolution_clock::now(); // Reset start time
 				totalTime = 0.f;

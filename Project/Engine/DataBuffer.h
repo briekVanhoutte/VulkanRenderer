@@ -19,6 +19,7 @@ public:
 	}
 
 	void upload(VkDeviceSize size, void* data);
+	void uploadRaw(VkDeviceSize size, void* data);
 	void map(VkDeviceSize size, void* data);
 	void remap(VkDeviceSize size, void* data);
 	void destroy(const VkDevice& device);
@@ -34,6 +35,7 @@ public:
 	void copyBuffer(VkBuffer srcBuffer, const VkCommandPool& commandPool, const VkDevice& device, VkDeviceSize size, const VkQueue& graphicsQueue);
 
 	static uint32_t findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties);
+
 private:
 	
 

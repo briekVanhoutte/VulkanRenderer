@@ -14,7 +14,7 @@ public:
 	~Pipeline();
 	void Destroy(const VkDevice& vkDevice);
 
-	void Initialize( VkPhysicalDevice& vkPhysicalDevice, VkDevice& vkDevice, const std::string& vertexShaderPath, const std::string& fragmentShaderPath, VkRenderPass renderPass, const VkQueue& graphicsQueue, const VkExtent2D& swapChainExtent);
+	void Initialize(const std::string& vertexShaderPath, const std::string& fragmentShaderPath, const VkVertexInputBindingDescription& vkVertexInputBindingDesc, std::vector<VkVertexInputAttributeDescription>& vkVertexInputAttributeDesc, VkPrimitiveTopology topology);
 	void Record(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene);
 	//CommandBuffer m_Buffer;
 
@@ -28,7 +28,7 @@ public:
 private:
 	void drawScene(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene);
 
-	void CreatePipeline(VkDevice device, VkRenderPass renderPass);
+	void CreatePipeline(VkDevice device, VkRenderPass renderPass, VkPrimitiveTopology topology);
 
 
 	VkPipeline m_Pipeline3d;

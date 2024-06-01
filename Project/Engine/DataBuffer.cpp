@@ -74,6 +74,12 @@ void DataBuffer::upload(VkDeviceSize size, void* data)
 	memcpy(m_UniformBufferMapped, data, (size_t)size);
 }
 
+void DataBuffer::uploadRaw(VkDeviceSize size, void* data)
+{
+	vkMapMemory(m_VkDevice, m_VkBufferMemory, 0, size, 0, &m_UniformBufferMapped);
+	m_UniformBufferMapped = data;
+}
+
 void DataBuffer::map(VkDeviceSize size, void* data)
 {
 	vkMapMemory(m_VkDevice, m_VkBufferMemory, 0, size, 0, &m_UniformBufferMapped);
