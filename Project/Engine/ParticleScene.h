@@ -12,9 +12,16 @@
 class ParticleScene : public Scene {
 public:
 
-    void addParticleGroup(/*physx::PxVec4* particleBuffer, int ParticleCount ,*/ std::vector<Particle> particles)
+    void addParticleGroup(physx::PxVec4* particleBuffer, int ParticleCount , std::vector<Particle> particles)
     {
-        ParticleGroup* object = new ParticleGroup{ /*particleBuffer , ParticleCount ,*/ particles};
+        ParticleGroup* object = new ParticleGroup{ particleBuffer , ParticleCount , particles};
+
+        m_ParticleGroups.push_back(object);
+    }
+
+    void addParticleGroup(std::vector<Particle> particles)
+    {
+        ParticleGroup* object = new ParticleGroup{ nullptr , 0 , particles };
 
         m_ParticleGroups.push_back(object);
     }

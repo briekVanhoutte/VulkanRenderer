@@ -119,7 +119,7 @@ private:
 
 		m_Scene.initObject(vulkan_vars.physicalDevice, vulkan_vars.device, vulkan_vars.commandPoolModelPipeline.m_CommandPool, vulkan_vars.graphicsQueue);
 		
-		//auto& physxBase = PhysxBase::GetInstance();
+		auto& physxBase = PhysxBase::GetInstance();
 
 		//std::cout << physxBase.getParticleBuffer()->getNbActiveParticles();
 		Particle p1 = { {1.f,0.f,0.f,0.5f} };
@@ -129,7 +129,7 @@ private:
 
 		std::vector<Particle> particles = { p1,p2,p3,p4 };
 
-		m_Scene2.addParticleGroup(/*physxBase.getParticleBuffer()->getPositionInvMasses()*/ /*physxBase.getParticleBuffer()->getNbActiveParticles()*/ particles);
+		m_Scene2.addParticleGroup( particles);
 		//m_Scene2.initObject(vulkan_vars.physicalDevice, vulkan_vars.device, vulkan_vars.commandPoolModelPipeline.m_CommandPool, vulkan_vars.graphicsQueue);
 		
 	}
@@ -200,7 +200,7 @@ private:
 			totalTime += deltaTime;
 			if (totalTime >= 1.0f) {
 				fps = frameCount;
-				std::cout << "FPS: " << std::fixed << std::setprecision(2) << fps << std::endl;
+				//std::cout << "FPS: " << std::fixed << std::setprecision(2) << fps << std::endl;
 				frameCount = 0;
 				startTime = std::chrono::high_resolution_clock::now(); // Reset start time
 				totalTime = 0.f;

@@ -4,11 +4,11 @@
 #include "vulkanbase\VulkanUtil.h"
 #include <glm/glm.hpp>
 #include "Engine\DataBuffer.h"
-//#include "PxParticleBuffer.h"
+#include "PxParticleBuffer.h"
 
 class ParticleGroup {
 public:
-	ParticleGroup(/*physx::PxVec4* particleBuffer, int ParticleCount,*/ std::vector<Particle> particles);
+	ParticleGroup(physx::PxVec4* particleBuffer, int ParticleCount, std::vector<Particle> particles);
 	void initialize(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue);
 	
 	void destroyParticleGroup(const VkDevice& device);
@@ -23,7 +23,7 @@ private:
 	std::vector<Particle> m_Particles;
 
 	Particle m_VertexConstant = { {} };
-	//Particle* m_pParticleBuffer;
+	physx::PxVec4* m_pParticleBuffer;
 	int m_ParticleCount;
 	void CreateParticleBuffer(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue);
 };

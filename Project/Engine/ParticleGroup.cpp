@@ -1,8 +1,8 @@
 #include "ParticleGroup.h"
 #include "vulkanVars.h"
 
-ParticleGroup::ParticleGroup(/*physx::PxVec4* particleBuffer, int ParticleCount,*/ std::vector<Particle> particles)
-	:/*m_ParticleCount(ParticleCount) , m_pParticleBuffer(particleBuffer),*/ m_Particles(particles)
+ParticleGroup::ParticleGroup(physx::PxVec4* particleBuffer, int ParticleCount, std::vector<Particle> particles)
+	:m_ParticleCount(ParticleCount) , m_pParticleBuffer(particleBuffer), m_Particles(particles)
 {
 	auto& vulkan_vars = vulkanVars::GetInstance();
 
