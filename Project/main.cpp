@@ -21,13 +21,13 @@ int main() {
 		physics.initPhysics(false);
 
 
-		Camera m_Camera = Camera{};
+		Camera* m_Camera = new Camera{};
 
 		float fov{ 90.f };
 		float aspectRatio{ float(WIDTH) / float(HEIGHT) };
 		glm::vec3 cameraStartLocation{ -4.f,-3.f,-25.f };
 
-		m_Camera.Initialize(fov, cameraStartLocation, aspectRatio);
+		m_Camera->Initialize(fov, cameraStartLocation, aspectRatio);
 
 
 		RendererManager* renderer = new RendererManager();
@@ -59,9 +59,10 @@ int main() {
 			glfwPollEvents();
 
 			physics.stepPhysics(false);
-			renderer->RenderFrame(renderItems, m_Camera);
+			renderer->RenderFrame(renderItems, *m_Camera);
 
-			m_Camera.update();
+			InputManager::GetInstance().HandleCameraInputs(m_Camera, deltaTime);
+			m_Camera->update();
 
 			frameCount++;
 			totalTime += deltaTime;

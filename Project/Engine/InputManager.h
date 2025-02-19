@@ -1,6 +1,7 @@
 #pragma once
 #include <GLFW/glfw3.h>
 #include <vector>
+#include "Camera.h"
 
 class InputManager {
 public:
@@ -18,6 +19,7 @@ public:
     // Update function (if you need per-frame processing)
     void Update();
 
+    void HandleCameraInputs(Camera* camera, float deltaTime);
 private:
     InputManager();
     ~InputManager();
@@ -33,6 +35,8 @@ private:
     std::vector<int> mouseButtonsDown;
     double mouseX;
     double mouseY;
+
+    glm::vec2 m_LastMousePos;
 
     // Static callback wrappers.
     static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);

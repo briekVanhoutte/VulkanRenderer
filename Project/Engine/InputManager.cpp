@@ -42,6 +42,48 @@ void InputManager::Update() {
     // Currently, nothing is required.
 }
 
+void InputManager::HandleCameraInputs(Camera* camera, float deltaTime)
+{
+    // Translation speed (adjust multiplier as needed).
+    const float moveSpeed = deltaTime * 10.f;
+
+    // Process keyboard input for camera movement.
+    if (IsKeyDown(GLFW_KEY_W)) {
+        camera->translateForward(-moveSpeed);
+    }
+    if (IsKeyDown(GLFW_KEY_S)) {
+        camera->translateForward(moveSpeed);
+    }
+    if (IsKeyDown(GLFW_KEY_A)) {
+        camera->translateRight(-moveSpeed);
+    }
+    if (IsKeyDown(GLFW_KEY_D)) {
+        camera->translateRight(moveSpeed);
+    }
+
+    // Process mouse input for camera rotation.
+    if (IsMouseButtonDown(GLFW_MOUSE_BUTTON_RIGHT)) {
+        // Get the current mouse position.
+        glm::vec2 currentPos(static_cast<float>(GetMouseX()), static_cast<float>(GetMouseY()));
+        // Compute the offset since the last frame.
+        glm::vec2 offset = currentPos - m_LastMousePos;
+        // Apply a rotation speed factor (adjust as needed).
+        const float rotationSpeed = deltaTime * 0.1f;
+        offset *= rotationSpeed;
+
+        // If there is any significant movement, rotate the camera.
+        if (offset.x != 0.f || offset.y != 0.f) {
+            camera->rotate(offset);
+        }
+        // Update the last mouse position.
+        m_LastMousePos = currentPos;
+    }
+    else {
+        // When not rotating, keep m_LastMousePos in sync with the current mouse position.
+        m_LastMousePos = glm::vec2(static_cast<float>(GetMouseX()), static_cast<float>(GetMouseY()));
+    }
+}
+
 // Static callbacks.
 void InputManager::KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     InputManager* input = static_cast<InputManager*>(glfwGetWindowUserPointer(window));

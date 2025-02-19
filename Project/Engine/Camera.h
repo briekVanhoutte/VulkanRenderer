@@ -1,7 +1,7 @@
 #pragma once
 #include <cassert>
 #include <iostream>
-#include "vulkanbase\VulkanUtil.h"
+//#include "vulkanbase\VulkanUtil.h"
 
 #include <glm/vec3.hpp> // glm::vec3
 #include <glm/vec4.hpp> // glm::vec4
