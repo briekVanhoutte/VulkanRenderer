@@ -57,6 +57,32 @@ public:
 		cleanup();
 	}
 
+	void initVulkan() {
+		createInstance();
+		setupDebugMessenger();
+		createSurface();
+
+		pickPhysicalDevice();
+		createLogicalDevice();
+
+		createSwapChain();
+		createImageViews();
+
+		createRenderPass();
+
+		initCamera();
+
+		auto& vulkan_vars = vulkanVars::GetInstance();
+		vulkan_vars.commandPoolModelPipeline.initialize(findQueueFamilies(vulkan_vars.physicalDevice));
+		vulkan_vars.commandPoolParticlesPipeline.initialize(findQueueFamilies(vulkan_vars.physicalDevice));
+		//m_CommandPool.initialize(device, findQueueFamilies(physicalDevice));
+
+		initPipeLine();
+		createFrameBuffers();
+
+		createSyncObjects();
+	}
+
 private:
 	Pipeline m_Pipeline3d;
 	Pipeline m_PipelineParticles;
@@ -176,31 +202,7 @@ private:
 		m_PipelineParticles.Initialize( "shaders/computeShader.vert.spv", "shaders/computeShader.frag.spv",  Particle::getBindingDescription(), Particle::getAttributeDescriptions() , VK_PRIMITIVE_TOPOLOGY_POINT_LIST);
 	}
 
-	void initVulkan() {
-		createInstance();
-		setupDebugMessenger();
-		createSurface();
-
-		pickPhysicalDevice();
-		createLogicalDevice();
-
-		createSwapChain();
-		createImageViews();
-
-		createRenderPass();
-
-		initCamera();
-		
-		auto& vulkan_vars = vulkanVars::GetInstance();
-		vulkan_vars.commandPoolModelPipeline.initialize( findQueueFamilies(vulkan_vars.physicalDevice));
-		vulkan_vars.commandPoolParticlesPipeline.initialize( findQueueFamilies(vulkan_vars.physicalDevice));
-		//m_CommandPool.initialize(device, findQueueFamilies(physicalDevice));
-
-		initPipeLine();
-		createFrameBuffers();
-
-		createSyncObjects();
-	}
+	
 
 	void mainLoop() {
 		auto& vulkan_vars = vulkanVars::GetInstance();

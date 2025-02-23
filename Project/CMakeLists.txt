@@ -30,7 +30,6 @@ add_custom_target(
 
 set(SOURCES
     "main.cpp"
-    "vulkanbase/VulkanBase.h" 
     "vulkanbase/VulkanUtil.h"
     "Engine/ShaderBase.h" 
     "Engine/ShaderBase.cpp" 
@@ -51,14 +50,13 @@ set(SOURCES
     "Engine/ParticleGroup.h"
     "Engine/ParticleGroup.cpp"
     "Engine/MeshScene.h"
-    # Add other source files here
-    "labwork/Week01.cpp"
-    "labwork/Week02.cpp"      
-    "labwork/Week03.cpp"   
-    "labwork/Week04.cpp" 
-    "labwork/Week05.cpp" 
-    "labwork/Week06.cpp"
- "Engine/CommandBuffer.cpp" "Engine/Mesh.h" "Engine/Mesh.cpp" "Engine/Scene.h"  "Engine/Objects/BaseObject.h" "Engine/Camera.h" "Engine/Camera.cpp")
+    "Engine/InputManager.h"
+    "Engine/InputManager.cpp"
+    "Engine/RendererManager.h"
+    "Engine/RendererManager.cpp"
+    "Engine/WindowManager.h"
+    "Engine/WindowManager.cpp"
+ "Engine/CommandBuffer.cpp" "Engine/Mesh.h" "Engine/Mesh.cpp" "Engine/Scene.h"  "Engine/Objects/BaseObject.h" "Engine/Camera.h" "Engine/Camera.cpp" "Engine/SceneModelManager.h" "Engine/SceneModelManager.cpp" "Engine/GameObjects/Component.h" "Engine/GameObjects/GameObject.h"  "Engine/GameObjects/TransformComponent.h"  "Engine/GameObjects/ModelMeshComponent.h" "Engine/GameObjects/ModelMeshComponent.cpp" "Engine/GameObjects/PrimitiveMeshComponent.h" "Engine/GameObjects/PrimitiveMeshComponent.cpp" "Engine/GameSceneManager.h")
   
         
    

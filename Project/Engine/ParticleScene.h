@@ -39,6 +39,16 @@ public:
         }
     }
 
+    ParticleGroup* getLastParticleGroup()
+    {
+        if (m_ParticleGroups.size())
+        {
+            return m_ParticleGroups[m_ParticleGroups.size() - 1];
+        }
+        return nullptr;
+       
+    }
+
 private:
     std::vector<ParticleGroup*> m_ParticleGroups{};
 };
