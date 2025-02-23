@@ -11,6 +11,12 @@
 #include <glm\gtx\quaternion.hpp>
 
 
+enum class ObjType {
+    plane,
+    model
+};
+
+
 class MeshScene : public Scene{
 public:
 
@@ -24,6 +30,14 @@ public:
         return m_BaseObjects.size() - 1;
     }
 
+    BaseObject* getBaseObject(unsigned int modelId)
+    {
+        if (modelId < m_BaseObjects.size())
+        {
+            return m_BaseObjects[modelId];
+        }
+        return nullptr;
+    }
 
     unsigned int addRectangle( const glm::vec3& normal,
         const glm::vec3& color,

@@ -7,7 +7,11 @@
 #include "Engine/InputManager.h"
 #include "Engine/RendererManager.h"
 #include "Engine/PhysxBase.h"
-void initScene(MeshScene* scene1, ParticleScene* scene2, unsigned int& movingwallIndex);
+#include "Engine/SceneModelManager.h"
+#include "Engine/GameSceneManager.h"
+
+
+void initScene(BaseObject* wallObject);
 
 int main() {
 	try {
@@ -33,15 +37,15 @@ int main() {
 		RendererManager* renderer = new RendererManager();
 		renderer->Initialize();
 
-		MeshScene* m_Scene = new MeshScene{};
-		ParticleScene* m_Scene2 = new ParticleScene{};
-		unsigned int m_MovingwallIndex;
+		auto& sceneManager = SceneModelManager::getInstance();
 
-		initScene(m_Scene, m_Scene2, m_MovingwallIndex);
+		BaseObject* m_MovingwallIndex = nullptr;
+
+		initScene(m_MovingwallIndex);
 
 		std::vector<RenderItem> renderItems = std::vector<RenderItem>{};
-		renderItems.push_back(RenderItem{ m_Scene, 0 });
-		renderItems.push_back(RenderItem{ m_Scene2, 1 });
+		renderItems.push_back(RenderItem{ sceneManager.getMeshScene(), 0});
+		renderItems.push_back(RenderItem{ sceneManager.getParticleScene(), 1 });
 
 		auto startTime = std::chrono::high_resolution_clock::now();
 		float deltaTime = 0.f;
@@ -87,45 +91,83 @@ int main() {
 }
 
 
-void initScene(MeshScene* scene1, ParticleScene* scene2, unsigned int& movingwallIndex)
+void initScene(BaseObject* wallObject)
 {
-	auto& vulkan_vars = vulkanVars::GetInstance();
-	auto& physxBase = PhysxBase::GetInstance();
+    auto& vulkan_vars = vulkanVars::GetInstance();
+    auto& physxBase = PhysxBase::GetInstance();
 
-	glm::vec3 posParticles{ 0.f,-10.f,-10.f };
-	glm::vec3 scaleParticles{ 1.f,1.f,1.f };
-	glm::vec3 rotParticles{ 0.f,0.f,0.f };
+    // --- Particles setup (unchanged) ---
+    glm::vec3 posParticles{ 0.f, -10.f, -10.f };
+    glm::vec3 scaleParticles{ 1.f, 1.f, 1.f };
+    glm::vec3 rotParticles{ 0.f, 0.f, 0.f };
 
-	scene2->addParticleGroup(physxBase.getParticleBuffer()->getPositionInvMasses(), physxBase.getParticleBuffer()->getNbActiveParticles(), physxBase.m_Particles, posParticles, scaleParticles, rotParticles);
+    auto& sceneManager = SceneModelManager::getInstance();
+    sceneManager.addParticleGroup(
+        physxBase.getParticleBuffer()->getPositionInvMasses(),
+        physxBase.getParticleBuffer()->getNbActiveParticles(),
+        physxBase.m_Particles,
+        posParticles, scaleParticles, rotParticles);
 
-	// create container for particles
+    // Shift the particle group upward.
+    posParticles.y += 3.f;
 
-	posParticles.y += 3.f;
+    // --- Compute positions for walls ---
+    glm::vec3 posBackWall = posParticles;
+    posBackWall.z += 3.f;
+    posBackWall.x -= 3.f;
 
-	// back
-	glm::vec3 posBackWall{ posParticles };
-	posBackWall.z += 3.f;
-	posBackWall.x -= 3.f;
-	scene1->addRectangle({ 0.f, 0.f, -1.f }, { 0.f,0.9f,0.f }, 12.f, 6.f, posBackWall, scaleParticles, rotParticles);
+    glm::vec3 posRightWall = posParticles;
+    posRightWall.x += physxBase.getRightWallLocation();
 
-	auto& physx_base = PhysxBase::GetInstance();
+    glm::vec3 posLeftWall = posParticles;
+    posLeftWall.x += 3.f;
 
-	// right
-	glm::vec3 posLeftWall{ posParticles };
-	posLeftWall.x += physx_base.getRightWallLocation();
-	movingwallIndex = scene1->addRectangle({ 1.f, 0.f, 0.f }, { 0.f,0.9f,0.f }, 6.f, 6.f, posLeftWall, scaleParticles, rotParticles);
+    glm::vec3 posBotWall = posParticles;
+    posBotWall.y -= 3.f;
+    posBotWall.x -= 3.f;
 
-	// left
-	glm::vec3 posRightWall{ posParticles };
-	posRightWall.x += 3.f;
-	scene1->addRectangle({ -1.f, 0.f, 0.f }, { 0.f,0.9f,0.f }, 6.f, 6.f, posRightWall, scaleParticles, rotParticles);
+    // --- Create walls using the GameSceneManager and PrimitiveMeshComponent ---
+    auto& gameScene = GameSceneManager::getInstance();
 
-	// bot
-	glm::vec3 posBotWall{ posParticles };
-	posBotWall.y -= 3.f;
-	posBotWall.x -= 3.f;
-	scene1->addRectangle({ 0.f, 1.f, 0.f }, { 0.f,0.9f,0.f }, 12.f, 6.f, posBotWall, scaleParticles, rotParticles);
+    // Back wall: a plane with width 12 and height 6.
+    // To get a wall facing backwards (normal (0,0,-1)) we rotate the default upward plane
+    // by -90° about the X-axis.
+    GameObject* backWall = gameScene.addGameObject();
+    backWall->getTransform()->position = posBackWall;
+    backWall->getTransform()->scale = scaleParticles;
+    backWall->getTransform()->rotation = glm::vec3(-90.f, 0.f, 0.f);
+    backWall->addComponent<PrimitiveMeshComponent>(backWall,PrimitiveType::Plane, 12.f, 6.f, 1.f);
 
+    // Right wall: a plane with width 6 and height 6.
+    // For a wall facing right (+X), rotate the plane by -90° about X then -90° about Z.
+    GameObject* rightWall = gameScene.addGameObject();
+    rightWall->getTransform()->position = posRightWall;
+    rightWall->getTransform()->scale = scaleParticles;
+    rightWall->getTransform()->rotation = glm::vec3(-90.f, 0.f, -90.f);
+    rightWall->addComponent<PrimitiveMeshComponent>(rightWall,PrimitiveType::Plane, 6.f, 6.f, 1.f);
 
-	scene1->initObject(vulkan_vars.physicalDevice, vulkan_vars.device, vulkan_vars.commandPoolModelPipeline.m_CommandPool, vulkan_vars.graphicsQueue);
+    // Left wall: a plane with width 6 and height 6.
+    // For a wall facing left (-X), rotate by -90° about X then +90° about Z.
+    GameObject* leftWall = gameScene.addGameObject();
+    leftWall->getTransform()->position = posLeftWall;
+    leftWall->getTransform()->scale = scaleParticles;
+    leftWall->getTransform()->rotation = glm::vec3(-90.f, 0.f, 90.f);
+    leftWall->addComponent<PrimitiveMeshComponent>(leftWall,PrimitiveType::Plane, 6.f, 6.f, 1.f);
+
+    // Bottom wall (floor): a plane with width 12 and height 6.
+    // The default plane (with no rotation) is assumed horizontal.
+    GameObject* bottomWall = gameScene.addGameObject();
+    bottomWall->getTransform()->position = posBotWall;
+    bottomWall->getTransform()->scale = scaleParticles;
+    bottomWall->getTransform()->rotation = glm::vec3(0.f, 0.f, 0.f);
+    bottomWall->addComponent<PrimitiveMeshComponent>(bottomWall,PrimitiveType::Plane, 12.f, 6.f, 1.f);
+
+    // Initialize the game scene objects.
+    gameScene.initialize();
+
+    // Finally, initialize your SceneModelManager.
+    sceneManager.initScenes(vulkan_vars.physicalDevice,
+        vulkan_vars.device,
+        vulkan_vars.commandPoolModelPipeline.m_CommandPool,
+        vulkan_vars.graphicsQueue);
 }

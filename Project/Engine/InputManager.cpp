@@ -7,7 +7,7 @@ InputManager& InputManager::GetInstance() {
     return instance;
 }
 
-InputManager::InputManager() : mouseX(0.0), mouseY(0.0) {}
+InputManager::InputManager() : mouseX(0.0), mouseY(0.0), m_LastMousePos(0,0) {}
 
 InputManager::~InputManager() {}
 
