@@ -11,25 +11,31 @@ enum class PrimitiveType {
     // Extend with additional primitives (Sphere, etc.) as needed.
 };
 
+struct FaceMeshUpdateData {
+    BaseObject* object;
+    glm::vec3 localOffset;
+};
+
+
 class PrimitiveMeshComponent : public Component {
 public:
     // Constructor takes the parent GameObject, a primitive type, and dimensions.
-    PrimitiveMeshComponent(GameObject* parent, PrimitiveType type, float width = 1.f, float height = 1.f, float depth = 1.f) {
+    PrimitiveMeshComponent(GameObject* parent, PrimitiveType type, float width = 1.f, float height = 1.f, float depth = 1.f, glm::vec3 color = {}) {
         setParent(parent);
-        addPrimitiveToScene(type, width, height, depth);
+        addPrimitiveToScene(type, width, height, depth, color);
     }
 
     void initialize() override {
-        std::cout << "PrimitiveMeshComponent initialized." << std::endl;
+        
     }
-    void update() override {
-        std::cout << "PrimitiveMeshComponent updated." << std::endl;
-    }
+    void update() override;
     void render() override {
-        std::cout << "PrimitiveMeshComponent rendered." << std::endl;
+     
     }
 
 private:
     // Updated to accept dimensions.
-    void addPrimitiveToScene(PrimitiveType type, float width, float height, float depth);
+    void addPrimitiveToScene(PrimitiveType type, float width, float height, float depth, glm::vec3 color);
+    std::vector<FaceMeshUpdateData> m_faceMeshes;
+
 };

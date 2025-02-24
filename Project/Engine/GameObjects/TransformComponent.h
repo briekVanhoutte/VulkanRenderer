@@ -15,16 +15,14 @@ public:
     glm::vec3 rotation;  // Euler angles (could be in degrees or radians)
 
     void initialize() override {
-        std::cout << "TransformComponent initialized." << std::endl;
+       
     }
 
     void update() override {
-        std::cout << "TransformComponent updated." << std::endl;
+       
     }
 
     void render() override {
-        // Although transforms are generally not "rendered" directly,
-        // this is provided for consistency.
-        std::cout << "TransformComponent rendered." << std::endl;
+       
     }
 };

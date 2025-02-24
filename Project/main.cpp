@@ -1,3 +1,4 @@
+#pragma once
 #include "Engine/Game.h"
 
 int main() {
@@ -12,3 +13,6 @@ int main() {
     }
     return EXIT_SUCCESS;
 }
+
+
+

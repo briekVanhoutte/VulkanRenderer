@@ -1,7 +1,6 @@
 #include "vulkanbase/VulkanBase.h"
 
 void VulkanBase::pickPhysicalDevice() {
-
 	auto& vulkan_vars = vulkanVars::GetInstance();
 
 	uint32_t deviceCount = 0;
@@ -11,24 +10,39 @@ void VulkanBase::pickPhysicalDevice() {
 		throw std::runtime_error("failed to find GPUs with Vulkan support!");
 	}
 
-	std::vector<VkPhysicalDevice> devices{ deviceCount };
+	std::vector<VkPhysicalDevice> devices(deviceCount);
 	vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
 
-	if (deviceCount == 0) {
-		throw std::runtime_error("failed to find GPUs with Vulkan support!");
-	}
+	VkPhysicalDevice selectedDevice = VK_NULL_HANDLE;
 
+	// First, try to select a discrete GPU
 	for (const auto& device : devices) {
-		if (isDeviceSuitable(device)) {
-			vulkan_vars.physicalDevice = device;
+		VkPhysicalDeviceProperties deviceProperties;
+		vkGetPhysicalDeviceProperties(device, &deviceProperties);
+
+		if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && isDeviceSuitable(device)) {
+			selectedDevice = device;
 			break;
 		}
 	}
 
-	if (vulkan_vars.physicalDevice == VK_NULL_HANDLE) {
+	// If no discrete GPU is found, use any suitable GPU
+	if (selectedDevice == VK_NULL_HANDLE) {
+		for (const auto& device : devices) {
+			if (isDeviceSuitable(device)) {
+				selectedDevice = device;
+				break;
+			}
+		}
+	}
+
+	if (selectedDevice == VK_NULL_HANDLE) {
 		throw std::runtime_error("failed to find a suitable GPU!");
 	}
+
+	vulkan_vars.physicalDevice = selectedDevice;
 }
+
 
 bool VulkanBase::isDeviceSuitable(VkPhysicalDevice device) {
 	QueueFamilyIndices indices = findQueueFamilies(device);

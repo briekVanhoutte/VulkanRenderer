@@ -10,9 +10,9 @@
 #include "Engine/WindowManager.h"
 #include "Engine/InputManager.h"
 #include "Engine/RendererManager.h"
-#include "Engine/PhysxBase.h"
 #include "Engine/SceneModelManager.h"
 #include "Engine/GameSceneManager.h"
+#include "Engine/PhysicsManager.h"
 
 class Game {
 public:
@@ -30,7 +30,7 @@ private:
     void initScene();
 
     // Frame timing variables
-    const float m_FPSCap = 50.f;
+    const float m_FPSCap = 60.f;
     const std::chrono::duration<float> m_FrameDuration = std::chrono::duration<float>(1.f / m_FPSCap);
 
     // Core engine objects
@@ -38,8 +38,7 @@ private:
     RendererManager* m_Renderer;
     Camera* m_Camera;
 
-    // For physics and scenes
-    PhysxBase& m_Physics;
+    PhysicsManager& m_PhysicsManager;
     SceneModelManager& m_SceneManager;
     GameSceneManager& m_GameScene;
 

@@ -7,6 +7,8 @@
 #include "TransformComponent.h"
 #include "ModelMeshComponent.h"
 #include "PrimitiveMeshComponent.h"
+#include "BoxColliderComponent.h"
+#include "PlaneColliderComponent.h"
 
 class GameObject {
 public:
@@ -37,6 +39,16 @@ public:
                 return true;
         }
         return false;
+    }
+
+    // Template function to retrieve a component of type T.
+    template<typename T>
+    T* getComponent() {
+        for (auto& comp : m_components) {
+            if (T* ptr = dynamic_cast<T*>(comp.get()))
+                return ptr;
+        }
+        return nullptr;
     }
 
     // Lifecycle functions to propagate calls to all components.

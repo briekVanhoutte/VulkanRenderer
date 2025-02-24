@@ -15,13 +15,13 @@ public:
     }
 
     void initialize() override {
-        std::cout << "ModelMeshComponent initialized." << std::endl;
+       
     }
     void update() override {
-        std::cout << "ModelMeshComponent updated." << std::endl;
+       
     }
     void render() override {
-        std::cout << "ModelMeshComponent rendered." << std::endl;
+        
     }
 
 private:

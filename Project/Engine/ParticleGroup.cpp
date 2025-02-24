@@ -1,6 +1,5 @@
 #include "ParticleGroup.h"
 #include "vulkanVars.h"
-#include "PhysxBase.h"
 
 #include <glm/mat4x4.hpp> // glm::mat4
 #include <glm/ext/matrix_transform.hpp> // glm::translate, glm::rotate, glm::scale
@@ -109,35 +108,35 @@ void ParticleGroup::CreateParticleBuffer(VkPhysicalDevice physicalDevice, VkDevi
 
 void ParticleGroup::update()
 {
-	auto& physx_base = PhysxBase::GetInstance();
-	auto& vulkan_vars = vulkanVars::GetInstance();
-	m_Particles = physx_base.m_Particles;
-	m_ParticleCount = physx_base.m_Particles.size();
+	//auto& physx_base = PhysxBase::GetInstance();
+	//auto& vulkan_vars = vulkanVars::GetInstance();
+	//m_Particles = physx_base.m_Particles;
+	//m_ParticleCount = physx_base.m_Particles.size();
 
-	VkDeviceSize vertexBufferSize = sizeof(m_Particles[0]) * m_Particles.size();
+	//VkDeviceSize vertexBufferSize = sizeof(m_Particles[0]) * m_Particles.size();
 
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-	auto VertexStagingBuffer = std::make_unique<DataBuffer>(vulkan_vars.physicalDevice, vulkan_vars.device,
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		vertexBufferSize
-	);
+	//VkBuffer stagingBuffer;
+	//VkDeviceMemory stagingBufferMemory;
+	//auto VertexStagingBuffer = std::make_unique<DataBuffer>(vulkan_vars.physicalDevice, vulkan_vars.device,
+	//	VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+	//	VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+	//	vertexBufferSize
+	//);
 
-	VertexStagingBuffer->map(vertexBufferSize, m_Particles.data());
+	//VertexStagingBuffer->map(vertexBufferSize, m_Particles.data());
 
-	m_ParticleBuffer->destroy(vulkan_vars.device);
+	//m_ParticleBuffer->destroy(vulkan_vars.device);
 
-	m_ParticleBuffer = std::make_unique<DataBuffer>(vulkan_vars.physicalDevice, vulkan_vars.device,
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		vertexBufferSize
-	);
+	//m_ParticleBuffer = std::make_unique<DataBuffer>(vulkan_vars.physicalDevice, vulkan_vars.device,
+	//	VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+	//	VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+	//	vertexBufferSize
+	//);
 
 
 
-	m_ParticleBuffer->copyBuffer(VertexStagingBuffer->getVkBuffer(), vulkan_vars.commandPoolModelPipeline.m_CommandPool, vulkan_vars.device, vertexBufferSize, vulkan_vars.graphicsQueue);
-	VertexStagingBuffer->destroy(vulkan_vars.device);
+	//m_ParticleBuffer->copyBuffer(VertexStagingBuffer->getVkBuffer(), vulkan_vars.commandPoolModelPipeline.m_CommandPool, vulkan_vars.device, vertexBufferSize, vulkan_vars.graphicsQueue);
+	//VertexStagingBuffer->destroy(vulkan_vars.device);
 
 
 

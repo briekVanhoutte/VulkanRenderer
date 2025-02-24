@@ -126,5 +126,9 @@ public:
 
 private:
     std::vector<BaseObject*> m_BaseObjects{};
+
+    // Holds the mesh objects and their relative offsets.
+    // A helper structure to store the mesh pointer and its offset relative to the parent.
+
 };
 

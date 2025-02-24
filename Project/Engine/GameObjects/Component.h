@@ -14,10 +14,13 @@ public:
     GameObject* getParent() const { return m_parent; }
 
     // Lifecycle methods.
-    virtual void initialize() {}
+    virtual void initialize() { ID++; }
     virtual void update() {}
     virtual void render() {}
 
 protected:
     GameObject* m_parent = nullptr; // Link to the parent GameObject.
+    inline static int ID = 0;
 };
+
+

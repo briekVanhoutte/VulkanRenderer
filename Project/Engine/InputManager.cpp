@@ -68,7 +68,7 @@ void InputManager::HandleCameraInputs(Camera* camera, float deltaTime)
         // Compute the offset since the last frame.
         glm::vec2 offset = currentPos - m_LastMousePos;
         // Apply a rotation speed factor (adjust as needed).
-        const float rotationSpeed = deltaTime * 0.1f;
+        const float rotationSpeed = deltaTime;
         offset *= rotationSpeed;
 
         // If there is any significant movement, rotate the camera.

@@ -12,7 +12,6 @@
 #include "../Project/Engine/Mesh.h"
 #include "../Project/Engine/Pipeline.h"
 
-#include "../Project/Engine/PhysxBase.h"
 #include "../Project/Engine/vulkanVars.h"
 #include "../Project/Engine/MeshScene.h"
 #include "../Project/Engine/ParticleScene.h"
@@ -104,15 +103,15 @@ private:
 	}
 
 	void initPhysx() {
-		auto& physx = PhysxBase::GetInstance();
-		physx.initPhysics(false);
+		//auto& physx = PhysxBase::GetInstance();
+		//physx.initPhysics(false);
 	};
 
 	unsigned int m_MovingwallIndex;
 
 	void initScene() {
 		auto& vulkan_vars = vulkanVars::GetInstance();
-		auto& physxBase = PhysxBase::GetInstance();
+	/*	auto& physxBase = PhysxBase::GetInstance();*/
 
 		// add models to pipeline
 		/*std::vector<Vertex> vertices{};
@@ -152,7 +151,7 @@ private:
 		glm::vec3 scaleParticles{ 1.f,1.f,1.f };
 		glm::vec3 rotParticles{ 0.f,0.f,0.f };
 
-		m_Scene2.addParticleGroup(physxBase.getParticleBuffer()->getPositionInvMasses(), physxBase.getParticleBuffer()->getNbActiveParticles(), physxBase.m_Particles, posParticles, scaleParticles, rotParticles);
+		//m_Scene2.addParticleGroup(physxBase.getParticleBuffer()->getPositionInvMasses(), physxBase.getParticleBuffer()->getNbActiveParticles(), physxBase.m_Particles, posParticles, scaleParticles, rotParticles);
 
 		// create container for particles
 
@@ -164,11 +163,11 @@ private:
 		posBackWall.x -= 3.f;
 		m_Scene.addRectangle({ 0.f, 0.f, -1.f }, { 0.f,0.9f,0.f }, 12.f, 6.f, posBackWall, scaleParticles, rotParticles);
 
-		auto& physx_base = PhysxBase::GetInstance();
+		/*auto& physx_base = PhysxBase::GetInstance();*/
 
 		// right
 		glm::vec3 posLeftWall{ posParticles };
-		posLeftWall.x += physx_base.getRightWallLocation();
+		//posLeftWall.x += physx_base.getRightWallLocation();
 		m_MovingwallIndex = m_Scene.addRectangle({ 1.f, 0.f, 0.f }, { 0.f,0.9f,0.f }, 6.f, 6.f, posLeftWall, scaleParticles, rotParticles);
 		
 		// left
@@ -215,7 +214,7 @@ private:
 		auto startTime = std::chrono::high_resolution_clock::now();
 		float deltaTime = 0.f;
 		float totalTime = 0.f;
-		auto& physx = PhysxBase::GetInstance();
+
 		int frameCount = 0;
 		int fps = 50;
 		while (!glfwWindowShouldClose(window)) {
@@ -226,7 +225,6 @@ private:
 			glfwPollEvents();
 			// week 06
 
-			physx.stepPhysics(false);
 			drawFrame3d();
 			HandleKeyInputs(deltaTime /fps);
 			HandleMouseInputs(deltaTime /fps);
