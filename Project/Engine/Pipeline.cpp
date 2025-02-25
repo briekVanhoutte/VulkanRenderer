@@ -10,7 +10,6 @@ Pipeline::Pipeline()
 	m_Ubo = {};
 	m_Ubo.view = glm::mat4{ {1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1} };
 	m_Ubo.proj = glm::mat4{ {1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1} };
-	m_Ubo.proj[1][1] *= -1;
 }
 
 Pipeline::~Pipeline()

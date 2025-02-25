@@ -9,6 +9,7 @@
 #include "PrimitiveMeshComponent.h"
 #include "BoxColliderComponent.h"
 #include "PlaneColliderComponent.h"
+#include "RigidBodyComponent.h"
 
 class GameObject {
 public:

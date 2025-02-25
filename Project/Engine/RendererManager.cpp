@@ -1,6 +1,8 @@
 #include "RendererManager.h"
-#include <vulkanbase/VulkanBase.h>
 #include "WindowManager.h"
+#include "vulkanvars.h"
+#include <set>
+#include <algorithm>
 
 RendererManager::RendererManager() {
 	// Initialize member variables if necessary

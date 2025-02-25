@@ -56,12 +56,12 @@ set(SOURCES
     "Engine/RendererManager.cpp"
     "Engine/WindowManager.h"
     "Engine/WindowManager.cpp"
- "Engine/CommandBuffer.cpp" "Engine/Mesh.h" "Engine/Mesh.cpp" "Engine/Scene.h"  "Engine/Objects/BaseObject.h" "Engine/Camera.h" "Engine/Camera.cpp" "Engine/SceneModelManager.h" "Engine/SceneModelManager.cpp" "Engine/GameObjects/Component.h" "Engine/GameObjects/GameObject.h"  "Engine/GameObjects/TransformComponent.h"  "Engine/GameObjects/ModelMeshComponent.h" "Engine/GameObjects/ModelMeshComponent.cpp" "Engine/GameObjects/PrimitiveMeshComponent.h" "Engine/GameObjects/PrimitiveMeshComponent.cpp" "Engine/GameSceneManager.h" "Engine/Game.h" "Engine/Game.cpp" "Engine/GameObjects/RigidBodyComponent.h" "Engine/GameObjects/PlaneColliderComponent.h" "Engine/GameObjects/RigidBodyComponent.cpp" "Engine/GameObjects/BoxColliderComponent.h" "Engine/GameObjects/BoxColliderComponent.cpp" "Engine/GameObjects/PlaneColliderComponent.cpp" "Engine/Physics/PhysicsBody.h" "Engine/Physics/Collider.h" "Engine/Physics/CollisionDetector.h" "Engine/GameObjects/Component.cpp")
+ "Engine/CommandBuffer.cpp" "Engine/Mesh.h" "Engine/Mesh.cpp" "Engine/Scene.h"  "Engine/Objects/BaseObject.h" "Engine/Camera.h" "Engine/Camera.cpp" "Engine/SceneModelManager.h" "Engine/SceneModelManager.cpp" "Engine/GameObjects/Component.h" "Engine/GameObjects/GameObject.h"  "Engine/GameObjects/TransformComponent.h"  "Engine/GameObjects/ModelMeshComponent.h" "Engine/GameObjects/ModelMeshComponent.cpp" "Engine/GameObjects/PrimitiveMeshComponent.h" "Engine/GameObjects/PrimitiveMeshComponent.cpp" "Engine/GameSceneManager.h" "Engine/Game.h" "Engine/Game.cpp" "Engine/GameObjects/RigidBodyComponent.h" "Engine/GameObjects/PlaneColliderComponent.h" "Engine/GameObjects/RigidBodyComponent.cpp" "Engine/GameObjects/BoxColliderComponent.h" "Engine/GameObjects/BoxColliderComponent.cpp" "Engine/GameObjects/PlaneColliderComponent.cpp" "Engine/Physics/PhysicsBody.h" "Engine/Physics/Collider.h" "Engine/Physics/CollisionDetector.h" "Engine/GameObjects/Component.cpp" "Engine/Physics/PhysxBase.h" "Engine/Physics/PhysxBase.cpp")
   
         
    
 # Create the executable
-add_executable(${PROJECT_NAME} ${SOURCES} ${GLSL_SOURCE_FILES}  "vulkanbase/VulkanUtil.cpp" "labwork/Week03.cpp")
+add_executable(${PROJECT_NAME} ${SOURCES} ${GLSL_SOURCE_FILES}  "vulkanbase/VulkanUtil.cpp" )
 add_dependencies(${PROJECT_NAME} Shaders)
 # Link libraries
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

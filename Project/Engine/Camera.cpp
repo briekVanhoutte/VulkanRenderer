@@ -1,5 +1,9 @@
 #include "Camera.h"
 
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/transform.hpp>
+#include <glm/gtx/quaternion.hpp>
+
 
 Camera::Camera(const glm::vec3& _origin, float _fovAngle, float _aspectRatio) :
 	origin{ _origin },
@@ -23,14 +27,21 @@ void Camera::Initialize(float _fovAngle, glm::vec3 _origin, float _aspectRatio)
 
 void Camera::CalculateViewMatrix()
 {
+	glm::mat4 cameraTranslation = glm::translate(glm::mat4(1.f), origin);
+	glm::quat pitchRotation = glm::angleAxis(totalPitch, glm::vec3{ 1.f, 0.f, 0.f });
+	glm::quat yawRotation = glm::angleAxis(totalYaw, glm::vec3{ 0.f, -1.f, 0.f });
+	glm::mat4 cameraRotation = glm::toMat4(yawRotation) * glm::toMat4(pitchRotation);
 
-	right = glm::normalize( glm::cross({ 0.f,1.f,0.f }, forward));
-	up = glm::cross(forward, right);
 
-	glm::mat4 OBN = { {right,0.f}, { up ,0.f},{ forward ,0.f},{ origin ,0.f} };
+	//return glm::inverse(cameraTranslation * cameraRotation);
 
-	viewMatrix = glm::inverse(OBN);
-	invViewMatrix = OBN;
+	//right = glm::normalize( glm::cross({ 0.f,1.f,0.f }, forward));
+	//up = glm::cross(forward, right);
+
+	//glm::mat4 OBN = { {right,0.f}, { up ,0.f},{ forward ,0.f},{ origin ,0.f} };
+
+	viewMatrix = glm::inverse(cameraTranslation * cameraRotation);
+	invViewMatrix = cameraTranslation * cameraRotation;
 }
 
 void Camera::CalculateProjectionMatrix()
@@ -51,7 +62,8 @@ glm::mat4 Camera::CalculateCameraToWorld()
 	// forwardx, forwardy, forwardz, 0
 	// originx,  originy,  originz,  1
 
-	right = glm::normalize(glm::cross(up, forward));
+	glm::vec3 worldUp = glm::vec3(0, 1, 0);
+	right = glm::normalize(glm::cross(worldUp, forward));
 	right.y = 0; // force no roll
 	up = glm::normalize(glm::cross(forward, right)); 
 
@@ -78,6 +90,8 @@ void Camera::update()
 	glm::mat4 rotationX = CreateRotationX(totalPitch);
 	glm::mat4 rotationY = CreateRotationY(totalYaw);
 
+	std::cout << "Pitch: " << totalPitch << "yaw: " << totalYaw << std::endl;
+
 	// Combine the rotation matrices
 	glm::mat4 finalRotation = rotationX * rotationY;
 
@@ -92,6 +106,7 @@ void Camera::rotate(glm::vec2 offset)
 
 	 totalYaw += offset.x;
 	 totalPitch += offset.y;
+
 }
 
 void Camera::translateForward(float posChange)

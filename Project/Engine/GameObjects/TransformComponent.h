@@ -1,8 +1,8 @@
 #pragma once
 
 #include "Component.h"
-#include <glm/glm.hpp>
 #include <iostream>
+#include "../../vulkanbase/VulkanUtil.h"
 
 class TransformComponent : public Component {
 public:

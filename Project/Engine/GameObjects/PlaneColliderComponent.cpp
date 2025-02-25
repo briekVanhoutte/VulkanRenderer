@@ -1,23 +1,31 @@
 #include "PlaneColliderComponent.h"
 #include "GameObject.h"
 
-PlaneColliderComponent::PlaneColliderComponent(const glm::vec3& normal, float offset)
-    : m_normal(normal), m_offset(offset)
+PlaneColliderComponent::PlaneColliderComponent(const PxVec3& normal, PxReal d)
+    : m_normal(normal), m_d(d)
 {
-    // For a static plane, the physics body is static (mass 0).
-    m_body.position = glm::vec3(0.f);  // Not used for collision tests.
-    m_body.velocity = glm::vec3(0.f);
-    m_body.acceleration = glm::vec3(0.f);
-    m_body.mass = 0.f;
-
-    // Create a PlaneCollider using our custom physics code.
-    m_collider = new PlaneCollider(ID, &m_body, normal, offset);
+    // Use the PhysxBase helper to create a plane collider.
+    // Planes are usually static.
+    m_actor = PhysxBase::GetInstance().addPlaneCollider(m_normal, m_d);
 }
 
-void PlaneColliderComponent::update()
-{
-    if (!m_parent)
-        return;
+PlaneColliderComponent::~PlaneColliderComponent() {
+    m_actor = nullptr;
+}
 
-    m_body.position = m_parent->getTransform()->position;
+void PlaneColliderComponent::initialize() {
+    // Additional initialization if needed.
+}
+
+void PlaneColliderComponent::update() {
+    if (m_actor && m_parent) {
+        // Although static, you can sync the GameObject's transform if desired.
+        PxTransform pose = m_actor->getGlobalPose();
+        m_parent->getTransform()->position = glm::vec3(pose.p.x, pose.p.y, pose.p.z);
+        // (Optional) update rotation.
+    }
+}
+
+void PlaneColliderComponent::render() {
+    // Optionally render debug visuals.
 }

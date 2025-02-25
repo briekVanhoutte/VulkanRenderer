@@ -2,7 +2,7 @@
 
 #include "Component.h"
 #include "../SceneModelManager.h"
-#include <glm/glm.hpp>
+#include "../../vulkanbase/VulkanUtil.h"
 #include <iostream>
 
 enum class PrimitiveType {

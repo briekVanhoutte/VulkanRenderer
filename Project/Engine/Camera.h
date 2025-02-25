@@ -58,6 +58,7 @@ struct Camera
 		return glm::rotate(glm::mat4(1.0f), pitch, glm::vec3(1.0f, 0.0f, 0.0f));
 	}
 
+
 	glm::mat4 CreateRotationY(float yaw) {
 		return glm::rotate(glm::mat4(1.0f), yaw, glm::vec3(0.0f, 1.0f, 0.0f));
 	}

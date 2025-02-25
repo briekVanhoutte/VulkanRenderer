@@ -2,6 +2,8 @@
 #include "GameObjects/GameObject.h"
 #include <cstdlib>
 #include <ctime>
+#include "vulkanVars.h"
+
 
 Game::Game()
     : m_WindowManager(WindowManager::GetInstance()),
@@ -27,12 +29,12 @@ void Game::init() {
     InputManager::GetInstance().Initialize(m_WindowManager.getWindow());
 
     // Initialize physics.
-   /* m_Physics.initPhysics(false);*/
+    m_PhysicsManager.initialize();
 
     // Initialize the camera.
     float fov = 90.f;
     float aspectRatio = float(WIDTH) / float(HEIGHT);
-    glm::vec3 cameraStartLocation{ 0.f,3.f, -25.f };
+    glm::vec3 cameraStartLocation{ 0.f,2.f, -20.f };
 
     m_Camera = new Camera{};
     m_Camera->Initialize(fov, cameraStartLocation, aspectRatio);
@@ -54,35 +56,60 @@ void Game::init() {
 }
 
 void Game::initScene() {
-    // Seed the random number generator (only once ideally)
+    // Seed the random number generator.
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
-    // Loop to create 100 cubes.
-    for (int i = 0; i < 500; ++i) {
+    // -----------------------------------
+    // Create the Floor
+    // -----------------------------------
+    // Create a GameObject for the floor.
+    GameObject* floor = m_GameScene.addGameObject();
+    // Position the floor at y = -1.
+    floor->getTransform()->position = glm::vec3(0.f, 0.f, -10.f);
+    // Optionally, set a large scale (for the mesh) to simulate a big floor.
+    floor->getTransform()->scale = glm::vec3(5.f, 5.f, 1.f);
+
+    // Add a plane collider component. Here we assume the floor's plane has an upward normal (0,1,0)
+    // and is defined at d = 1 (since the plane equation is n·p + d = 0, and for a floor at y=-1, d=+1).
+    floor->addComponent<PlaneColliderComponent>(PxVec3(0, 1, 0), 1.f);
+
+    // Add a visual mesh component for the floor.
+    // Assuming PrimitiveType::Plane exists and the mesh scales with the GameObject's scale.
+    glm::vec3 floorColor(0.3f, 0.3f, 0.3f); // gray-ish color
+    floor->addComponent<PrimitiveMeshComponent>(floor, PrimitiveType::Plane, 5.f, 5.f, 1.f, floorColor);
+
+    // -----------------------------------
+    // Create a random number of cubes
+    // -----------------------------------
+    // Choose a random count between 10 and 20 cubes.
+    int cubeCount = 10 + (rand() % 11); // random number in [10,20]
+
+    for (int i = 0; i < cubeCount; ++i) {
         // Create a new GameObject for the cube.
         GameObject* cube = m_GameScene.addGameObject();
 
-        // Random position within a 10x10x10 region.
-        float posX = static_cast<float>(rand()) / RAND_MAX * 10.0f;
-        float posY = static_cast<float>(rand()) / RAND_MAX * 10.0f;
-        float posZ = static_cast<float>(rand()) / RAND_MAX * 10.0f;
+        // Randomize position above the floor (y between 2 and 10), and x/z within a region.
+        float posX = -10.f + static_cast<float>(rand()) / RAND_MAX * 20.f;
+        float posY = 5.f + static_cast<float>(rand()) / RAND_MAX * 8.f;
+        float posZ = -10.f + static_cast<float>(rand()) / RAND_MAX * 20.f;
         cube->getTransform()->position = glm::vec3(posX, posY, posZ);
 
-        // Generate a random uniform size between 0.5 and 2.5 units.
+        // Generate a random uniform cube size between 0.5 and 2.5 units.
         float size = 0.5f + (static_cast<float>(rand()) / RAND_MAX) * 2.0f;
 
-        // Add a box collider component with the same dimensions as the cube.
-        cube->addComponent<BoxColliderComponent>(size, size, size, false);
+        // Add a box collider component (with dynamic set to true so it acts as a rigid body).
+        cube->addComponent<BoxColliderComponent>(size, size, size, true);
 
-        // Generate a random color (each channel between 0.0 and 1.0).
+        // Generate a random color for the cube.
         glm::vec3 color(
             static_cast<float>(rand()) / RAND_MAX,
             static_cast<float>(rand()) / RAND_MAX,
             static_cast<float>(rand()) / RAND_MAX
         );
 
-        // Add a visual mesh component for a cube, using the random size and color.
-        // Ensure that your PrimitiveMeshComponent is updated to accept the color parameter.
+        cube->addComponent<RigidBodyComponent>();
+
+        // Add a visual mesh component for the cube.
         cube->addComponent<PrimitiveMeshComponent>(cube, PrimitiveType::Cube, size, size, size, color);
     }
 
@@ -96,6 +123,7 @@ void Game::initScene() {
         vulkan_vars.commandPoolModelPipeline.m_CommandPool,
         vulkan_vars.graphicsQueue);
 }
+
 
 void Game::run() {
     using clock = std::chrono::high_resolution_clock;
@@ -111,9 +139,11 @@ void Game::run() {
         glfwPollEvents();
 
         // Update physics.
-        //m_PhysicsManager.update(deltaTime);
+        m_PhysicsManager.update(deltaTime);
 
         m_GameScene.update();
+
+        
 
         // Render the frame.
         m_Renderer->RenderFrame(m_RenderItems, *m_Camera);
@@ -122,13 +152,24 @@ void Game::run() {
         InputManager::GetInstance().HandleCameraInputs(m_Camera, deltaTime);
         m_Camera->update();
 
+   
+
+       
+
         // FPS calculation (optional).
         frameCount++;
         totalTime += deltaTime;
         if (totalTime >= 1.0f) {
-            std::cout << "FPS: " << std::fixed << std::setprecision(2) << frameCount << std::endl;
+            //std::cout << "FPS: " << std::fixed << std::setprecision(2) << frameCount << std::endl;
             frameCount = 0;
             totalTime = 0.f;
+        }
+
+        // Cap the FPS: Sleep for the remaining frame time if necessary.
+        auto frameEnd = clock::now();
+        auto frameTime = std::chrono::duration<float>(frameEnd - frameStart);
+        if (frameTime < m_FrameDuration) {
+            std::this_thread::sleep_for(m_FrameDuration - frameTime);
         }
     }
 

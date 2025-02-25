@@ -11,6 +11,14 @@ struct RenderItem {
     int pipelineIndex;  // For example: 0 = particles, 1 = 3D objects.
 };
 
+const std::vector<const char*> validationLayers = {
+    "VK_LAYER_KHRONOS_validation"
+};
+
+const std::vector<const char*> deviceExtensions = {
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME
+};
+
 class RendererManager {
 public:
     RendererManager();

@@ -8,13 +8,13 @@ public:
     virtual ~Component() = default;
 
     // Called to set the parent GameObject.
-    void setParent(GameObject* parent) { m_parent = parent; }
+    void setParent(GameObject* parent) { m_parent = parent;}
 
     // Retrieve the parent GameObject.
     GameObject* getParent() const { return m_parent; }
 
     // Lifecycle methods.
-    virtual void initialize() { ID++; }
+    virtual void initialize() { ID = 0; }
     virtual void update() {}
     virtual void render() {}
 
