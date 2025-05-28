@@ -8,8 +8,8 @@ file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/Resources" DESTINATION "${CMAKE_CURRENT_B
 
 file(GLOB_RECURSE GLSL_SOURCE_FILES
     "${SHADER_SOURCE_DIR}/*.frag"
-    "${SHADER_SOURCE_DIR}/*.vert"
-)
+    "${SHADER_SOURCE_DIR}/*.vert" 
+) 
 
 foreach(GLSL ${GLSL_SOURCE_FILES})
     get_filename_component(FILE_NAME ${GLSL} NAME)
