@@ -247,30 +247,43 @@ void RendererManager::pickPhysicalDevice()
 {
 	auto& vulkan_vars = vulkanVars::GetInstance();
 
+
 	uint32_t deviceCount = 0;
 	vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
-
-	if (deviceCount == 0) {
+	if (deviceCount == 0)
 		throw std::runtime_error("failed to find GPUs with Vulkan support!");
-	}
 
-	std::vector<VkPhysicalDevice> devices{ deviceCount };
+	std::vector<VkPhysicalDevice> devices(deviceCount);
 	vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
 
-	if (deviceCount == 0) {
-		throw std::runtime_error("failed to find GPUs with Vulkan support!");
-	}
-
-	for (const auto& device : devices) {
-		if (isDeviceSuitable(device)) {
+	// 1) First try to find a DISCRETE GPU.
+	for (auto& device : devices) {
+		VkPhysicalDeviceProperties props;
+		vkGetPhysicalDeviceProperties(device, &props);
+		if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU
+			&& isDeviceSuitable(device))
+		{
 			vulkan_vars.physicalDevice = device;
+			std::cout << "Using discrete GPU: " << props.deviceName << "\n";
 			break;
 		}
 	}
 
+	// 2) Fallback: any other “suitable” device (integrated, virtual, etc).
 	if (vulkan_vars.physicalDevice == VK_NULL_HANDLE) {
-		throw std::runtime_error("failed to find a suitable GPU!");
+		for (auto& device : devices) {
+			VkPhysicalDeviceProperties props;
+			vkGetPhysicalDeviceProperties(device, &props);
+			if (isDeviceSuitable(device)) {
+				vulkan_vars.physicalDevice = device;
+				std::cout << "Using non–discrete GPU: " << props.deviceName << "\n";
+				break;
+			}
+		}
 	}
+
+	if (vulkan_vars.physicalDevice == VK_NULL_HANDLE)
+		throw std::runtime_error("failed to find a suitable GPU!");
 }
 bool RendererManager::isDeviceSuitable(VkPhysicalDevice device) {
 	QueueFamilyIndices indices = findQueueFamilies(device);

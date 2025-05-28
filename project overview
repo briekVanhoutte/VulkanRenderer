@@ -1,0 +1,478 @@
+Project Outline (Classes, Functions, Variables)
+Class: Camera
+
+    Variables:
+
+        glm::vec3 origin
+
+        float fovAngle
+
+        float fov
+
+        float aspectRatio
+
+        float nearPlane
+
+        float farPlane
+
+        glm::vec3 forward
+
+        glm::vec3 up
+
+        glm::vec3 right
+
+        float totalPitch
+
+        float totalYaw
+
+        glm::mat4 invViewMatrix
+
+        glm::mat4 viewMatrix
+
+        glm::mat4 projectionMatrix
+
+    Functions:
+
+        Initialize(float, glm::vec3, float)
+
+        CalculateViewMatrix()
+
+        CalculateProjectionMatrix()
+
+        CalculateCameraToWorld()
+
+        printValuesCamera()
+
+        update()
+
+        rotate(glm::vec2 offset)
+
+        translateForward(float)
+
+        translateRight(float)
+
+        SetFov(float)
+
+        SetAspectRatio(float)
+
+        CreateRotationX(float)
+
+        CreateRotationY(float)
+
+        CreateRotationZ(float)
+
+Class: CommandBuffer
+
+    Variables:
+
+        VkCommandBuffer m_VkCommandBuffer
+
+    Functions:
+
+        setVkCommandBuffer(VkCommandBuffer)
+
+        reset()
+
+        beginRecording()
+
+        endRecording()
+
+        submit(VkSubmitInfo&)
+
+Class: CommandPool
+
+    Variables:
+
+        VkCommandPool m_CommandPool
+
+        VkDevice m_VkDevice
+
+    Functions:
+
+        initialize(const QueueFamilyIndices&)
+
+        destroy()
+
+        createCommandBuffer()
+
+Class: DataBuffer
+
+    Variables:
+
+        VkDevice m_VkDevice
+
+        VkDeviceSize m_Size
+
+        VkDeviceMemory m_VkBufferMemory
+
+        void* m_UniformBufferMapped
+
+        VkBuffer m_VkBuffer
+
+    Functions:
+
+        DataBuffer(...)
+
+        upload(VkDeviceSize, void*)
+
+        uploadRaw(VkDeviceSize, void*)
+
+        map(VkDeviceSize, void*)
+
+        remap(VkDeviceSize, void*)
+
+        destroy(const VkDevice&)
+
+        bindAsVertexBuffer(VkCommandBuffer)
+
+        bindAsIndexBuffer(VkCommandBuffer)
+
+        getVkBuffer()
+
+        getUniformBuffer()
+
+        getSizeInBytes()
+
+        getBufferMemory()
+
+        copyBuffer(VkBuffer, const VkCommandPool&, const VkDevice&, VkDeviceSize, const VkQueue&)
+
+        static findMemoryType(VkPhysicalDevice, uint32_t, VkMemoryPropertyFlags)
+
+Class: DescriptorPool
+
+    Variables:
+
+        VkDevice m_Device
+
+        VkDeviceSize m_Size
+
+        VkDescriptorPool m_DescriptorPool
+
+        std::vector<VkDescriptorSet> m_DescriptorSets
+
+        size_t m_Count
+
+        VkDescriptorSetLayout m_DescriptorSetLayout
+
+    Functions:
+
+        DescriptorPool(const VkDevice&, VkDeviceSize, size_t)
+
+        Initialize(const VkDevice&)
+
+        Destroy(const VkDevice&)
+
+        getDescriptorSetLayout()
+
+        createDescriptorSets(std::vector<VkBuffer>)
+
+        bindDescriptorSet(VkCommandBuffer, VkPipelineLayout, size_t)
+
+Class: PhysicsManager
+
+    Functions:
+
+        GetInstance()
+
+        Initialize()
+
+        StepPhysics(float)
+
+        Cleanup()
+
+Class: PhysxBase
+
+    Variables:
+
+        std::vector<Particle> m_Particles
+
+        bool wallMoveLeft
+
+        bool wallMoveRight
+
+    Functions:
+
+        getParticleSystem()
+
+        getParticleBuffer()
+
+        initPhysics(bool)
+
+        stepPhysics(bool)
+
+        cleanupPhysics(bool)
+
+        getRightWallLocation()
+
+        getParticles()
+
+Class: Pipeline
+
+    Variables:
+
+        VkPipeline m_Pipeline3d
+
+        std::unique_ptr<ShaderBase> m_Shader
+
+        UniformBufferObject m_Ubo
+
+        VkPipelineLayout m_PipelineLayout
+
+        VkImage m_DepthImage
+
+        VkDeviceMemory m_DepthImageMemory
+
+        VkImageView m_DepthImageView
+
+    Functions:
+
+        Pipeline()
+
+        ~Pipeline()
+
+        Destroy(const VkDevice&)
+
+        Initialize(const std::string&, const std::string&, const VkVertexInputBindingDescription&, std::vector<VkVertexInputAttributeDescription>&, VkPrimitiveTopology)
+
+        Record(uint32_t, VkRenderPass, const std::vector<VkFramebuffer>&, VkExtent2D, Scene&)
+
+        setUbo(const UniformBufferObject&)
+
+        findDepthFormat(VkPhysicalDevice&, VkDevice&)
+
+        getDepthImage()
+
+        getDepthImageMemory()
+
+        getDepthImageView()
+
+Class: RendererManager
+
+    Functions:
+
+        RendererManager()
+
+        ~RendererManager()
+
+        Initialize()
+
+        RenderFrame(const std::vector<RenderItem>&, Camera&)
+
+        Cleanup()
+
+Class: Scene
+
+    Functions:
+
+        drawScene(VkPipelineLayout&, VkCommandBuffer&)
+
+        deleteScene(VkDevice)
+
+Class: MeshScene (inherits Scene)
+
+    Variables:
+
+        std::vector<BaseObject*> m_BaseObjects
+
+    Functions:
+
+        addModel(const std::vector<Vertex>&, const std::vector<uint16_t>&, glm::vec3, glm::vec3, glm::vec3)
+
+        addRectangle(const glm::vec3&, const glm::vec3&, float, float, glm::vec3, glm::vec3, glm::vec3)
+
+        getBaseObject(unsigned int)
+
+        initObject(VkPhysicalDevice&, VkDevice&, const VkCommandPool&, const VkQueue&)
+
+        drawScene(VkPipelineLayout&, VkCommandBuffer&)
+
+        updateLocationObject(unsigned int, glm::vec3, glm::vec3, glm::vec3)
+
+        getLocation(unsigned int)
+
+        deleteScene(VkDevice)
+
+Class: ParticleScene (inherits Scene)
+
+    Variables:
+
+        std::vector<ParticleGroup*> m_ParticleGroups
+
+    Functions:
+
+        addParticleGroup(physx::PxVec4*, int, std::vector<Particle>, glm::vec3, glm::vec3, glm::vec3)
+
+        drawScene(VkPipelineLayout&, VkCommandBuffer&)
+
+        deleteScene(VkDevice)
+
+        getLastParticleGroup()
+
+Class: ParticleGroup
+
+    Variables:
+
+        std::unique_ptr<DataBuffer> m_ParticleBuffer
+
+        std::vector<Particle> m_Particles
+
+        MeshData m_VertexConstant
+
+        physx::PxVec4* m_pParticleBuffer
+
+        int m_ParticleCount
+
+    Functions:
+
+        ParticleGroup(physx::PxVec4*, int, const std::vector<Particle>&)
+
+        initialize(VkPhysicalDevice, VkDevice, const VkCommandPool&, const VkQueue&)
+
+        setPosition(glm::vec3, glm::vec3, glm::vec3)
+
+        destroyParticleGroup(const VkDevice&)
+
+        draw(VkPipelineLayout, VkCommandBuffer)
+
+Class: Mesh
+
+    Variables:
+
+        std::vector<Vertex> m_Vertices
+
+        std::vector<uint16_t> m_Indices
+
+        std::unique_ptr<DataBuffer> m_VertexBuffer
+
+        std::unique_ptr<DataBuffer> m_IndexBuffer
+
+        MeshData m_VertexConstant
+
+        glm::vec3 m_Position
+
+    Functions:
+
+        Mesh(const std::vector<Vertex>&, const std::vector<uint16_t>&)
+
+        initialize(VkPhysicalDevice, VkDevice, const VkCommandPool&, const VkQueue&)
+
+        destroyMesh(const VkDevice&)
+
+        setPosition(glm::vec3, glm::vec3, glm::vec3)
+
+        getPostion()
+
+        addVertex(glm::vec3, glm::vec3, glm::vec3)
+
+        addTriangle(uint16_t, uint16_t, uint16_t, uint16_t offset = 0)
+
+        draw(VkPipelineLayout, VkCommandBuffer)
+
+Class: BaseObject
+
+    Variables:
+
+        std::unique_ptr<Mesh> mesh
+
+    Functions:
+
+        BaseObject(const std::vector<Vertex>&, const std::vector<uint16_t>&)
+
+        draw(VkPipelineLayout&, VkCommandBuffer&)
+
+        setPosition(glm::vec3, glm::vec3, glm::vec3)
+
+        getPosition()
+
+        init(VkPhysicalDevice&, VkDevice&, const VkCommandPool&, const VkQueue&)
+
+        destroy(VkDevice)
+
+Class: InputManager
+
+    Variables:
+
+        std::vector<int> keysDown
+
+        std::vector<int> mouseButtonsDown
+
+        double mouseX
+
+        double mouseY
+
+        glm::vec2 m_LastMousePos
+
+    Functions:
+
+        GetInstance()
+
+        Initialize(GLFWwindow*)
+
+        IsKeyDown(int)
+
+        IsMouseButtonDown(int)
+
+        GetMouseX()
+
+        GetMouseY()
+
+        Update()
+
+        HandleCameraInputs(Camera*, float)
+
+Class: WindowManager
+
+    Variables:
+
+        GLFWwindow* window
+
+    Functions:
+
+        GetInstance()
+
+        initWindow()
+
+        getWindow()
+
+        handleKeyEvent(int, int, int, int)
+
+        handleCursorPos(double, double)
+
+        handleMouseButton(int, int, int)
+
+Class: Singleton<T>
+
+    Functions:
+
+        GetInstance()
+
+Enums
+
+    SceneModelType
+
+    ObjType
+
+    PrimitiveType
+
+Structs
+
+    QueueFamilyIndices
+
+    SwapChainSupportDetails
+
+    UniformBufferObject
+
+    MeshData
+
+    Vertex
+
+    Particle
+
+    RenderItem
+
+Global
+
+    Vulkan constants like WIDTH, HEIGHT, validation layers
+
+    PhysX static global variables (gPhysics, gScene, gParticleSystem, etc.)
