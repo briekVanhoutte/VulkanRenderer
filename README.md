@@ -2,7 +2,6 @@
 
 A modular Vulkan-based rendering engine showcasing:
 
- 
 - **MeshScene**: Loadable meshes & geometric primitives (planes, cubes, rectangles) with per-vertex normals and colors.  
 - **ParticleScene**: GPU-driven particle fluids via PhysX PBD & CUDA (bundled), rendered as point sprites.  
 - **Component/GameObject System**: Simple ECS-style framework with `Transform`, `ModelMesh`, and `PrimitiveMesh` components.  
@@ -10,8 +9,6 @@ A modular Vulkan-based rendering engine showcasing:
 - **Fly-through Camera & Input**: WASD + mouse, built on GLFW (bundled).  
 - **Multi-Pipeline Manager**: Two Vulkan pipelines (3D & particles) with depth buffering, descriptor sets, uniform buffers, and push-constants.  
 - **VK_KHR_debug**: Validation layers and debug callbacks enabled in Debug builds.  
-
-- **(In Construction: FractalScene)**: Real-time Mandelbrot/Julia fractal rendering via a fullscreen quad and push-constants. 
 
 ---
 
