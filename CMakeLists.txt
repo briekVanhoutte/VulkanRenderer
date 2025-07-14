@@ -1,9 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
-# Project Name
 project(VulkanEngine)
 
-# Use C++17
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON) 
 
@@ -11,24 +9,21 @@ include(FetchContent)
 FetchContent_Declare(
     glm
     GIT_REPOSITORY https://github.com/g-truc/glm.git
-    GIT_TAG 1.0.1 # Specify the version you need
+    GIT_TAG 1.0.1 
 )
 FetchContent_MakeAvailable(glm)
 
 FetchContent_Declare(
   glfw
   GIT_REPOSITORY https://github.com/glfw/glfw.git
-  GIT_TAG        3.3.8 # Specify the version you need
+  GIT_TAG        3.3.8
 )
 
 FetchContent_MakeAvailable(glfw)
 
-# Find the required packages
 find_package(Vulkan REQUIRED)
 
-# Include Directories
 include_directories(${Vulkan_INCLUDE_DIRS})
-
 
 add_subdirectory(Project)
 
@@ -45,7 +40,6 @@ function(install_vcpkg)
     endif()
   endif()
 
-  # Check if PhysX is installed via vcpkg, install if not
   execute_process(COMMAND "${CMAKE_SOURCE_DIR}/vcpkg/vcpkg" list
                   RESULT_VARIABLE result
                   OUTPUT_VARIABLE vcpkg_output)
@@ -60,7 +54,6 @@ function(install_vcpkg)
       CACHE STRING "Vcpkg toolchain file")
 endfunction()
 
-# Call the function to ensure vcpkg is ready
 install_vcpkg()
 
 find_library(PhysX NAMES PhysX_64.lib HINTS "./vcpkg/packages/x64-windows/lib")

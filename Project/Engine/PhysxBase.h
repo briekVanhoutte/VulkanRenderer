@@ -36,7 +36,7 @@ static PxPBDParticleSystem* gParticleSystem = NULL;
 static PxParticleAndDiffuseBuffer* gParticleBuffer = NULL;
 static bool								gIsRunning = true;
 static bool								gStep = true;
-
+static PxCudaContextManager* cudaContextManager = NULL;
 
 static PxRigidDynamic* movingWall = nullptr;
 
@@ -62,7 +62,7 @@ static void initObstacles()
 
 static void initScene()
 {
-	PxCudaContextManager* cudaContextManager = NULL;
+	
 	if (PxGetSuggestedCudaDeviceOrdinal(gFoundation->getErrorCallback()) >= 0)
 	{
 		// initialize CUDA
@@ -356,7 +356,11 @@ class PhysxBase : public Singleton<PhysxBase>
 
 		void getParticles() {
 			// Determine the size of the buffer
-			size_t bufferSize = getParticleBuffer()->getNbActiveParticles() * sizeof(PxVec4);
+			auto pr = getParticleBuffer();
+
+			if (pr == nullptr)return;
+
+			size_t bufferSize = pr->getNbActiveParticles() * sizeof(PxVec4);
 
 			// Allocate normal host memory for bufferLocation
 			void* bufferLocation = malloc(bufferSize);
@@ -366,7 +370,7 @@ class PhysxBase : public Singleton<PhysxBase>
 			}
 
 			// Get the positions of the particles
-			PxVec4* bufferPos = getParticleBuffer()->getPositionInvMasses();
+			PxVec4* bufferPos = pr->getPositionInvMasses();
 
 			// Cast the bufferPos to CUdeviceptr
 			CUdeviceptr ptr = reinterpret_cast<CUdeviceptr>(bufferPos);
@@ -385,10 +389,10 @@ class PhysxBase : public Singleton<PhysxBase>
 			//std::vector<PxVec4> particlePositions(getParticleBuffer()->getNbActiveParticles());
 			
 			m_Particles.clear();
-			m_Particles.resize(getParticleBuffer()->getNbActiveParticles());
+			m_Particles.resize(pr->getNbActiveParticles());
 
 			// Copy the positions into the vector
-			for (size_t i = 0; i < getParticleBuffer()->getNbActiveParticles(); ++i) {
+			for (size_t i = 0; i < pr->getNbActiveParticles(); ++i) {
 				m_Particles[i].pos.x = positions[i].x;
 				m_Particles[i].pos.y = positions[i].y;
 				m_Particles[i].pos.z = positions[i].z;

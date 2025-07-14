@@ -196,7 +196,7 @@ private:
 		auto& vulkan_vars = vulkanVars::GetInstance();
 		initScene();
 		
-		vulkan_vars.commandBuffer = vulkan_vars.commandPoolModelPipeline.createCommandBuffer();
+		//vulkan_vars.commandBuffer = vulkan_vars.commandPoolModelPipeline.createCommandBuffer();
 
 		m_Pipeline3d.Initialize( "shaders/shader3d.vert.spv", "shaders/shader3d.frag.spv", Vertex::getBindingDescription(),Vertex::getAttributeDescriptions() , VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 		m_PipelineParticles.Initialize( "shaders/computeShader.vert.spv", "shaders/computeShader.frag.spv",  Particle::getBindingDescription(), Particle::getAttributeDescriptions() , VK_PRIMITIVE_TOPOLOGY_POINT_LIST);

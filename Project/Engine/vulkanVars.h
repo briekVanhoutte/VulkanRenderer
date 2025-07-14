@@ -16,5 +16,6 @@ public:
 	VkRenderPass renderPass = VK_NULL_HANDLE;
 	VkQueue graphicsQueue = VK_NULL_HANDLE;
 	VkExtent2D swapChainExtent;
-	CommandBuffer commandBuffer;
+	std::vector<CommandBuffer> commandBuffers; 
+	size_t currentFrame = 0;
 };

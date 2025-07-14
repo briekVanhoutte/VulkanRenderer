@@ -72,8 +72,8 @@ void Pipeline::Record(uint32_t imageIndex, VkRenderPass renderPass, const std::v
 void Pipeline::drawScene(uint32_t imageIndex, VkRenderPass renderPass,const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene)
 {
 	auto& vulkan_vars = vulkanVars::GetInstance();
-
-	vkCmdBindPipeline(vulkan_vars.commandBuffer.m_VkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline3d);
+	size_t currentSlice = vulkan_vars.currentFrame % MAX_FRAMES_IN_FLIGHT;
+	vkCmdBindPipeline(vulkan_vars.commandBuffers[currentSlice].m_VkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline3d);
 
 	VkViewport viewport{};
 	viewport.x = 0.0f;
@@ -82,20 +82,20 @@ void Pipeline::drawScene(uint32_t imageIndex, VkRenderPass renderPass,const std:
 	viewport.height = (float)swapChainExtent.height;
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
-	vkCmdSetViewport(vulkan_vars.commandBuffer.m_VkCommandBuffer, 0, 1, &viewport);
+	vkCmdSetViewport(vulkan_vars.commandBuffers[currentSlice].m_VkCommandBuffer, 0, 1, &viewport);
 
 	VkRect2D scissor{};
 	scissor.offset = { 0, 0 };
 	scissor.extent = swapChainExtent;
-	vkCmdSetScissor(vulkan_vars.commandBuffer.m_VkCommandBuffer, 0, 1, &scissor);
+	vkCmdSetScissor(vulkan_vars.commandBuffers[currentSlice].m_VkCommandBuffer, 0, 1, &scissor);
 
 	
 
 	//vkCmdBindPipeline(vulkan_vars.commandBuffer.m_VkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline3d);
 
-	m_Shader->bindDescriptorSet(vulkan_vars.commandBuffer.m_VkCommandBuffer, m_PipelineLayout, imageIndex);
+	m_Shader->bindDescriptorSet(vulkan_vars.commandBuffers[currentSlice].m_VkCommandBuffer, m_PipelineLayout, imageIndex);
 
-	scene.drawScene(m_PipelineLayout, vulkan_vars.commandBuffer.m_VkCommandBuffer);
+	scene.drawScene(m_PipelineLayout, vulkan_vars.commandBuffers[currentSlice].m_VkCommandBuffer);
 
 	
 }

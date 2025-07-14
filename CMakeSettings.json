@@ -1,48 +1,91 @@
 ﻿{
-    "configurations": [
+  "configurations": [
+    {
+      "name": "x64-Debug",
+      "generator": "Ninja",
+      "configurationType": "Debug",
+      "inheritEnvironments": [ "msvc_x64_x64" ],
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": "",
+      "variables": [
         {
-            "name": "x64-Debug",
-            "generator": "Ninja",
-            "configurationType": "Debug",
-            "inheritEnvironments": [ "msvc_x64_x64" ],
-            "buildRoot": "${projectDir}\\out\\build\\${name}",
-            "installRoot": "${projectDir}\\out\\install\\${name}",
-            "cmakeCommandArgs": "",
-            "buildCommandArgs": "",
-            "ctestCommandArgs": "",
-            "variables": [
-                {
-                    "name": "PhysX_Common",
-                    "value": "${projectDir}/vcpkg/packages/physx_x64-windows/debug/lib/PhysXCommon_64.lib",
-                    "type": "FILEPATH"
-                },
-                {
-                    "name": "PhysX",
-                    "value": "${projectDir}/vcpkg/packages/physx_x64-windows/debug/lib/PhysX_64.lib",
-                    "type": "FILEPATH"
-                },
-                {
-                    "name": "PhysX_COOKER",
-                    "value": "${projectDir}/vcpkg/packages/physx_x64-windows/debug/lib/PhysXCooking_64.lib",
-                    "type": "FILEPATH"
-                },
-                {
-                    "name": "PhysX_EXTENSIONS",
-                    "value": "${projectDir}/vcpkg/packages/physx_x64-windows/debug/lib/PhysXExtensions_static_64.lib",
-                    "type": "FILEPATH"
-                },
-                {
-                    "name": "PhysX_FOUNDATION",
-                    "value": "${projectDir}/vcpkg/packages/physx_x64-windows/debug/lib/PhysXFoundation_64.lib",
-                    "type": "FILEPATH"
-                },
-                {
-                    "name": "PhysX_PVD",
-                    "value": "${projectDir}/vcpkg/packages/physx_x64-windows/debug/lib/PhysXPvdSDK_static_64.lib",
-                    "type": "FILEPATH"
-                }
-            ],
-            "intelliSenseMode": "windows-msvc-x64"
+          "name": "PhysX_Common",
+          "value": "${projectDir}/vcpkg/installed/x64-windows/debug/lib/PhysXCommon_64.lib",
+          "type": "FILEPATH"
+        },
+        {
+          "name": "PhysX",
+          "value": "${projectDir}/vcpkg/installed/x64-windows/debug/lib/PhysX_64.lib",
+          "type": "FILEPATH"
+        },
+        {
+          "name": "PhysX_COOKER",
+          "value": "${projectDir}/vcpkg/installed/x64-windows/debug/lib/PhysXCooking_64.lib",
+          "type": "FILEPATH"
+        },
+        {
+          "name": "PhysX_EXTENSIONS",
+          "value": "${projectDir}/vcpkg/installed/x64-windows/debug/lib/PhysXExtensions_static_64.lib",
+          "type": "FILEPATH"
+        },
+        {
+          "name": "PhysX_FOUNDATION",
+          "value": "${projectDir}/vcpkg/installed/x64-windows/debug/lib/PhysXFoundation_64.lib",
+          "type": "FILEPATH"
+        },
+        {
+          "name": "PhysX_PVD",
+          "value": "${projectDir}/vcpkg/installed/x64-windows/debug/lib/PhysXPvdSDK_static_64.lib",
+          "type": "FILEPATH"
         }
-    ]
+      ],
+      "intelliSenseMode": "windows-msvc-x64"
+    },
+    {
+      "name": "x64-Release",
+      "generator": "Ninja",
+      "configurationType": "RelWithDebInfo",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": "",
+      "inheritEnvironments": [ "msvc_x64_x64" ],
+      "variables": [
+        {
+          "name": "PhysX_Common",
+          "value": "${projectDir}/vcpkg/installed/x64-windows/lib/PhysXCommon_64.lib",
+          "type": "FILEPATH"
+        },
+        {
+          "name": "PhysX",
+          "value": "${projectDir}/vcpkg/installed/x64-windows/lib/PhysX_64.lib",
+          "type": "FILEPATH"
+        },
+        {
+          "name": "PhysX_COOKER",
+          "value": "${projectDir}/vcpkg/installed/x64-windows/lib/PhysXCooking_64.lib",
+          "type": "FILEPATH"
+        },
+        {
+          "name": "PhysX_EXTENSIONS",
+          "value": "${projectDir}/vcpkg/installed/x64-windows/lib/PhysXExtensions_static_64.lib",
+          "type": "FILEPATH"
+        },
+        {
+          "name": "PhysX_FOUNDATION",
+          "value": "${projectDir}/vcpkg/installed/x64-windows/lib/PhysXFoundation_64.lib",
+          "type": "FILEPATH"
+        },
+        {
+          "name": "PhysX_PVD",
+          "value": "${projectDir}/vcpkg/installed/x64-windows/lib/PhysXPvdSDK_static_64.lib",
+          "type": "FILEPATH"
+        }
+      ]
+    }
+  ]
 }

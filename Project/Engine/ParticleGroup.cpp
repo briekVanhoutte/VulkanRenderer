@@ -24,28 +24,30 @@ void ParticleGroup::initialize(VkPhysicalDevice physicalDevice, VkDevice device,
 {
 	VkDeviceSize vertexBufferSize = sizeof(m_Particles[0]) * m_Particles.size();
 
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-	auto VertexStagingBuffer = std::make_unique<DataBuffer>(physicalDevice, device,
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		vertexBufferSize
-	);
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
 
-	VertexStagingBuffer->map(vertexBufferSize, m_Particles.data());
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
+		auto VertexStagingBuffer = std::make_unique<DataBuffer>(physicalDevice, device,
+			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			vertexBufferSize
+		);
 
-	m_ParticleBuffer = std::make_unique<DataBuffer>(physicalDevice, device,
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		vertexBufferSize
-	);
+		VertexStagingBuffer->map(vertexBufferSize, m_Particles.data());
 
-
-
-	m_ParticleBuffer->copyBuffer(VertexStagingBuffer->getVkBuffer(), commandPool, device, vertexBufferSize, graphicsQueue);
-	VertexStagingBuffer->destroy(device);
+		m_ParticleBuffers[i] = std::make_unique<DataBuffer>(physicalDevice, device,
+			VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			vertexBufferSize
+		);
 
 
+
+		m_ParticleBuffers[i]->copyBuffer(VertexStagingBuffer->getVkBuffer(), commandPool, device, vertexBufferSize, graphicsQueue);
+		VertexStagingBuffer->destroy(device);
+
+	}
 
 	/*VkDeviceSize particleBufferSizew = sizeof(physx::PxVec4) * m_ParticleCount;
 
@@ -77,7 +79,8 @@ void ParticleGroup::setPosition(glm::vec3 position, glm::vec3 scale, glm::vec3 r
 
 void ParticleGroup::destroyParticleGroup(const VkDevice& device)
 {
-	m_ParticleBuffer->destroy(device);
+	auto& vulkan_vars = vulkanVars::GetInstance();
+	m_ParticleBuffers[vulkan_vars.currentFrame%MAX_FRAMES_IN_FLIGHT]->destroy(device);
 }
 
 
@@ -85,8 +88,9 @@ void ParticleGroup::draw(VkPipelineLayout pipelineLayout, VkCommandBuffer comman
 {
 
 	update();
+	auto& vulkan_vars = vulkanVars::GetInstance();
 
-	m_ParticleBuffer->bindAsVertexBuffer(commandBuffer);
+	m_ParticleBuffers[vulkan_vars.currentFrame % MAX_FRAMES_IN_FLIGHT]->bindAsVertexBuffer(commandBuffer);
 
 	vkCmdPushConstants(
 		commandBuffer,
@@ -126,9 +130,9 @@ void ParticleGroup::update()
 
 	VertexStagingBuffer->map(vertexBufferSize, m_Particles.data());
 
-	m_ParticleBuffer->destroy(vulkan_vars.device);
+	m_ParticleBuffers[vulkan_vars.currentFrame % MAX_FRAMES_IN_FLIGHT]->destroy(vulkan_vars.device);
 
-	m_ParticleBuffer = std::make_unique<DataBuffer>(vulkan_vars.physicalDevice, vulkan_vars.device,
+	m_ParticleBuffers[vulkan_vars.currentFrame % MAX_FRAMES_IN_FLIGHT] = std::make_unique<DataBuffer>(vulkan_vars.physicalDevice, vulkan_vars.device,
 		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		vertexBufferSize
@@ -136,7 +140,7 @@ void ParticleGroup::update()
 
 
 
-	m_ParticleBuffer->copyBuffer(VertexStagingBuffer->getVkBuffer(), vulkan_vars.commandPoolModelPipeline.m_CommandPool, vulkan_vars.device, vertexBufferSize, vulkan_vars.graphicsQueue);
+	m_ParticleBuffers[vulkan_vars.currentFrame % MAX_FRAMES_IN_FLIGHT]->copyBuffer(VertexStagingBuffer->getVkBuffer(), vulkan_vars.commandPoolModelPipeline.m_CommandPool, vulkan_vars.device, vertexBufferSize, vulkan_vars.graphicsQueue);
 	VertexStagingBuffer->destroy(vulkan_vars.device);
 
 

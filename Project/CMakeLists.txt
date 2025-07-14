@@ -61,19 +61,45 @@ set(SOURCES
         
    
 # Create the executable
-add_executable(${PROJECT_NAME} ${SOURCES} ${GLSL_SOURCE_FILES}  "vulkanbase/VulkanUtil.cpp" "labwork/Week03.cpp")
+add_executable(${PROJECT_NAME} ${SOURCES} ${GLSL_SOURCE_FILES}  "vulkanbase/VulkanUtil.cpp" )
 add_dependencies(${PROJECT_NAME} Shaders)
 # Link libraries
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/vcpkg/installed/x64-windows/include/physx")
 
-target_link_libraries(${PROJECT_NAME} PRIVATE ${PhysX} ${PhysX_Common} ${PhysX_FOUNDATION} ${PhysX_COOKER} $<$<CONFIG:DEBUG>:${PhysX_EXTENSIONS}> $<$<CONFIG:DEBUG>:${PhysX_PVD}>)
+target_link_libraries(${PROJECT_NAME} PRIVATE ${PhysX} ${PhysX_Common} ${PhysX_FOUNDATION} ${PhysX_COOKER} ${PhysX_EXTENSIONS} ${PhysX_PVD})
 target_link_libraries(${PROJECT_NAME} PRIVATE ${Vulkan_LIBRARIES} glfw)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${Vulkan_LIBRARIES} glm)
 
+# This assumes vcpkg is in ${CMAKE_SOURCE_DIR}/vcpkg
+set(PHYSX_BIN_DIR "${CMAKE_SOURCE_DIR}/vcpkg/installed/x64-windows/bin")
+set(PHYSX_DEBUG_BIN_DIR "${CMAKE_SOURCE_DIR}/vcpkg/installed/x64-windows/debug/bin")
+
+
+# For Debug
 if(CMAKE_BUILD_TYPE MATCHES "Debug")
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_SOURCE_DIR}/vcpkg/packages/physx_x64-windows/debug/bin"
-        $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/vcpkg/installed/x64-windows/debug/bin/PhysX_64.dll"
+            "${CMAKE_SOURCE_DIR}/vcpkg/installed/x64-windows/debug/bin/PhysXCommon_64.dll"
+            "${CMAKE_SOURCE_DIR}/vcpkg/installed/x64-windows/debug/bin/PhysXFoundation_64.dll"
+            "${CMAKE_SOURCE_DIR}/vcpkg/installed/x64-windows/debug/bin/PhysXCooking_64.dll"
+            "${CMAKE_SOURCE_DIR}/vcpkg/installed/x64-windows/debug/bin/PhysXGpu_64.dll"
+            "${CMAKE_SOURCE_DIR}/vcpkg/installed/x64-windows/debug/bin/PhysXDevice64.dll"
+            $<TARGET_FILE_DIR:${PROJECT_NAME}>
+    )
+endif()
+
+# For Release
+if(CMAKE_BUILD_TYPE MATCHES "Release" OR CMAKE_BUILD_TYPE MATCHES "RelWithDebInfo")
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/vcpkg/installed/x64-windows/bin/PhysX_64.dll"
+            "${CMAKE_SOURCE_DIR}/vcpkg/installed/x64-windows/bin/PhysXCommon_64.dll"
+            "${CMAKE_SOURCE_DIR}/vcpkg/installed/x64-windows/bin/PhysXFoundation_64.dll"
+            "${CMAKE_SOURCE_DIR}/vcpkg/installed/x64-windows/bin/PhysXCooking_64.dll"
+            "${CMAKE_SOURCE_DIR}/vcpkg/installed/x64-windows/bin/PhysXGpu_64.dll"
+            "${CMAKE_SOURCE_DIR}/vcpkg/installed/x64-windows/bin/PhysXDevice64.dll"
+            $<TARGET_FILE_DIR:${PROJECT_NAME}>
+    )
 endif()

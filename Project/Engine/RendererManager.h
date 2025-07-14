@@ -39,9 +39,11 @@ private:
     std::vector<VkImageView> swapChainImageViews;
 
     std::vector<VkFramebuffer> swapChainFramebuffers;
-    VkSemaphore imageAvailableSemaphore;
-    VkSemaphore renderFinishedSemaphore;
-    VkFence inFlightFence;
+    std::array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> imageAvailableSemaphores;
+    std::array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> renderFinishedSemaphores;
+    std::array<VkFence, MAX_FRAMES_IN_FLIGHT> inFlightFences;
+
+    std::vector<VkFence> imagesInFlight;
 
     void createInstance();
     bool checkValidationLayerSupport();
@@ -71,7 +73,7 @@ private:
     void initPipeLines();
     void createFrameBuffers();
 
-    void createSyncObjects();
+    void createSyncObjects(size_t currentFrame = 0);
     QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 
 

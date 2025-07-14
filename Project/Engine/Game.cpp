@@ -122,11 +122,13 @@ void Game::run() {
     auto lastTime = clock::now();
     float totalTime = 0.f;
     int frameCount = 0;
-
+    auto& vulkan_vars = vulkanVars::GetInstance();
     while (!glfwWindowShouldClose(m_WindowManager.getWindow())) {
         auto frameStart = clock::now();
         float deltaTime = std::chrono::duration<float>(frameStart - lastTime).count();
         lastTime = frameStart;
+
+        vulkan_vars.currentFrame = frameCount;
 
         glfwPollEvents();
 
@@ -155,7 +157,6 @@ void Game::run() {
         }
     }
 
-    auto& vulkan_vars = vulkanVars::GetInstance();
     vkDeviceWaitIdle(vulkan_vars.device);
 }
 

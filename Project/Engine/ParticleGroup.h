@@ -20,9 +20,8 @@ public:
 	void draw(VkPipelineLayout pipelineLayout, VkCommandBuffer commandBuffer);
 private:
 
-	std::unique_ptr<DataBuffer> m_ParticleBuffer;
-
 	std::vector<Particle> m_Particles;
+	std::array<std::unique_ptr<DataBuffer>, MAX_FRAMES_IN_FLIGHT> m_ParticleBuffers;
 
 	MeshData m_VertexConstant = {  };
 	physx::PxVec4* m_pParticleBuffer;

@@ -27,7 +27,15 @@ void RendererManager::Initialize() {
 	vulkan_vars.commandPoolModelPipeline.initialize(findQueueFamilies(vulkan_vars.physicalDevice));
 	vulkan_vars.commandPoolParticlesPipeline.initialize(findQueueFamilies(vulkan_vars.physicalDevice));
 
+
+
 	initPipeLines();
+
+	vulkan_vars.commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+		vulkan_vars.commandBuffers[i] = vulkan_vars.commandPoolModelPipeline.createCommandBuffer();
+	}
+
 	createFrameBuffers();
 
 	createSyncObjects();
@@ -35,23 +43,24 @@ void RendererManager::Initialize() {
 
 void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Camera& camera) {
 	auto& vulkan_vars = vulkanVars::GetInstance();
-	vkWaitForFences(vulkan_vars.device, 1, &inFlightFence, VK_TRUE, UINT64_MAX);
-	vkResetFences(vulkan_vars.device, 1, &inFlightFence);
+	size_t frameIndex = vulkan_vars.currentFrame % MAX_FRAMES_IN_FLIGHT;
+
+	vkWaitForFences(vulkan_vars.device, 1, &inFlightFences[frameIndex], VK_TRUE, UINT64_MAX);
+	vkResetFences(vulkan_vars.device, 1, &inFlightFences[frameIndex]);
 
 	uint32_t imageIndex;
-	vkAcquireNextImageKHR(vulkan_vars.device, swapChain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+	vkAcquireNextImageKHR(vulkan_vars.device, swapChain, UINT64_MAX, imageAvailableSemaphores[frameIndex], VK_NULL_HANDLE, &imageIndex);
 
 	UniformBufferObject vp{};
 
 	vp.view = { glm::inverse(camera.CalculateCameraToWorld()) };
 	vp.proj = glm::perspective(glm::radians(camera.fovAngle), camera.aspectRatio, camera.nearPlane, camera.farPlane);
 
-
 	m_Pipeline3d.setUbo(vp);
 	m_PipelineParticles.setUbo(vp);
 
-	vulkan_vars.commandBuffer.reset();
-	vulkan_vars.commandBuffer.beginRecording();
+	vulkan_vars.commandBuffers[frameIndex].reset();
+	vulkan_vars.commandBuffers[frameIndex].beginRecording();
 
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -67,7 +76,7 @@ void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Ca
 	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 	renderPassInfo.pClearValues = clearValues.data();
 
-	vkCmdBeginRenderPass(vulkan_vars.commandBuffer.m_VkCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdBeginRenderPass(vulkan_vars.commandBuffers[frameIndex].m_VkCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 
 	for (const RenderItem& item : renderItems) {
@@ -87,30 +96,30 @@ void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Ca
 	//m_PipelineParticles.Record(imageIndex, vulkan_vars.renderPass, swapChainFramebuffers, vulkan_vars.swapChainExtent, m_Scene2);
 	//m_Pipeline3d.Record(imageIndex, vulkan_vars.renderPass, swapChainFramebuffers, vulkan_vars.swapChainExtent, m_Scene);
 
-	vkCmdEndRenderPass(vulkan_vars.commandBuffer.m_VkCommandBuffer);
+	vkCmdEndRenderPass(vulkan_vars.commandBuffers[frameIndex].m_VkCommandBuffer);
 
-	vulkan_vars.commandBuffer.endRecording();
+	vulkan_vars.commandBuffers[frameIndex].endRecording();
 	//m_Pipeline2d.Record(imageIndex, renderPass, swapChainFramebuffers, swapChainExtent);
 
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-	VkSemaphore waitSemaphores[] = { imageAvailableSemaphore };
+	VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[frameIndex] };
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 
 	submitInfo.waitSemaphoreCount = 1;
 	submitInfo.pWaitSemaphores = waitSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
 
-	vulkan_vars.commandBuffer.submit(submitInfo);
+	vulkan_vars.commandBuffers[frameIndex].submit(submitInfo);
 
 	//m_Pipeline2d.m_Buffer.submit(submitInfo);
-
-	VkSemaphore signalSemaphores[] = { renderFinishedSemaphore };
+	
+	VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[frameIndex] };
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
-	if (vkQueueSubmit(vulkan_vars.graphicsQueue, 1, &submitInfo, inFlightFence) != VK_SUCCESS) {
+	if (vkQueueSubmit(vulkan_vars.graphicsQueue, 1, &submitInfo, inFlightFences[frameIndex]) != VK_SUCCESS) {
 		throw std::runtime_error("failed to submit draw command buffer!");
 	}
 
@@ -130,12 +139,8 @@ void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Ca
 }
 
 void RendererManager::Cleanup() {
-	// TODO: Fill in with your cleanup code.
-	// e.g., destroy semaphores, fences, command pool, swap chain, device, surface, instance, etc.
+
 }
-
-
-// initialisiation
 
 void RendererManager::createInstance()
 {
@@ -566,7 +571,7 @@ void RendererManager::initPipeLines()
 	auto& vulkan_vars = vulkanVars::GetInstance();
 	//initScene();
 
-	vulkan_vars.commandBuffer = vulkan_vars.commandPoolModelPipeline.createCommandBuffer();
+	//vulkan_vars.commandBuffer = vulkan_vars.commandPoolModelPipeline.createCommandBuffer();
 
 	m_Pipeline3d.Initialize("shaders/shader3d.vert.spv", "shaders/shader3d.frag.spv", Vertex::getBindingDescription(), Vertex::getAttributeDescriptions(), VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 	m_PipelineParticles.Initialize("shaders/computeShader.vert.spv", "shaders/computeShader.frag.spv", Particle::getBindingDescription(), Particle::getAttributeDescriptions(), VK_PRIMITIVE_TOPOLOGY_POINT_LIST);
@@ -595,7 +600,7 @@ void RendererManager::createFrameBuffers()
 		}
 	}
 }
-void RendererManager::createSyncObjects()
+void RendererManager::createSyncObjects(size_t currentFrame)
 {
 	auto& vulkan_vars = vulkanVars::GetInstance();
 	VkSemaphoreCreateInfo semaphoreInfo{};
@@ -605,10 +610,14 @@ void RendererManager::createSyncObjects()
 	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-	if (vkCreateSemaphore(vulkan_vars.device, &semaphoreInfo, nullptr, &imageAvailableSemaphore) != VK_SUCCESS ||
-		vkCreateSemaphore(vulkan_vars.device, &semaphoreInfo, nullptr, &renderFinishedSemaphore) != VK_SUCCESS ||
-		vkCreateFence(vulkan_vars.device, &fenceInfo, nullptr, &inFlightFence) != VK_SUCCESS) {
-		throw std::runtime_error("failed to create synchronization objects for a frame!");
+	imagesInFlight.resize(swapChainImages.size(), VK_NULL_HANDLE);
+
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+		vkCreateSemaphore(vulkan_vars.device, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]);
+		vkCreateSemaphore(vulkan_vars.device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]);
+
+		fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+		vkCreateFence(vulkan_vars.device, &fenceInfo, nullptr, &inFlightFences[i]);
 	}
 
 }
