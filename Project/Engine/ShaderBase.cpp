@@ -39,6 +39,13 @@ void ShaderBase::initialize(const VkPhysicalDevice& vkPhysicalDevice, const VkDe
     m_VkVertexInputBindingDesc = vkVertexInputBindingDesc;
     m_VkVertexInputAttributeDesc = vkVertexInputAttributeDesc;
 
+    m_VertexInputStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+
+    m_VertexInputStateInfo.vertexBindingDescriptionCount = 1;
+    m_VertexInputStateInfo.pVertexBindingDescriptions = &m_VkVertexInputBindingDesc;
+    m_VertexInputStateInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(m_VkVertexInputAttributeDesc.size());
+    m_VertexInputStateInfo.pVertexAttributeDescriptions = m_VkVertexInputAttributeDesc.data();
+
     m_UBOBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
@@ -56,6 +63,8 @@ void ShaderBase::initialize(const VkPhysicalDevice& vkPhysicalDevice, const VkDe
         );
 
         m_UBOBuffers[i]->upload(sizeof(ubo),&ubo);
+
+
     }
 
 
@@ -127,29 +136,24 @@ VkShaderModule ShaderBase::createShaderModule(const std::vector<char>& code) {
     	if (vkCreateShaderModule(device_, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
     		throw std::runtime_error("failed to create shader module!");
     	}
+
+        assert(reinterpret_cast<uintptr_t>(code.data()) % 4 == 0 && "SPIR-V code buffer is not 4-byte aligned!");
     
     	return shaderModule;
 }
 
-VkPipelineVertexInputStateCreateInfo ShaderBase::getVertexInputStateInfo() {
-    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+VkPipelineVertexInputStateCreateInfo& ShaderBase::getVertexInputStateInfo() {
 
-    vertexInputInfo.vertexBindingDescriptionCount = 1;
-    vertexInputInfo.pVertexBindingDescriptions = &m_VkVertexInputBindingDesc;
-    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(m_VkVertexInputAttributeDesc.size());
-    vertexInputInfo.pVertexAttributeDescriptions = m_VkVertexInputAttributeDesc.data();
-
-    return vertexInputInfo;
+    return m_VertexInputStateInfo;
 }
 
 
-VkPipelineInputAssemblyStateCreateInfo ShaderBase::getInputAssemblyStateInfo(VkPrimitiveTopology topology)  {
-    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
-	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-	inputAssembly.topology = topology ; //VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST
-	inputAssembly.primitiveRestartEnable = VK_FALSE;
-	return inputAssembly;
+VkPipelineInputAssemblyStateCreateInfo& ShaderBase::getInputAssemblyStateInfo(VkPrimitiveTopology topology)  {
+
+    m_VkPipelineInputAssemblyStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    m_VkPipelineInputAssemblyStateCreateInfo.topology = topology; //VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST
+    m_VkPipelineInputAssemblyStateCreateInfo.primitiveRestartEnable = VK_FALSE;
+    return m_VkPipelineInputAssemblyStateCreateInfo;
 }
 
 void ShaderBase::updateUniformBuffer(uint32_t currentImage, UniformBufferObject& ubo) {

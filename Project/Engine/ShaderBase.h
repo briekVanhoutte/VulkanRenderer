@@ -34,23 +34,25 @@ public:
 
     VkPipelineShaderStageCreateInfo getVertexShaderStageInfo() ;
     VkPipelineShaderStageCreateInfo getFragmentShaderStageInfo() ;
-    VkPipelineVertexInputStateCreateInfo getVertexInputStateInfo() ;
-    VkPipelineInputAssemblyStateCreateInfo getInputAssemblyStateInfo(VkPrimitiveTopology topology) ;
+    VkPipelineVertexInputStateCreateInfo& getVertexInputStateInfo() ;
+    VkPipelineInputAssemblyStateCreateInfo& getInputAssemblyStateInfo(VkPrimitiveTopology topology) ;
 
 private:
-    VkDevice device_;
-    std::vector<char> vertexShaderCode_;
-    std::vector<char> fragmentShaderCode_;
+    VkDevice device_{};
+    std::vector<char> vertexShaderCode_{};
+    std::vector<char> fragmentShaderCode_{};
 
-    VkVertexInputBindingDescription m_VkVertexInputBindingDesc;
-    std::vector<VkVertexInputAttributeDescription> m_VkVertexInputAttributeDesc;
+    VkVertexInputBindingDescription m_VkVertexInputBindingDesc{};
+    VkPipelineInputAssemblyStateCreateInfo m_VkPipelineInputAssemblyStateCreateInfo{};
+    std::vector<VkVertexInputAttributeDescription> m_VkVertexInputAttributeDesc{};
        
-    VkShaderModule vertexShaderModule_;
-    VkShaderModule fragmentShaderModule_;
+    VkShaderModule vertexShaderModule_{};
+    VkShaderModule fragmentShaderModule_{};
 
+    VkPipelineVertexInputStateCreateInfo m_VertexInputStateInfo{};
 
-    VkDescriptorSetLayout m_DescriptorSetLayout;
-    std::vector<std::unique_ptr<DataBuffer>> m_UBOBuffers;
+    VkDescriptorSetLayout m_DescriptorSetLayout{};
+    std::vector<std::unique_ptr<DataBuffer>> m_UBOBuffers{};
 
     UniformBufferObject m_UBOSrc{};
     DescriptorPool m_DescriptorPool{};

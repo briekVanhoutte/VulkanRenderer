@@ -5,12 +5,14 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <chrono>
 #include "Engine/vulkanVars.h"
+#include <iostream>
 Pipeline::Pipeline()
 {
 	m_Ubo = {};
 	m_Ubo.view = glm::mat4{ {1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1} };
 	m_Ubo.proj = glm::mat4{ {1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1} };
 	m_Ubo.proj[1][1] *= -1;
+	
 }
 
 Pipeline::~Pipeline()
@@ -25,39 +27,23 @@ void Pipeline::Destroy(const VkDevice& vkDevice)
 	vkDestroyPipelineLayout(vkDevice, m_PipelineLayout, nullptr);
 
 	m_Shader->Destroy( vkDevice);
-	//m_Scene.deleteScene(vkDevice);
 
 	vkDestroyImage(vkDevice, m_DepthImage, nullptr);
 	vkFreeMemory(vkDevice, m_DepthImageMemory, nullptr);
 	vkDestroyImageView(vkDevice, m_DepthImageView, nullptr);
 }
 
-void Pipeline::Initialize( const std::string& vertexShaderPath, const std::string& fragmentShaderPath, const VkVertexInputBindingDescription& vkVertexInputBindingDesc, std::vector<VkVertexInputAttributeDescription>& vkVertexInputAttributeDesc, VkPrimitiveTopology topology)
+void Pipeline::Initialize( const std::string& vertexShaderPath, const std::string& fragmentShaderPath, const VkVertexInputBindingDescription vkVertexInputBindingDesc, std::vector<VkVertexInputAttributeDescription> vkVertexInputAttributeDesc, VkPrimitiveTopology topology)
 {
 	auto& vulkan_vars = vulkanVars::GetInstance();
 
-	//m_Scene.initObject(vkPhysicalDevice, vkDevice, commandPool.m_CommandPool, graphicsQueue);
-	// create m_Shader;
 	m_Shader = std::make_unique<ShaderBase>(vertexShaderPath, fragmentShaderPath);
 	m_Shader->initialize(vulkan_vars.physicalDevice, vulkan_vars.device, vkVertexInputBindingDesc, vkVertexInputAttributeDesc);
 	m_Shader->createDescriptorSetLayout(vulkan_vars.device);
-	// create scene
-	
 
-	// create m_Buffer;
-
-
-
-	// create depth buffer:
 	createDepthResources(vulkan_vars.physicalDevice, vulkan_vars.device, vulkan_vars.swapChainExtent);
 
-	// create m_Pipeline3d;
 	CreatePipeline(vulkan_vars.device , vulkan_vars.renderPass, topology);
-
-
-	//std::vector<VkFramebuffer> swapChainFramebuffers;
-	//VkRenderPass renderPass;
-	//VkExtent2D swapChainExtent;
 }
 
 void Pipeline::Record(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene)
@@ -94,6 +80,10 @@ void Pipeline::drawScene(uint32_t imageIndex, VkRenderPass renderPass,const std:
 	//vkCmdBindPipeline(vulkan_vars.commandBuffer.m_VkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline3d);
 
 	m_Shader->bindDescriptorSet(vulkan_vars.commandBuffers[currentSlice].m_VkCommandBuffer, m_PipelineLayout, imageIndex);
+
+	assert(m_Shader);
+	assert(m_Shader->getVertexShaderStageInfo().module != VK_NULL_HANDLE);
+	auto& vertexInput = m_Shader->getVertexInputStateInfo();
 
 	scene.drawScene(m_PipelineLayout, vulkan_vars.commandBuffers[currentSlice].m_VkCommandBuffer);
 
@@ -212,6 +202,14 @@ void Pipeline::CreatePipeline(VkDevice device, VkRenderPass renderPass, VkPrimit
 		throw std::runtime_error("failed to create graphics pipeline!");
 	}
 
+	auto& vertexInput = m_Shader->getVertexInputStateInfo();
+
+	std::cout << " === Vertex Input Check ===\n";
+	std::cout << "bindingDesc.binding: " << vertexInput.pVertexBindingDescriptions[0].binding << "\n";
+	std::cout << "bindingDesc.stride: " << vertexInput.pVertexBindingDescriptions[0].stride << "\n";
+	std::cout << "bindingDesc.inputRate: " << vertexInput.pVertexBindingDescriptions[0].inputRate << "\n";
+
+
 	vkDestroyShaderModule(device, vertShaderStageInfo.module, nullptr);
 	vkDestroyShaderModule(device, fragShaderStageInfo.module, nullptr);
 }
@@ -256,7 +254,7 @@ void Pipeline::createImage(VkPhysicalDevice& vkPhysicalDevice, VkDevice& vkDevic
 		throw std::runtime_error("failed to create image!");
 	}
 
-	VkMemoryRequirements memRequirements;
+	VkMemoryRequirements memRequirements{};
 	vkGetImageMemoryRequirements(vkDevice, image, &memRequirements);
 
 	VkMemoryAllocateInfo allocInfo{};
@@ -274,7 +272,7 @@ void Pipeline::createImage(VkPhysicalDevice& vkPhysicalDevice, VkDevice& vkDevic
 VkFormat Pipeline::findSupportedFormat(VkPhysicalDevice& vkPhysicalDevice, VkDevice& vkDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
 {
 	for (VkFormat format : candidates) {
-		VkFormatProperties props;
+		VkFormatProperties props{};
 		vkGetPhysicalDeviceFormatProperties(vkPhysicalDevice, format, &props);
 
 		if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
@@ -325,7 +323,7 @@ VkImageView Pipeline::createImageView(VkDevice& vkDevice, VkImage image, VkForma
 	viewInfo.subresourceRange.baseArrayLayer = 0;
 	viewInfo.subresourceRange.layerCount = 1;
 
-	VkImageView imageView;
+	VkImageView imageView{};
 	if (vkCreateImageView(vkDevice, &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create texture image view!");
 	}

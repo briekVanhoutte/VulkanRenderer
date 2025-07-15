@@ -5,6 +5,7 @@
 #include <glm/ext/matrix_transform.hpp> // glm::translate, glm::rotate, glm::scale
 #include <glm/ext/matrix_clip_space.hpp> // glm::perspective
 #include <glm/ext/scalar_constants.hpp> // glm::pi
+#include <iostream>
 
 //DataBuffer::DataBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkDeviceSize size)
 
@@ -94,16 +95,18 @@ void Mesh::setPosition(glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAn
 }
 
 void Mesh::draw(VkPipelineLayout pipelineLayout, VkCommandBuffer commandBuffer) {
+
+
 	m_VertexBuffer->bindAsVertexBuffer(commandBuffer);
 	m_IndexBuffer->bindAsIndexBuffer(commandBuffer);
 
 	vkCmdPushConstants(
 		commandBuffer,
 		pipelineLayout,
-		VK_SHADER_STAGE_VERTEX_BIT, // Stage flag should match the push constant range in the layout
-		0,                          // Offset within the push constant block
-		sizeof(MeshData),          // Size of the push constants to update
-		&m_VertexConstant                  // Pointer to the data
+		VK_SHADER_STAGE_VERTEX_BIT, 
+		0,                          
+		sizeof(MeshData),         
+		&m_VertexConstant 
 	);
 
 	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(m_Indices.size()), 1, 0, 0, 0);

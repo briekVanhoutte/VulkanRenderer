@@ -55,6 +55,26 @@ void DataBuffer::copyBuffer(VkBuffer srcBuffer, const VkCommandPool& commandPool
 	copyRegion.size = size;
 	vkCmdCopyBuffer(commandBuffer, srcBuffer, m_VkBuffer, 1, &copyRegion);
 	
+	VkBufferMemoryBarrier barrier{};
+	barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+	barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	barrier.dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.buffer = m_VkBuffer;
+	barrier.offset = 0;
+	barrier.size = size;
+
+	vkCmdPipelineBarrier(
+		commandBuffer,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+		0,
+		0, nullptr,
+		1, &barrier,
+		0, nullptr
+	);
+
 	vkEndCommandBuffer(commandBuffer);
 
 	VkSubmitInfo submitInfo{};
@@ -72,12 +92,14 @@ void DataBuffer::upload(VkDeviceSize size, void* data)
 {
 	vkMapMemory(m_VkDevice, m_VkBufferMemory, 0, size, 0, &m_UniformBufferMapped);
 	memcpy(m_UniformBufferMapped, data, (size_t)size);
+	vkUnmapMemory(m_VkDevice, m_VkBufferMemory);
 }
 
 void DataBuffer::uploadRaw(VkDeviceSize size, void* data)
 {
 	vkMapMemory(m_VkDevice, m_VkBufferMemory, 0, size, 0, &m_UniformBufferMapped);
-	m_UniformBufferMapped = data;
+	memcpy(m_UniformBufferMapped, data, size);
+	vkUnmapMemory(m_VkDevice, m_VkBufferMemory);
 }
 
 void DataBuffer::map(VkDeviceSize size, void* data)

@@ -11,8 +11,6 @@ public:
 	CommandPool commandPoolParticlesPipeline{};
 	VkDevice device = VK_NULL_HANDLE;
 	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-	std::string vertexShaderPat;
-	std::string fragmentShaderPath;
 	VkRenderPass renderPass = VK_NULL_HANDLE;
 	VkQueue graphicsQueue = VK_NULL_HANDLE;
 	VkExtent2D swapChainExtent;

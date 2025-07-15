@@ -11,6 +11,7 @@ RendererManager::~RendererManager() {
 }
 
 void RendererManager::Initialize() {
+	auto& vulkan_vars = vulkanVars::GetInstance();
 	createInstance();
 	setupDebugMessenger();
 	createSurface();
@@ -23,7 +24,7 @@ void RendererManager::Initialize() {
 
 	createRenderPass();
 
-	auto& vulkan_vars = vulkanVars::GetInstance();
+
 	vulkan_vars.commandPoolModelPipeline.initialize(findQueueFamilies(vulkan_vars.physicalDevice));
 	vulkan_vars.commandPoolParticlesPipeline.initialize(findQueueFamilies(vulkan_vars.physicalDevice));
 

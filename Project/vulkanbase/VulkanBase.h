@@ -53,7 +53,7 @@ public:
 
 		initVulkan();
 
-		mainLoop();
+		//mainLoop();
 		cleanup();
 	}
 
@@ -204,47 +204,7 @@ private:
 
 	
 
-	void mainLoop() {
-		auto& vulkan_vars = vulkanVars::GetInstance();
-
-		std::cout << "Controls: " << std::endl;
-		std::cout << "movement: wasd " << std::endl;
-		std::cout << "camera: lmb + mouse " << std::endl;
-		std::cout << "move wall: arrow left + right " << std::endl;
-
-		auto startTime = std::chrono::high_resolution_clock::now();
-		float deltaTime = 0.f;
-		float totalTime = 0.f;
-		auto& physx = PhysxBase::GetInstance();
-		int frameCount = 0;
-		int fps = 50;
-		while (!glfwWindowShouldClose(window)) {
-			auto currentTime = std::chrono::high_resolution_clock::now();
-			deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-			startTime = currentTime;
-
-			glfwPollEvents();
-			// week 06
-
-			physx.stepPhysics(false);
-			drawFrame3d();
-			HandleKeyInputs(deltaTime /fps);
-			HandleMouseInputs(deltaTime /fps);
-			m_Camera.update();
-
-			frameCount++;
-			totalTime += deltaTime;
-			if (totalTime >= 1.0f) {
-				fps = frameCount;
-				//std::cout << "FPS: " << std::fixed << std::setprecision(2) << fps << std::endl;
-				frameCount = 0;
-				startTime = std::chrono::high_resolution_clock::now(); // Reset start time
-				totalTime = 0.f;
-			}
-		}
-		vkDeviceWaitIdle(vulkan_vars.device);
-	}
-
+	
 	void cleanup() {
 		auto& vulkan_vars = vulkanVars::GetInstance();
 

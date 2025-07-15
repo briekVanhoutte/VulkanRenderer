@@ -294,12 +294,12 @@ class PhysxBase : public Singleton<PhysxBase>
 			return movingWall->getGlobalPose().p.x;
 		}
 
-		void stepPhysics(bool interactive)
+		void stepPhysics(bool interactive,float deltaTime)
 		{
 			if (gIsRunning || gStep)
 			{
 				gStep = false;
-				PxReal dt = 1.0f / 60.0f;
+				//PxReal dt = 1.0f / 60.0f;
 				//const PxReal dt = deltaTime;
 
 				if (movingWall)
@@ -312,15 +312,15 @@ class PhysxBase : public Singleton<PhysxBase>
 					{
 						
 
-						if (pose.p.x - dt * speed > -9.f) {
-							pose.p.x -= dt * speed;
+						if (pose.p.x - deltaTime * speed > -9.f) {
+							pose.p.x -= deltaTime * speed;
 						}
 					}
 					if (wallMoveLeft)
 					{
-						if (pose.p.x + dt * speed < -3.f)
+						if (pose.p.x + deltaTime * speed < -3.f)
 						{
-							pose.p.x += dt * speed;
+							pose.p.x += deltaTime * speed;
 						}
 
 
@@ -331,7 +331,7 @@ class PhysxBase : public Singleton<PhysxBase>
 					movingWall->setKinematicTarget(pose);
 				}
 
-				gScene->simulate(dt);
+				gScene->simulate(deltaTime);
 				gScene->fetchResults(true);
 				gScene->fetchResultsParticleSystem();
 				getParticles();

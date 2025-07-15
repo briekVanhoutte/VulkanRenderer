@@ -1,4 +1,4 @@
-#include "Game.h"
+ï»¿#include "Game.h"
 
 Game::Game()
     : m_WindowManager(WindowManager::GetInstance()),
@@ -54,11 +54,11 @@ void Game::initScene() {
     glm::vec3 scaleParticles{ 1.f, 1.f, 1.f };
     glm::vec3 rotParticles{ 0.f, 0.f, 0.f };
 
-    //m_SceneManager.addParticleGroup(
-    //    m_Physics.getParticleBuffer()->getPositionInvMasses(),
-    //    m_Physics.getParticleBuffer()->getNbActiveParticles(),
-    //    m_Physics.m_Particles,
-    //    posParticles, scaleParticles, rotParticles);
+    m_SceneManager.addParticleGroup(
+        m_Physics.getParticleBuffer()->getPositionInvMasses(),
+        m_Physics.getParticleBuffer()->getNbActiveParticles(),
+        m_Physics.m_Particles,
+        posParticles, scaleParticles, rotParticles);
 
     // Shift the particle group upward.
     posParticles.y += 3.f;
@@ -79,21 +79,21 @@ void Game::initScene() {
     posBotWall.x -= 3.f;
 
     // --- Create walls using the GameSceneManager and PrimitiveMeshComponent ---
-    // Back wall: plane with width 12 and height 6. Rotate -90° about X-axis.
+    // Back wall: plane with width 12 and height 6. Rotate -90Â° about X-axis.
     GameObject* backWall = m_GameScene.addGameObject();
     backWall->getTransform()->position = posBackWall;
     backWall->getTransform()->scale = scaleParticles;
     backWall->getTransform()->rotation = glm::vec3(-90.f, 0.f, 0.f);
     backWall->addComponent<PrimitiveMeshComponent>(backWall, PrimitiveType::Plane, 12.f, 6.f, 1.f);
 
-    // Right wall: plane with width 6 and height 6. Rotate -90° about X then -90° about Z.
+    // Right wall: plane with width 6 and height 6. Rotate -90Â° about X then -90Â° about Z.
     GameObject* rightWall = m_GameScene.addGameObject();
     rightWall->getTransform()->position = posRightWall;
     rightWall->getTransform()->scale = scaleParticles;
     rightWall->getTransform()->rotation = glm::vec3(-90.f, 0.f, -90.f);
     rightWall->addComponent<PrimitiveMeshComponent>(rightWall, PrimitiveType::Plane, 6.f, 6.f, 1.f);
 
-    // Left wall: plane with width 6 and height 6. Rotate -90° about X then +90° about Z.
+    // Left wall: plane with width 6 and height 6. Rotate -90Â° about X then +90Â° about Z.
     GameObject* leftWall = m_GameScene.addGameObject();
     leftWall->getTransform()->position = posLeftWall;
     leftWall->getTransform()->scale = scaleParticles;
@@ -133,7 +133,7 @@ void Game::run() {
         glfwPollEvents();
 
         // Update physics and render frame.
-        m_Physics.stepPhysics(false);
+        m_Physics.stepPhysics(false, deltaTime);
         m_Renderer->RenderFrame(m_RenderItems, *m_Camera);
 
         // Handle input and update camera.
