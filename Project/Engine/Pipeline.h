@@ -2,11 +2,12 @@
 #include <vector>
 #include <memory>
 #include <vulkan\vulkan_core.h>
-#include "vulkanbase\VulkanUtil.h"
+
 #include "Engine\ShaderBase.h"
 #include "Engine\CommandBuffer.h"
 #include "Engine\CommandPool.h"
 #include "Engine\Scene.h"
+#include "UniformBufferObject.h"
 
 class Pipeline
 {

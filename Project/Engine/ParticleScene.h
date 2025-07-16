@@ -1,7 +1,6 @@
 #pragma once
 
 #include "vulkan\vulkan_core.h"
-#include "vulkanbase\VulkanUtil.h"
 #include <glm/glm.hpp>
 #include "Mesh.h" 
 #include "objects/BaseObject.h"

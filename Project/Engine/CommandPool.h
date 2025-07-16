@@ -2,8 +2,8 @@
 
 #include "vulkan\vulkan_core.h"
 #include "CommandBuffer.h"
-#include "vulkanbase\VulkanUtil.h"
-
+#include <Engine/Vertex.h>
+#include <Engine/QueueFamilyIndices.h>
 class CommandPool
 {
 public:

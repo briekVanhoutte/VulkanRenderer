@@ -1,5 +1,6 @@
 #include "DescriptorPool.h"
 #include <iostream>
+#include <Engine/vulkanVars.h>
 
 DescriptorPool::DescriptorPool(const VkDevice& device, VkDeviceSize size, size_t count)
 	:m_Device{device}, m_Size{size},m_Count{count}

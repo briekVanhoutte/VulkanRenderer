@@ -5,7 +5,7 @@
 #include "Engine/DataBuffer.h"
 #include <PxPhysicsAPI.h>
 #include <extensions/PxParticleExt.h>
-
+#include <Engine/Particle.h>
 #include <vector>
 
 #include <iostream>

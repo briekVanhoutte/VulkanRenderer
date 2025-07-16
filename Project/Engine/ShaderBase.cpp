@@ -1,9 +1,9 @@
 #include "ShaderBase.h"
 #include <fstream>
 #include <stdexcept>
-#include "vulkanbase\VulkanUtil.h"
 #include <iostream>
 #include <glm\gtc\type_ptr.hpp>
+#include <Engine/vulkanVars.h>
 
 // Constructor
 ShaderBase::ShaderBase(const std::string& vertexShaderPath, const std::string& fragmentShaderPath)
@@ -123,6 +123,23 @@ VkPipelineShaderStageCreateInfo ShaderBase::getFragmentShaderStageInfo()  {
     info.module = fragmentShaderModule_;
     info.pName = "main"; // Entry point
     return info;
+}
+
+std::vector<char> ShaderBase::readFile(const std::string& filename) {
+    std::ifstream file(filename, std::ios::ate | std::ios::binary);
+
+    if (!file.is_open()) {
+        throw std::runtime_error("failed to open file!");
+    }
+
+    size_t fileSize = (size_t)file.tellg();
+    std::vector<char> buffer(fileSize);
+
+    file.seekg(0);
+    file.read(buffer.data(), fileSize);
+
+    file.close();
+    return buffer;
 }
 
 // Private Helper: Create a shader module from bytecode

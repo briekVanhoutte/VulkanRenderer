@@ -3,13 +3,16 @@
 #define SHADERBASE_H
 
 #include <vulkan/vulkan.h>
-#include "vulkanbase\VulkanUtil.h"
+#include <Engine/Vertex.h>
 #include <vector>
 #include <string>
 #include <memory>
 #include <array>
 #include "Engine\DataBuffer.h"
 #include "Engine\DescriptorPool.h"
+#include <Engine/UniformBufferObject.h>
+
+
 
 class ShaderBase {
 public:
@@ -58,7 +61,7 @@ private:
     DescriptorPool m_DescriptorPool{};
 
 
-
+    std::vector<char> readFile(const std::string& filename);
     VkShaderModule createShaderModule(const std::vector<char>& code);
 };
 

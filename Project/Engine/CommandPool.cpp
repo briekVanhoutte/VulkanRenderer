@@ -1,5 +1,6 @@
 #include "CommandPool.h"
 #include "Engine/vulkanVars.h"
+#include <stdexcept>
 
 CommandBuffer CommandPool::createCommandBuffer() const {
 	auto& vulkan_vars = vulkanVars::GetInstance();

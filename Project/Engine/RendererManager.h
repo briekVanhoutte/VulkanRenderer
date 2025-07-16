@@ -5,6 +5,30 @@
 #include "Engine/Scene.h"
 #include "Engine/Camera.h"
 #include "Pipeline.h"
+#include <Engine/vulkanVars.h>
+#include <Engine/SwapChainSupportDetails.h>
+
+#define VK_USE_PLATFORM_WIN32_KHR
+#define GLFW_INCLUDE_VULKAN
+#define GLFW_EXPOSE_NATIVE_WIN32
+
+
+#ifdef NDEBUG
+const bool enableValidationLayers = false;
+#else
+const bool enableValidationLayers = true;
+#endif
+
+const std::vector<const char*> validationLayers = {
+    "VK_LAYER_KHRONOS_validation"
+};
+
+const std::vector<const char*> deviceExtensions = {
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME
+};
+
+
+
 
 struct RenderItem {
     Scene* scene;
@@ -81,4 +105,7 @@ private:
         std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
         return VK_FALSE;
     }
+    VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
+    void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
+
 };

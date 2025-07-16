@@ -3,7 +3,10 @@
 #include "Engine/Singleton.h"
 #include "Engine/CommandBuffer.h"
 #include "Engine/CommandPool.h"
-#include "Vulkanbase/VulkanUtil.h"
+
+const uint32_t WIDTH = 800;
+const uint32_t HEIGHT = 600;
+const int MAX_FRAMES_IN_FLIGHT = 3;
 
 class vulkanVars : public Singleton<vulkanVars> {
 public:
@@ -17,3 +20,5 @@ public:
 	std::vector<CommandBuffer> commandBuffers; 
 	size_t currentFrame = 0;
 };
+
+

@@ -6,6 +6,9 @@
 #include <chrono>
 #include "Engine/vulkanVars.h"
 #include <iostream>
+
+#include <Engine/MeshData.h>
+
 Pipeline::Pipeline()
 {
 	m_Ubo = {};

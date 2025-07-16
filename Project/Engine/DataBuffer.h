@@ -1,7 +1,6 @@
 #pragma once
 #include <stdexcept>
 
-#include "vulkanbase\VulkanUtil.h"
 #include "vulkan\vulkan_core.h"
 
 class DataBuffer

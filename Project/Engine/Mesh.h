@@ -1,10 +1,11 @@
 #pragma once
 
 #include "vulkan\vulkan_core.h"
-#include "vulkanbase\VulkanUtil.h"
+#include <Engine/Vertex.h>
 #include <glm/glm.hpp>
 #include "Engine\DataBuffer.h"
-
+#include <Engine/MeshData.h>
+#include <memory>
 class Mesh {
 public:
 	Mesh(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices);

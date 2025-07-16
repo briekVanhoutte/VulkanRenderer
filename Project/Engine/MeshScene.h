@@ -3,7 +3,6 @@
 #define GLM_ENABLE_EXPERIMENTAL
 
 #include "vulkan\vulkan_core.h"
-#include "vulkanbase\VulkanUtil.h"
 #include <glm/glm.hpp>
 #include "Mesh.h" 
 #include "objects/BaseObject.h"

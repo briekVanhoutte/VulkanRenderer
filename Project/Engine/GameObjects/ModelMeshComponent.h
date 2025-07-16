@@ -4,7 +4,6 @@
 #include <vector>
 #include <string>
 #include <iostream>
-#include "../../vulkanbase/VulkanUtil.h" 
 
 class ModelMeshComponent : public Component {
 public:

@@ -1,5 +1,5 @@
 ﻿#include "Game.h"
-
+#include <Engine/vulkanVars.h>
 Game::Game()
     : m_WindowManager(WindowManager::GetInstance()),
     m_Physics(PhysxBase::GetInstance()),
