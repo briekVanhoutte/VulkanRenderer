@@ -30,8 +30,10 @@ private:
     void initScene();
 
     // Frame timing variables
-    const float m_FPSCap = 100.f;
-    const std::chrono::duration<float> m_FrameDuration = std::chrono::duration<float>(1.f / m_FPSCap);
+    bool m_CapFps = true;
+    const int m_FPSCap = 60;
+    const std::chrono::nanoseconds m_FrameDuration = std::chrono::nanoseconds(1'000'000'000 / m_FPSCap);
+
 
     // Core engine objects
     WindowManager& m_WindowManager;
