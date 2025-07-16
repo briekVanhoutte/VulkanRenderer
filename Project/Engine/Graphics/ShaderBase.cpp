@@ -5,11 +5,14 @@
 #include <glm\gtc\type_ptr.hpp>
 #include <Engine/Graphics/vulkanVars.h>
 
+#include <Engine/Graphics/Texture.h>
+
 ShaderBase::ShaderBase(const std::string& vertexShaderPath, const std::string& fragmentShaderPath)
     :vertexShaderModule_(VK_NULL_HANDLE), fragmentShaderModule_(VK_NULL_HANDLE)
 {
     vertexShaderCode_ = readFile(vertexShaderPath);
     fragmentShaderCode_ = readFile(fragmentShaderPath);
+    m_Tex = std::make_unique<Texture>( "Resources/Textures/texture.jpg" );
 }
 
 ShaderBase::~ShaderBase() {
@@ -68,28 +71,45 @@ void ShaderBase::initialize(const VkPhysicalDevice& vkPhysicalDevice, const VkDe
     m_DescriptorPool = { vkDevice, sizeof(UniformBufferObject), MAX_FRAMES_IN_FLIGHT };
     m_DescriptorPool.Initialize(vkDevice);
     std::vector<VkBuffer> buffers{};
+    std::vector<VkDescriptorImageInfo> images{};
+
+    
+
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         buffers.push_back(m_UBOBuffers[i]->getVkBuffer());
+        images.push_back(m_Tex->getDescriptorInfo());
     }
 
-    m_DescriptorPool.createDescriptorSets(buffers);
+
+    m_DescriptorPool.createDescriptorSets(buffers, images);
 
 }
 
 void ShaderBase::createDescriptorSetLayout(const VkDevice& vkDevice)
 {
+    // Uniform Buffer (binding 0)
     VkDescriptorSetLayoutBinding uboLayoutBinding{};
     uboLayoutBinding.binding = 0;
     uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     uboLayoutBinding.descriptorCount = 1;
     uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    uboLayoutBinding.pImmutableSamplers = nullptr; 
+    uboLayoutBinding.pImmutableSamplers = nullptr;
+
+    // Combined Image Sampler (binding 1)
+    VkDescriptorSetLayoutBinding samplerLayoutBinding{};
+    samplerLayoutBinding.binding = 1;
+    samplerLayoutBinding.descriptorCount = 1;
+    samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    samplerLayoutBinding.pImmutableSamplers = nullptr;
+    samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    std::vector<VkDescriptorSetLayoutBinding> bindings = { uboLayoutBinding, samplerLayoutBinding };
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 1;
-    layoutInfo.pBindings = &uboLayoutBinding;
+    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+    layoutInfo.pBindings = bindings.data();
 
     if (vkCreateDescriptorSetLayout(vkDevice, &layoutInfo, nullptr, &m_DescriptorSetLayout) != VK_SUCCESS) {
         throw std::runtime_error("failed to create descriptor set layout!");

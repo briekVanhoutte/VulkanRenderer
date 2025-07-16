@@ -41,6 +41,7 @@ add_dependencies(${PROJECT_NAME} Shaders)
 # Link libraries
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/vcpkg/installed/x64-windows/include/physx")
+target_include_directories(${PROJECT_NAME} PUBLIC ${stb_SOURCE_DIR})
 
 target_link_libraries(${PROJECT_NAME} PRIVATE ${PhysX} ${PhysX_Common} ${PhysX_FOUNDATION} ${PhysX_COOKER} ${PhysX_EXTENSIONS} ${PhysX_PVD})
 target_link_libraries(${PROJECT_NAME} PRIVATE ${Vulkan_LIBRARIES} glfw)

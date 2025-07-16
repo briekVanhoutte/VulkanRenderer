@@ -38,7 +38,7 @@ public:
         return nullptr;
     }
 
-    unsigned int addRectangle( const glm::vec3& normal,
+    unsigned int addRectangle(const glm::vec3& normal,
         const glm::vec3& color,
         float width,
         float height, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles)
@@ -46,10 +46,16 @@ public:
         float halfWidth = width / 2.0f;
         float halfHeight = height / 2.0f;
 
-        glm::vec3 p0(-halfWidth, -halfHeight, 0.0f);
-        glm::vec3 p1(halfWidth, -halfHeight, 0.0f);
-        glm::vec3 p2(halfWidth, halfHeight, 0.0f);
-        glm::vec3 p3(-halfWidth, halfHeight, 0.0f);
+        glm::vec3 p0(-halfWidth, -halfHeight, 0.0f); // bottom left
+        glm::vec3 p1(halfWidth, -halfHeight, 0.0f);  // bottom right
+        glm::vec3 p2(halfWidth, halfHeight, 0.0f);   // top right
+        glm::vec3 p3(-halfWidth, halfHeight, 0.0f);  // top left
+
+        // UVs: (0,0)=bottom left, (1,0)=bottom right, (1,1)=top right, (0,1)=top left
+        glm::vec2 uv0(0.0f, 0.0f); // bottom left
+        glm::vec2 uv1(1.0f, 0.0f); // bottom right
+        glm::vec2 uv2(1.0f, 1.0f); // top right
+        glm::vec2 uv3(0.0f, 1.0f); // top left
 
         std::vector<Vertex> vertices{};
         std::vector<uint16_t> indices{};
@@ -62,27 +68,25 @@ public:
         p2 = rotationQuat * p2;
         p3 = rotationQuat * p3;
 
-        vertices.push_back({ p0, normal, color });
-        vertices.push_back({ p1, normal, color });
-        vertices.push_back({ p2, normal, color });
-        vertices.push_back({ p3, normal, color });
+        // Make sure your Vertex struct is Vertex(glm::vec3 pos, glm::vec3 normal, glm::vec3 color, glm::vec2 texCoord)
+        vertices.push_back({ p0, normal, color, uv0 }); // bottom left
+        vertices.push_back({ p1, normal, color, uv1 }); // bottom right
+        vertices.push_back({ p2, normal, color, uv2 }); // top right
+        vertices.push_back({ p3, normal, color, uv3 }); // top left
 
         uint16_t baseIndex = static_cast<uint16_t>(vertices.size()) - 4;
-        indices.push_back(baseIndex + 0);
-        indices.push_back(baseIndex + 1);
-        indices.push_back(baseIndex + 2);
+        indices.push_back(baseIndex + 0); // bottom left
+        indices.push_back(baseIndex + 1); // bottom right
+        indices.push_back(baseIndex + 2); // top right
 
-        indices.push_back(baseIndex + 0);
-        indices.push_back(baseIndex + 2);
-        indices.push_back(baseIndex + 3);
-
+        indices.push_back(baseIndex + 0); // bottom left
+        indices.push_back(baseIndex + 2); // top right
+        indices.push_back(baseIndex + 3); // top left
 
         BaseObject* object = new BaseObject{ vertices, indices };
-
         object->setPosition(position, scale, rotationAngles);
 
         m_BaseObjects.push_back(object);
-
         return m_BaseObjects.size() - 1;
     }
 

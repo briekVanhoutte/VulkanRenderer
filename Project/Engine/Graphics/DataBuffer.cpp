@@ -86,6 +86,7 @@ void DataBuffer::copyBuffer(VkBuffer srcBuffer, const VkCommandPool& commandPool
 	vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
 }
 
+
 void DataBuffer::upload(VkDeviceSize size, void* data)
 {
 	vkMapMemory(m_VkDevice, m_VkBufferMemory, 0, size, 0, &m_UniformBufferMapped);

@@ -12,7 +12,8 @@
 #include <Engine/Graphics/DescriptorPool.h>
 #include <Engine/Graphics/UniformBufferObject.h>
 
-
+#include <memory>
+#include <Engine/Graphics/Texture.h>
 
 class ShaderBase {
 public:
@@ -61,6 +62,9 @@ private:
 
     std::vector<char> readFile(const std::string& filename);
     VkShaderModule createShaderModule(const std::vector<char>& code);
+
+    //test
+    std::unique_ptr<Texture> m_Tex;
 };
 
 #endif

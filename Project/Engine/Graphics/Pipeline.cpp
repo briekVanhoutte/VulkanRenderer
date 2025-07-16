@@ -16,7 +16,7 @@ Pipeline::Pipeline()
 	m_Ubo.view = glm::mat4{ {1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1} };
 	m_Ubo.proj = glm::mat4{ {1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1} };
 	m_Ubo.proj[1][1] *= -1;
-	
+
 }
 
 Pipeline::~Pipeline()
@@ -27,17 +27,17 @@ Pipeline::~Pipeline()
 void Pipeline::Destroy(const VkDevice& vkDevice)
 {
 	vkDestroyPipeline(vkDevice, m_Pipeline3d, nullptr);
-	
+
 	vkDestroyPipelineLayout(vkDevice, m_PipelineLayout, nullptr);
 
-	m_Shader->Destroy( vkDevice);
+	m_Shader->Destroy(vkDevice);
 
 	vkDestroyImage(vkDevice, m_DepthImage, nullptr);
 	vkFreeMemory(vkDevice, m_DepthImageMemory, nullptr);
 	vkDestroyImageView(vkDevice, m_DepthImageView, nullptr);
 }
 
-void Pipeline::Initialize( const std::string& vertexShaderPath, const std::string& fragmentShaderPath, const VkVertexInputBindingDescription vkVertexInputBindingDesc, std::vector<VkVertexInputAttributeDescription> vkVertexInputAttributeDesc, VkPrimitiveTopology topology)
+void Pipeline::Initialize(const std::string& vertexShaderPath, const std::string& fragmentShaderPath, const VkVertexInputBindingDescription vkVertexInputBindingDesc, std::vector<VkVertexInputAttributeDescription> vkVertexInputAttributeDesc, VkPrimitiveTopology topology)
 {
 	auto& vulkan_vars = vulkanVars::GetInstance();
 
@@ -47,19 +47,19 @@ void Pipeline::Initialize( const std::string& vertexShaderPath, const std::strin
 
 	createDepthResources(vulkan_vars.physicalDevice, vulkan_vars.device, vulkan_vars.swapChainExtent);
 
-	CreatePipeline(vulkan_vars.device , vulkan_vars.renderPass, topology);
+	CreatePipeline(vulkan_vars.device, vulkan_vars.renderPass, topology);
 }
 
 void Pipeline::Record(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene)
 {
 
-	drawScene(imageIndex,renderPass,swapChainFramebuffers,swapChainExtent, scene);
+	drawScene(imageIndex, renderPass, swapChainFramebuffers, swapChainExtent, scene);
 
 
 	updateUniformBuffer(imageIndex, swapChainExtent);
 }
 
-void Pipeline::drawScene(uint32_t imageIndex, VkRenderPass renderPass,const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene)
+void Pipeline::drawScene(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene)
 {
 	auto& vulkan_vars = vulkanVars::GetInstance();
 	size_t currentSlice = vulkan_vars.currentFrame % MAX_FRAMES_IN_FLIGHT;
@@ -87,7 +87,7 @@ void Pipeline::drawScene(uint32_t imageIndex, VkRenderPass renderPass,const std:
 
 	scene.drawScene(m_PipelineLayout, vulkan_vars.commandBuffers[currentSlice].m_VkCommandBuffer);
 
-	
+
 }
 
 void Pipeline::CreatePipeline(VkDevice device, VkRenderPass renderPass, VkPrimitiveTopology topology) {
@@ -139,7 +139,7 @@ void Pipeline::CreatePipeline(VkDevice device, VkRenderPass renderPass, VkPrimit
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.setLayoutCount = 1;
 	pipelineLayoutInfo.pSetLayouts = &m_Shader->getDescriptorSetLayout();
-	
+
 	pipelineLayoutInfo.pushConstantRangeCount = 1;
 	VkPushConstantRange pushConstantRange = createPushConstantRange();
 	pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
@@ -225,9 +225,9 @@ void Pipeline::updateUniformBuffer(uint32_t currentImage, VkExtent2D swapChainEx
 VkPushConstantRange Pipeline::createPushConstantRange()
 {
 	VkPushConstantRange pushConstantRange = {};
-	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; 
+	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 	pushConstantRange.offset = 0;
-	pushConstantRange.size = sizeof(MeshData); 
+	pushConstantRange.size = sizeof(MeshData);
 
 	return pushConstantRange;
 }
@@ -291,7 +291,7 @@ void Pipeline::createDepthResources(VkPhysicalDevice& vkPhysicalDevice, VkDevice
 {
 	VkFormat depthFormat = findDepthFormat(vkPhysicalDevice, vkDevice);
 
-	createImage(vkPhysicalDevice,vkDevice, swapChainExtent.width, swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_DepthImage, m_DepthImageMemory);
+	createImage(vkPhysicalDevice, vkDevice, swapChainExtent.width, swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_DepthImage, m_DepthImageMemory);
 
 	m_DepthImageView = createImageView(vkDevice, m_DepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 }
