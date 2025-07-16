@@ -1,7 +1,7 @@
 #include "ModelMeshComponent.h"
 #include "../SceneModelManager.h"
 #include "GameObject.h"
-#include <ObjUtils/ObjUtils.h>
+#include <Engine/ObjUtils/ObjUtils.h>
 
 void ModelMeshComponent::addModelToScene(const std::string& modelFile) {
     auto parent = getParent();

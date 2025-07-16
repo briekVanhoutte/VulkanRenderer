@@ -8,7 +8,7 @@ void PhysicsManager::Initialize() {
 
 void PhysicsManager::StepPhysics(float deltaTime) {
     auto& physx = PhysxBase::GetInstance();
-    physx.stepPhysics(false);
+    physx.stepPhysics(false,deltaTime);
 }
 
 void PhysicsManager::Cleanup() {

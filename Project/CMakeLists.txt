@@ -28,40 +28,15 @@ add_custom_target(
 )
 
 
-set(SOURCES
-    "main.cpp"
-    "vulkanbase/ObjUtils.h"
-    "Engine/ShaderBase.h" 
-    "Engine/ShaderBase.cpp" 
-    "Engine/CommandPool.h" 
-    "Engine/PhysxBase.h" 
-    "Engine/PhysxBase.cpp" 
-    "Engine/Singleton.h" 
-    "Engine/CommandPool.cpp"
-    "Engine/DataBuffer.cpp"
-    "Engine/DataBuffer.h"
-    "Engine/DescriptorPool.h"
-    "Engine/DescriptorPool.cpp"
-    "Engine/Pipeline.h"
-    "Engine/Pipeline.cpp"   
-    "Engine/vulkanVars.h"
-    "Engine/vulkanVars.cpp"
-    "Engine/ParticleScene.h"
-    "Engine/ParticleGroup.h"
-    "Engine/ParticleGroup.cpp"
-    "Engine/MeshScene.h"
-    "Engine/InputManager.h"
-    "Engine/InputManager.cpp"
-    "Engine/RendererManager.h"
-    "Engine/RendererManager.cpp"
-    "Engine/WindowManager.h"
-    "Engine/WindowManager.cpp"
- "Engine/CommandBuffer.cpp" "Engine/Mesh.h" "Engine/Mesh.cpp" "Engine/Scene.h"  "Engine/Objects/BaseObject.h" "Engine/Camera.h" "Engine/Camera.cpp" "Engine/SceneModelManager.h" "Engine/SceneModelManager.cpp" "Engine/GameObjects/Component.h" "Engine/GameObjects/GameObject.h"  "Engine/GameObjects/TransformComponent.h"  "Engine/GameObjects/ModelMeshComponent.h" "Engine/GameObjects/ModelMeshComponent.cpp" "Engine/GameObjects/PrimitiveMeshComponent.h" "Engine/GameObjects/PrimitiveMeshComponent.cpp" "Engine/GameSceneManager.h" "Engine/Game.h" "Engine/Game.cpp" "Engine/Vertex.h" "Engine/Particle.h" "Engine/UniformBufferObject.h" "Engine/MeshData.h" "Engine/QueueFamilyIndices.h" "Engine/SwapChainSupportDetails.h")
-  
+file(GLOB_RECURSE PROJECT_SOURCE_FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/Engine/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/Engine/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
+)
         
    
 # Create the executable
-add_executable(${PROJECT_NAME} ${SOURCES} ${GLSL_SOURCE_FILES}   )
+add_executable(${PROJECT_NAME} ${PROJECT_SOURCE_FILES} ${GLSL_SOURCE_FILES}   )
 add_dependencies(${PROJECT_NAME} Shaders)
 # Link libraries
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
