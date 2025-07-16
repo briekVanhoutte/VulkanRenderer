@@ -3,11 +3,11 @@
 #include <memory>
 #include <vulkan\vulkan_core.h>
 
-#include "Engine\ShaderBase.h"
-#include "Engine\CommandBuffer.h"
-#include "Engine\CommandPool.h"
-#include "Engine\Scene.h"
-#include "UniformBufferObject.h"
+#include <Engine/Graphics/ShaderBase.h>
+#include <Engine/Graphics/CommandBuffer.h>
+#include <Engine/Graphics/CommandPool.h>
+#include <Engine/Scene/Scene.h>
+#include <Engine/Graphics/UniformBufferObject.h>
 
 class Pipeline
 {

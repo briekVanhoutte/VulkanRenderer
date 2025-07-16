@@ -1,5 +1,5 @@
 ﻿#include "Game.h"
-#include <Engine/vulkanVars.h>
+#include <Engine/Graphics/vulkanVars.h>
 #include "Platform/Windows/PlatformWindow_Windows.h"
 
 Game::Game()

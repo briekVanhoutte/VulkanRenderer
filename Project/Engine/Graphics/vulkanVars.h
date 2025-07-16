@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Engine/Singleton.h"
-#include "Engine/CommandBuffer.h"
-#include "Engine/CommandPool.h"
+#include <Engine/Core/Singleton.h>
+#include <Engine/Graphics/CommandBuffer.h>
+#include <Engine/Graphics/CommandPool.h>
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;

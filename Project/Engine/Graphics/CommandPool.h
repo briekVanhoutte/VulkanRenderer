@@ -1,9 +1,10 @@
 #pragma once
 
-#include "vulkan\vulkan_core.h"
-#include "CommandBuffer.h"
-#include <Engine/Vertex.h>
-#include <Engine/QueueFamilyIndices.h>
+#include <vulkan/vulkan_core.h>
+#include <Engine/Graphics/CommandBuffer.h>
+#include <Engine/Graphics/Vertex.h>
+#include <Engine/Graphics/QueueFamilyIndices.h>
+
 class CommandPool
 {
 public:

@@ -1,5 +1,5 @@
 #include "CommandPool.h"
-#include "Engine/vulkanVars.h"
+#include <Engine/Graphics/vulkanVars.h>
 #include <stdexcept>
 
 CommandBuffer CommandPool::createCommandBuffer() const {

@@ -1,7 +1,7 @@
 #ifdef _WIN32
 
 #include "PlatformWindow_Windows.h"
-#include <Engine/WindowManager.h>
+#include <Engine/Core/WindowManager.h>
 
 #define GLFW_EXPOSE_NATIVE_WIN32
 

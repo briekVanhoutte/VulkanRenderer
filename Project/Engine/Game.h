@@ -6,12 +6,12 @@
 #include <vector>
 #include <iomanip>
 
-#include "Engine/WindowManager.h"
-#include "Engine/InputManager.h"
-#include "Engine/RendererManager.h"
-#include "Engine/PhysxBase.h"
-#include "Engine/SceneModelManager.h"
-#include "Engine/GameSceneManager.h"
+#include <Engine/Core/WindowManager.h>
+#include <Engine/Input/InputManager.h>
+#include <Engine/Graphics/RendererManager.h>
+#include <Engine/Physics/PhysxBase.h>
+#include <Engine/Scene/SceneModelManager.h>
+#include <Engine/Scene/GameSceneManager.h>
 
 class Game {
 public:

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <glm/glm.hpp>
-#include "./Engine/Mesh.h"
+#include <Engine/Scene/Mesh.h>
 #include <memory>
 
 class BaseObject {

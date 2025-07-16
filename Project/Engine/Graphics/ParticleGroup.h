@@ -1,14 +1,16 @@
 #pragma once
 
-#include "vulkan\vulkan_core.h"
+#include <vulkan\vulkan_core.h>
 #include <glm/glm.hpp>
-#include "Engine\DataBuffer.h"
-#include "PxParticleBuffer.h"
-#include <Engine/vulkanVars.h>
-#include <Engine/MeshData.h>
-#include <Engine/Particle.h>
+#include <Engine/Graphics/DataBuffer.h>
+
+#include <Engine/Graphics/vulkanVars.h>
+#include <Engine/Scene/MeshData.h>
+#include <Engine/Graphics/Particle.h>
 #include <memory>
 #include <array>
+
+#include <PxParticleBuffer.h>
 
 class ParticleGroup {
 public:

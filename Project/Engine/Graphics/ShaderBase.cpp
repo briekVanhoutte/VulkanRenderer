@@ -3,7 +3,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <glm\gtc\type_ptr.hpp>
-#include <Engine/vulkanVars.h>
+#include <Engine/Graphics/vulkanVars.h>
 
 // Constructor
 ShaderBase::ShaderBase(const std::string& vertexShaderPath, const std::string& fragmentShaderPath)

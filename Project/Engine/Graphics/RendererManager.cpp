@@ -1,10 +1,10 @@
 #include "RendererManager.h"
-#include <Engine/vulkanVars.h>
-#include "WindowManager.h"
+#include <Engine/Graphics/vulkanVars.h>
+#include  <Engine/Core/WindowManager.h>
 #include <set>
 #include <algorithm>
-#include <Engine/Particle.h>
-#include "Platform/Windows/VulkanSurface_Windows.h"
+#include <Engine/Graphics/Particle.h>
+#include <Engine/Platform/Windows/VulkanSurface_Windows.h>
 RendererManager::RendererManager() {
 	// Initialize member variables if necessary
 }

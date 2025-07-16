@@ -2,11 +2,11 @@
 
 #include <vulkan/vulkan.h>
 #include <GLFW/glfw3.h>
-#include "Engine/Scene.h"
-#include "Engine/Camera.h"
-#include "Pipeline.h"
-#include <Engine/vulkanVars.h>
-#include <Engine/SwapChainSupportDetails.h>
+#include <Engine/Scene/Scene.h>
+#include <Engine/Math/Camera.h>
+#include <Engine/Graphics/Pipeline.h>
+#include <Engine/Graphics/vulkanVars.h>
+#include <Engine/Graphics/SwapChainSupportDetails.h>
 
 
 #ifdef NDEBUG

@@ -3,14 +3,14 @@
 #define SHADERBASE_H
 
 #include <vulkan/vulkan.h>
-#include <Engine/Vertex.h>
+#include <Engine/Graphics/Vertex.h>
 #include <vector>
 #include <string>
 #include <memory>
 #include <array>
-#include "Engine\DataBuffer.h"
-#include "Engine\DescriptorPool.h"
-#include <Engine/UniformBufferObject.h>
+#include <Engine/Graphics/DataBuffer.h>
+#include <Engine/Graphics/DescriptorPool.h>
+#include <Engine/Graphics/UniformBufferObject.h>
 
 
 

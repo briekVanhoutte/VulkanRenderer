@@ -1,7 +1,7 @@
 #pragma once
 
-#include <Engine/Vertex.h>
-#include <Engine/Particle.h>
+#include <Engine/Graphics/Vertex.h>
+#include <Engine/Graphics/Particle.h>
 #include <cstddef>
 #include <vector>
 #include <fstream>

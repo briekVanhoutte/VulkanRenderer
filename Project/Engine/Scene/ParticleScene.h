@@ -1,12 +1,11 @@
 #pragma once
 
-#include "vulkan\vulkan_core.h"
+#include <vulkan\vulkan_core.h>
 #include <glm/glm.hpp>
-#include "Mesh.h" 
-#include "objects/BaseObject.h"
-#include "Engine/Scene.h"
-
-#include "ParticleGroup.h"
+#include <Engine/Scene/Mesh.h>
+#include <Engine/Scene/GameObjects/BaseObject.h>
+#include <Engine/Scene/Scene.h>
+#include <Engine/Graphics/ParticleGroup.h>
 
 class ParticleScene : public Scene {
 public:

@@ -1,7 +1,7 @@
 #pragma once
 #include <GLFW/glfw3.h>
 #include <vector>
-#include "Camera.h"
+#include <Engine/Math/Camera.h>
 
 class InputManager {
 public:

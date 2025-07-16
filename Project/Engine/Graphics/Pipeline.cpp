@@ -4,10 +4,11 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <chrono>
-#include "Engine/vulkanVars.h"
+#include <Engine/Graphics/vulkanVars.h>
+#include <Engine/Scene/MeshData.h>
 #include <iostream>
 
-#include <Engine/MeshData.h>
+
 
 Pipeline::Pipeline()
 {

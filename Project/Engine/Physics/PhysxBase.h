@@ -2,10 +2,10 @@
 
 #include <vector>
 #include <memory>
-#include "Engine/DataBuffer.h"
+
 #include <PxPhysicsAPI.h>
 #include <extensions/PxParticleExt.h>
-#include <Engine/Particle.h>
+
 #include <vector>
 
 #include <iostream>
@@ -13,8 +13,9 @@
 #include "PxPhysicsAPI.h"
 #include "cudamanager/PxCudaContext.h"
 #include "cudamanager/PxCudaContextManager.h"
-
-#include "engine/Singleton.h"
+#include <Engine/Graphics/DataBuffer.h>
+#include <Engine/Graphics/Particle.h>
+#include <Engine/Core/Singleton.h>
 #define CUDA_SUCCESS 0
 #define SHOW_SOLID_SDF_SLICE 0
 #define IDX(i, j, k, offset) ((i) + dimX * ((j) + dimY * ((k) + dimZ * (offset))))

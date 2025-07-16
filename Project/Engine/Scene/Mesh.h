@@ -1,10 +1,11 @@
 #pragma once
 
-#include "vulkan\vulkan_core.h"
-#include <Engine/Vertex.h>
+#include <vulkan\vulkan_core.h>
+#include <Engine/Graphics/Vertex.h>
 #include <glm/glm.hpp>
-#include "Engine\DataBuffer.h"
-#include <Engine/MeshData.h>
+#include <Engine/Graphics/DataBuffer.h>
+#include <Engine/Scene/MeshData.h>
+
 #include <memory>
 class Mesh {
 public:

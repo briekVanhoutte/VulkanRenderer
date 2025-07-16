@@ -1,6 +1,6 @@
 #include "ParticleGroup.h"
-#include "vulkanVars.h"
-#include "PhysxBase.h"
+#include <Engine/Graphics/vulkanVars.h>
+#include <Engine/Physics/PhysxBase.h>
 
 #include <glm/mat4x4.hpp> // glm::mat4
 #include <glm/ext/matrix_transform.hpp> // glm::translate, glm::rotate, glm::scale

@@ -2,11 +2,11 @@
 
 #define GLM_ENABLE_EXPERIMENTAL
 
-#include "vulkan\vulkan_core.h"
+#include <vulkan\vulkan_core.h>
 #include <glm/glm.hpp>
-#include "Mesh.h" 
-#include "objects/BaseObject.h"
-#include "Engine/Scene.h"
+#include <Engine/Scene/Mesh.h>
+#include <Engine/Scene/GameObjects/BaseObject.h>
+#include <Engine/Scene/Scene.h>
 #include <glm\gtx\quaternion.hpp>
 
 
