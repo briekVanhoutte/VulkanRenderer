@@ -18,7 +18,6 @@ public:
 
 	void Initialize(const std::string& vertexShaderPath, const std::string& fragmentShaderPath, const VkVertexInputBindingDescription vkVertexInputBindingDesc, std::vector<VkVertexInputAttributeDescription> vkVertexInputAttributeDesc, VkPrimitiveTopology topology);
 	void Record(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene);
-	//CommandBuffer m_Buffer;
 
 	void setUbo(const UniformBufferObject& ubo) { m_Ubo = ubo; }
 
@@ -42,9 +41,6 @@ private:
 	void updateUniformBuffer(uint32_t currentImage, VkExtent2D swapChainExtent);
 
 	VkPushConstantRange createPushConstantRange();
-
-
-	// depth buffer
 
 	void createImage(VkPhysicalDevice& vkPhysicalDevice, VkDevice& vkDevice,uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
 	

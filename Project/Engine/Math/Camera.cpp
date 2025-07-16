@@ -79,16 +79,13 @@ void Camera::update()
 	glm::mat4 rotationX = CreateRotationX(totalPitch);
 	glm::mat4 rotationY = CreateRotationY(totalYaw);
 
-	// Combine the rotation matrices
 	glm::mat4 finalRotation = rotationX * rotationY;
 
-	// Apply the rotation to the initial forward vector
 	forward = glm::vec3(finalRotation * glm::vec4(0.0f, 0.0f, 1.0f, 0.0f));
 }
 
 void Camera::rotate(glm::vec2 offset)
 {
-	// Convert degrees to radians
 	glm::vec2 offsetRadians = glm::radians(offset);
 
 	 totalYaw += offset.x;

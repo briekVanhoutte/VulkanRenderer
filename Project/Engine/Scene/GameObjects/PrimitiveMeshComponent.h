@@ -8,12 +8,10 @@
 enum class PrimitiveType {
     Plane,
     Cube
-    // Extend with additional primitives (Sphere, etc.) as needed.
 };
 
 class PrimitiveMeshComponent : public Component {
 public:
-    // Constructor takes the parent GameObject, a primitive type, and dimensions.
     PrimitiveMeshComponent(GameObject* parent, PrimitiveType type, float width = 1.f, float height = 1.f, float depth = 1.f) {
         setParent(parent);
         addPrimitiveToScene(type, width, height, depth);

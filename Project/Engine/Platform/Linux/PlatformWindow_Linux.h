@@ -13,7 +13,7 @@ public:
     void getFramebufferSize(int& width, int& height) const override {
         glfwGetFramebufferSize(m_window, &width, &height);
     }
-    void* getNativeHandle() override; // Will return the raw window pointer, or nullptr
+    void* getNativeHandle() override;
     GLFWwindow* getGLFWwindow() const { return m_window; }
 
     bool shouldClose() const override;
@@ -23,4 +23,4 @@ private:
     GLFWwindow* m_window;
 };
 
-#endif // __linux__
+#endif 

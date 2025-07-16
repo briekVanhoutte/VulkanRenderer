@@ -53,12 +53,9 @@ static void initObstacles()
 	gScene->addActor(*body);
 	shape->release();
 
-	//shape = gPhysics->createShape(PxBoxGeometry(1.0f, 1.0f, 5.0f), *gMaterial);
 	body = gPhysics->createRigidDynamic(PxTransform(PxVec3(3.5f, 0.75f, 0)));
-	//body->attachShape(*shape);
 	body->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
 	gScene->addActor(*body);
-	//shape->release();
 }
 
 static void initScene()
@@ -66,7 +63,6 @@ static void initScene()
 	
 	if (PxGetSuggestedCudaDeviceOrdinal(gFoundation->getErrorCallback()) >= 0)
 	{
-		// initialize CUDA
 		PxCudaContextManagerDesc cudaContextManagerDesc;
 		cudaContextManager = PxCreateCudaContextManager(*gFoundation, cudaContextManagerDesc, PxGetProfilerCallback());
 		if (cudaContextManager && !cudaContextManager->contextIsValid())
@@ -109,7 +105,6 @@ static void initParticles(const PxU32 numX, const PxU32 numY, const PxU32 numZ, 
 
 	const PxReal restOffset = 0.5f * particleSpacing / 0.6f;
 
-	// Material setup
 	PxPBDMaterial* defaultMat = gPhysics->createPBDMaterial(0.05f, 0.05f, 0.f, 0.001f, 0.5f, 0.005f, 0.01f, 0.f, 0.f);
 
 	defaultMat->setViscosity(0.001f);
@@ -119,8 +114,6 @@ static void initParticles(const PxU32 numX, const PxU32 numY, const PxU32 numZ, 
 
 	PxPBDParticleSystem* particleSystem = gPhysics->createPBDParticleSystem(*cudaContextManager, 96);
 	gParticleSystem = particleSystem;
-
-	// General particle system setting
 
 	const PxReal solidRestOffset = restOffset;
 	const PxReal fluidRestOffset = restOffset * 0.6f;
@@ -135,7 +128,6 @@ static void initParticles(const PxU32 numX, const PxU32 numY, const PxU32 numZ, 
 	
 	gScene->addActor(*particleSystem);
 
-	// Diffuse particles setting
 	PxDiffuseParticleParams dpParams;
 	dpParams.threshold = 300.0f;
 	dpParams.bubbleDrag = 0.9f;
@@ -149,7 +141,6 @@ static void initParticles(const PxU32 numX, const PxU32 numY, const PxU32 numZ, 
 
 	gMaxDiffuseParticles = maxDiffuseParticles;
 
-	// Create particles and add them to the particle system
 	const PxU32 particlePhase = particleSystem->createPhase(defaultMat, PxParticlePhaseFlags(PxParticlePhaseFlag::eParticlePhaseFluid | PxParticlePhaseFlag::eParticlePhaseSelfCollide));
 
 	PxU32* phase = cudaContextManager->allocPinnedHostBuffer<PxU32>(maxParticles);
@@ -244,7 +235,6 @@ class PhysxBase : public Singleton<PhysxBase>
 			}
 			gMaterial = gPhysics->createMaterial(0.5f, 0.5f, 0.6f);
 
-			// Setup PBF
 			bool useMovingWall = true;
 
 			const PxReal fluidDensity = 1000.0f;
@@ -252,9 +242,6 @@ class PhysxBase : public Singleton<PhysxBase>
 			const PxU32 maxDiffuseParticles = useLargeFluid ? 2000000 : 100000;
 			initParticles(50, 120 * (useLargeFluid ? 5 : 1), 30, PxVec3(-2.5f, 3.f, 0.5f), 0.1f, fluidDensity, maxDiffuseParticles);
 
-			//initObstacles();
-
-			// Setup container
 			gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(0.f, 1.f, 0.f, 0.0f), *gMaterial));
 			gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(-1.f, 0.f, 0.f, 3.f), *gMaterial));
 			gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(0.f, 0.f, 1.f, 3.f), *gMaterial));
@@ -274,7 +261,6 @@ class PhysxBase : public Singleton<PhysxBase>
 				gScene->addActor(*movingWall);
 			}
 
-			// Setup rigid bodies
 			const PxReal dynamicsDensity = fluidDensity * 0.5f;
 			const PxReal boxSize = 1.0f;
 			const PxReal boxMass = boxSize * boxSize * boxSize * dynamicsDensity;
@@ -300,8 +286,6 @@ class PhysxBase : public Singleton<PhysxBase>
 			if (gIsRunning || gStep)
 			{
 				gStep = false;
-				//PxReal dt = 1.0f / 60.0f;
-				//const PxReal dt = deltaTime;
 
 				if (movingWall)
 				{
@@ -356,39 +340,29 @@ class PhysxBase : public Singleton<PhysxBase>
 		}	
 
 		void getParticles() {
-			// Determine the size of the buffer
 			auto pr = getParticleBuffer();
 
 			if (pr == nullptr)return;
 
 			size_t bufferSize = pr->getNbActiveParticles() * sizeof(PxVec4);
 
-			// Allocate normal host memory for bufferLocation
 			void* bufferLocation = malloc(bufferSize);
 			if (bufferLocation == nullptr) {
 				std::cerr << "Failed to allocate host memory" << std::endl;
 				return;
 			}
 
-			// Get the positions of the particles
 			PxVec4* bufferPos = pr->getPositionInvMasses();
 
-			// Cast the bufferPos to CUdeviceptr
 			CUdeviceptr ptr = reinterpret_cast<CUdeviceptr>(bufferPos);
 
-			// Get the CUDA context manager and context
 			auto cudaContextManager = gScene->getCudaContextManager();
 			auto cudaContext = cudaContextManager->getCudaContext();
 
-			// Perform the asynchronous memory copy from device to host
 			cudaContext->memcpyDtoH(bufferLocation, ptr, bufferSize);
 			
-			// Cast the bufferLocation to PxVec4* to read the values
 			PxVec4* positions = static_cast<PxVec4*>(bufferLocation);
 
-			// Create a vector to hold the positions
-			//std::vector<PxVec4> particlePositions(getParticleBuffer()->getNbActiveParticles());
-			
 			m_Particles.clear();
 			m_Particles.resize(pr->getNbActiveParticles());
 
@@ -400,7 +374,6 @@ class PhysxBase : public Singleton<PhysxBase>
 				m_Particles[i].pos.w = positions[i].w;
 			}
 
-			// Free the allocated host memory
 			free(bufferLocation);
 		};
 

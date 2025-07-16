@@ -1,13 +1,12 @@
 #include "Mesh.h"
-#include <glm/vec3.hpp> // glm::vec3
-#include <glm/vec4.hpp> // glm::vec4
-#include <glm/mat4x4.hpp> // glm::mat4
-#include <glm/ext/matrix_transform.hpp> // glm::translate, glm::rotate, glm::scale
-#include <glm/ext/matrix_clip_space.hpp> // glm::perspective
-#include <glm/ext/scalar_constants.hpp> // glm::pi
+#include <glm/vec3.hpp>
+#include <glm/vec4.hpp> 
+#include <glm/mat4x4.hpp>
+#include <glm/ext/matrix_transform.hpp> 
+#include <glm/ext/matrix_clip_space.hpp>
+#include <glm/ext/scalar_constants.hpp>
 #include <iostream>
 #include <Engine/Scene/MeshData.h>
-//DataBuffer::DataBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkDeviceSize size)
 
 
 Mesh::Mesh(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices)
@@ -18,11 +17,9 @@ Mesh::Mesh(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& ind
 }
 
 void Mesh::initialize(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue) {
-	// create vertex buffer
 	CreateVertexBuffer(physicalDevice, device, commandPool, graphicsQueue);
 
 	CreateIndexBuffer(physicalDevice, device, commandPool, graphicsQueue);
-	// create indice buffer
 }
 
 
@@ -79,18 +76,14 @@ void Mesh::destroyMesh(const VkDevice& device) {
 void Mesh::setPosition(glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles)
 {
 	m_Position = position;
-	// Translation matrix for position
 	glm::mat4 translationMatrix = glm::translate(glm::mat4(1.0f), position);
 
-	// Rotation matrix for rotation angles
 	glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), glm::radians(rotationAngles.x), glm::vec3(1.0f, 0.0f, 0.0f));
 	rotationMatrix = glm::rotate(rotationMatrix, glm::radians(rotationAngles.y), glm::vec3(0.0f, 1.0f, 0.0f));
 	rotationMatrix = glm::rotate(rotationMatrix, glm::radians(rotationAngles.z), glm::vec3(0.0f, 0.0f, 1.0f));
 
-	// Scale matrix for scaling
 	glm::mat4 scaleMatrix = glm::scale(glm::mat4(1.0f), scale);
 
-	// Combine the transformations
 	m_VertexConstant.model = translationMatrix * rotationMatrix * scaleMatrix;
 }
 

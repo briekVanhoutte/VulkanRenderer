@@ -6,11 +6,9 @@
 #include <Engine/Graphics/Particle.h>
 #include <Engine/Platform/Windows/VulkanSurface_Windows.h>
 RendererManager::RendererManager() {
-	// Initialize member variables if necessary
 }
 
 RendererManager::~RendererManager() {
-	// Optionally, call Cleanup() here if not done explicitly
 }
 
 void RendererManager::Initialize() {
@@ -97,13 +95,9 @@ void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Ca
 		}
 	}
 
-	//m_PipelineParticles.Record(imageIndex, vulkan_vars.renderPass, swapChainFramebuffers, vulkan_vars.swapChainExtent, m_Scene2);
-	//m_Pipeline3d.Record(imageIndex, vulkan_vars.renderPass, swapChainFramebuffers, vulkan_vars.swapChainExtent, m_Scene);
-
 	vkCmdEndRenderPass(vulkan_vars.commandBuffers[frameIndex].m_VkCommandBuffer);
 
 	vulkan_vars.commandBuffers[frameIndex].endRecording();
-	//m_Pipeline2d.Record(imageIndex, renderPass, swapChainFramebuffers, swapChainExtent);
 
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -116,8 +110,6 @@ void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Ca
 	submitInfo.pWaitDstStageMask = waitStages;
 
 	vulkan_vars.commandBuffers[frameIndex].submit(submitInfo);
-
-	//m_Pipeline2d.m_Buffer.submit(submitInfo);
 	
 	VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[frameIndex] };
 	submitInfo.signalSemaphoreCount = 1;
@@ -268,7 +260,6 @@ void RendererManager::pickPhysicalDevice()
 	std::vector<VkPhysicalDevice> devices(deviceCount);
 	vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
 
-	// 1) First try to find a DISCRETE GPU.
 	for (auto& device : devices) {
 		VkPhysicalDeviceProperties props;
 		vkGetPhysicalDeviceProperties(device, &props);
@@ -281,7 +272,6 @@ void RendererManager::pickPhysicalDevice()
 		}
 	}
 
-	// 2) Fallback: any other “suitable” device (integrated, virtual, etc).
 	if (vulkan_vars.physicalDevice == VK_NULL_HANDLE) {
 		for (auto& device : devices) {
 			VkPhysicalDeviceProperties props;
@@ -574,11 +564,7 @@ void RendererManager::createRenderPass()
 }
 void RendererManager::initPipeLines()
 {
-	//initScene();
 	auto& vulkan_vars = vulkanVars::GetInstance();
-	//initScene();
-
-	//vulkan_vars.commandBuffer = vulkan_vars.commandPoolModelPipeline.createCommandBuffer();
 
 	m_Pipeline3d.Initialize("shaders/shader3d.vert.spv", "shaders/shader3d.frag.spv", Vertex::getBindingDescription(), Vertex::getAttributeDescriptions(), VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 	m_PipelineParticles.Initialize("shaders/computeShader.vert.spv", "shaders/computeShader.frag.spv", Particle::getBindingDescription(), Particle::getAttributeDescriptions(), VK_PRIMITIVE_TOPOLOGY_POINT_LIST);

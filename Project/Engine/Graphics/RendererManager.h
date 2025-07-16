@@ -28,7 +28,7 @@ const std::vector<const char*> deviceExtensions = {
 
 struct RenderItem {
     Scene* scene;
-    int pipelineIndex;  // For example: 0 = particles, 1 = 3D objects.
+    int pipelineIndex;
 };
 
 class RendererManager {
@@ -36,20 +36,17 @@ public:
     RendererManager();
     ~RendererManager();
 
-    // Initialize all renderer resources (Vulkan instance, device, swap chain, etc.)
     void Initialize();
 
-    // Render one frame using the provided scene and camera
+   
     void RenderFrame(const std::vector<RenderItem>& renderItems, Camera& camera);
 
-    // Cleanup all renderer resources
     void Cleanup();
 
 private:
     Pipeline m_Pipeline3d;
     Pipeline m_PipelineParticles;
 
-    // Private helper functions can be added here (e.g. createInstance, createSwapChain, etc.
     VkSurfaceKHR surface;
     VkInstance instance;
     VkQueue presentQueue;

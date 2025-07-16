@@ -23,19 +23,17 @@ static bool ParseOBJ(const std::string& filename, std::vector<Vertex>& vertices,
 	indices.clear();
 
 	std::string sCommand;
-	// start a while iteration ending when the end of file is reached (ios::eof)
 	while (!file.eof())
 	{
-		//read the first word of the string, use the >> operator (istream::operator>>) 
 		file >> sCommand;
-		//use conditional statements to process the different commands	
+
 		if (sCommand == "#")
 		{
 			// Ignore Comment
 		}
 		else if (sCommand == "v")
 		{
-			//Vertex
+
 			float x, y, z;
 			file >> x >> y >> z;
 
@@ -58,39 +56,29 @@ static bool ParseOBJ(const std::string& filename, std::vector<Vertex>& vertices,
 		}
 		else if (sCommand == "f")
 		{
-			//if a face is read:
-			//construct the 3 vertices, add them to the vertex array
-			//add three indices to the index array
-			//add the material index as attibute to the attribute array
-			//
-			// Faces or triangles
 			Vertex vertex{};
 			size_t iPosition, iTexCoord, iNormal;
 
 			uint16_t tempIndices[3];
 			for (size_t iFace = 0; iFace < 3; iFace++)
 			{
-				// OBJ format uses 1-based arrays
 				file >> iPosition;
 	
 				vertex.pos = positions[iPosition - 1];
 
-				if ('/' == file.peek())//is next in buffer ==  '/' ?
+				if ('/' == file.peek())
 				{
-					file.ignore();//read and ignore one element ('/')
+					file.ignore();
 
 					if ('/' != file.peek())
 					{
-						// Optional texture coordinate
 						file >> iTexCoord;
-						//vertex.uv = UVs[iTexCoord - 1];
 					}
 
 					if ('/' == file.peek())
 					{
 						file.ignore();
 
-						// Optional vertex normal
 						file >> iNormal;
 						vertex.normal = normals[iNormal - 1];
 					}
@@ -113,7 +101,6 @@ static bool ParseOBJ(const std::string& filename, std::vector<Vertex>& vertices,
 				indices.push_back(tempIndices[2]);
 			}
 		}
-		//read till end of line and ignore all remaining chars
 		file.ignore(1000, '\n');
 	}
 }

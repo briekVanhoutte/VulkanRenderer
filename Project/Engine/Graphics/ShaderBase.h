@@ -16,14 +16,12 @@
 
 class ShaderBase {
 public:
-    // Constructor and Destructor
     ShaderBase() {};
     ShaderBase( const std::string& vertexShaderPath, const std::string& fragmentShaderPath);
     ~ShaderBase();
 
     void Destroy(const VkDevice& vkDevice);
 
-    // Public interface for ShaderBase
     void initialize(const VkPhysicalDevice& vkPhysicalDevice, const VkDevice& vkDevice, const VkVertexInputBindingDescription& vkVertexInputBindingDesc, std::vector<VkVertexInputAttributeDescription>& vkVertexInputAttributeDesc);
 
     void createDescriptorSetLayout(const VkDevice& vkDevice);
@@ -65,4 +63,4 @@ private:
     VkShaderModule createShaderModule(const std::vector<char>& code);
 };
 
-#endif // SHADERBASE_H
+#endif

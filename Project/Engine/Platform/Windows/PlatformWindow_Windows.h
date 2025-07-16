@@ -31,4 +31,4 @@ private:
     GLFWwindow* m_window;
 };
 
-#endif // _WIN32
+#endif 

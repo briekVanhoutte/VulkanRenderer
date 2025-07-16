@@ -25,8 +25,6 @@ private:
 	std::unique_ptr<DataBuffer> m_VertexBuffer;
 	std::unique_ptr<DataBuffer> m_IndexBuffer;
 
-	//VertexConstant m_VertexConstant;
-
 	MeshData m_VertexConstant;
 
 	glm::vec3 m_Position = {};

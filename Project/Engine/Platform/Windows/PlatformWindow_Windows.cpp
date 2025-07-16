@@ -15,10 +15,8 @@ PlatformWindow_Windows::PlatformWindow_Windows(int width, int height, const char
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     m_window = glfwCreateWindow(width, height, title, nullptr, nullptr);
 
-    // Set the WindowManager instance as the user pointer.
     glfwSetWindowUserPointer(m_window, this);
 
-    // Set up GLFW callbacks using our static functions.
     glfwSetKeyCallback(m_window, WindowManager::keyCallback);
     glfwSetCursorPosCallback(m_window, WindowManager::cursorPosCallback);
     glfwSetMouseButtonCallback(m_window, WindowManager::mouseButtonCallback);
@@ -30,8 +28,6 @@ PlatformWindow_Windows::~PlatformWindow_Windows() {
 }
 
 void* PlatformWindow_Windows::getNativeHandle() {
-    // On Windows, this is the HWND, retrievable via glfwGetWin32Window.
-
     return glfwGetWin32Window(m_window);
 }
 
@@ -44,4 +40,4 @@ void PlatformWindow_Windows::pollEvents() {
     glfwPollEvents();
 }
 
-#endif // _WIN32
+#endif 

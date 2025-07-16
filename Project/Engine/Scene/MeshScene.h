@@ -43,11 +43,9 @@ public:
         float width,
         float height, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles)
     {
-        // Calculate half dimensions
         float halfWidth = width / 2.0f;
         float halfHeight = height / 2.0f;
 
-        // Define the four corners of the rectangle
         glm::vec3 p0(-halfWidth, -halfHeight, 0.0f);
         glm::vec3 p1(halfWidth, -halfHeight, 0.0f);
         glm::vec3 p2(halfWidth, halfHeight, 0.0f);
@@ -55,25 +53,20 @@ public:
 
         std::vector<Vertex> vertices{};
         std::vector<uint16_t> indices{};
-        // Default normal (pointing in the Z direction)
         glm::vec3 defaultNormal(0.0f, 0.0f, 1.0f);
 
-        // Calculate rotation quaternion to align default normal with the given normal
         glm::quat rotationQuat = glm::rotation(defaultNormal, normal);
 
-        // Rotate the vertices
         p0 = rotationQuat * p0;
         p1 = rotationQuat * p1;
         p2 = rotationQuat * p2;
         p3 = rotationQuat * p3;
 
-        // Define vertices for the rectangle with the correct normal and color
         vertices.push_back({ p0, normal, color });
         vertices.push_back({ p1, normal, color });
         vertices.push_back({ p2, normal, color });
         vertices.push_back({ p3, normal, color });
 
-        // Define indices for the two triangles
         uint16_t baseIndex = static_cast<uint16_t>(vertices.size()) - 4;
         indices.push_back(baseIndex + 0);
         indices.push_back(baseIndex + 1);

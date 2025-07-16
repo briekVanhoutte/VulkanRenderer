@@ -27,8 +27,6 @@ DataBuffer::DataBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkBuffe
 		throw std::runtime_error("failed to allocate vertex buffer memory!");
 	}
 
-	//vkMapMemory(device, m_VkBufferMemory, 0, size, 0, &m_UniformBufferMapped);
-
 	vkBindBufferMemory(device, m_VkBuffer, m_VkBufferMemory, 0);
 }
 
@@ -50,8 +48,8 @@ void DataBuffer::copyBuffer(VkBuffer srcBuffer, const VkCommandPool& commandPool
 	vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
 	VkBufferCopy copyRegion{};
-	copyRegion.srcOffset = 0; // Optional
-	copyRegion.dstOffset = 0; // Optional
+	copyRegion.srcOffset = 0;
+	copyRegion.dstOffset = 0;
 	copyRegion.size = size;
 	vkCmdCopyBuffer(commandBuffer, srcBuffer, m_VkBuffer, 1, &copyRegion);
 	

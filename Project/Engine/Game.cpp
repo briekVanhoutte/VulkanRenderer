@@ -25,10 +25,7 @@ void Game::init() {
     InputManager::GetInstance().Initialize(winPtr->getGLFWwindow());
 #else
 #error not implemented for this os!
-#endif // WIN32
-
-
-   
+#endif
 
     m_Physics.initPhysics(false);
 
@@ -117,7 +114,6 @@ void Game::run() {
     auto& vulkan_vars = vulkanVars::GetInstance();
     auto startEngine = clock::now();
 
-    // Use platform window abstraction!
     PlatformWindow* window = m_WindowManager.getPlatformWindow();
 
     while (!window->shouldClose()) {

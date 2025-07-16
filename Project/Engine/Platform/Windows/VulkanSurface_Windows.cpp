@@ -1,4 +1,3 @@
-// VulkanSurface_Windows.cpp
 #ifdef _WIN32
 #include <GLFW/glfw3native.h>
 #include "VulkanSurface_Windows.h"

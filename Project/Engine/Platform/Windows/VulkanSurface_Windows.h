@@ -1,4 +1,3 @@
-// VulkanSurface_Windows.h
 #pragma once
 #ifdef _WIN32
 

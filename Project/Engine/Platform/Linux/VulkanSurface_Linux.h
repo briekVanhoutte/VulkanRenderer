@@ -8,4 +8,4 @@ public:
     VkSurfaceKHR createSurface(VkInstance instance, PlatformWindow* window) override;
 };
 
-#endif // __linux__
+#endif 

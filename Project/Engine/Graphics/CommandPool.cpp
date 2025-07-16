@@ -21,7 +21,6 @@ CommandBuffer CommandPool::createCommandBuffer() const {
 
 void CommandPool::initialize( const QueueFamilyIndices& queue) {
 	auto& vulkan_vars = vulkanVars::GetInstance();
-	//QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
 
 	VkCommandPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;

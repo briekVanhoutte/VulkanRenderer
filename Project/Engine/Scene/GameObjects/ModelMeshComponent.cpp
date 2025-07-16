@@ -11,7 +11,6 @@ void ModelMeshComponent::addModelToScene(const std::string& modelFile) {
     std::vector<Vertex> vertices;
     std::vector<uint16_t> indices;
 
-    // Parse the model file to fill vertices and indices.
     ParseOBJ(modelFile, vertices, indices, color);
 
     auto& sceneManager = SceneModelManager::getInstance();

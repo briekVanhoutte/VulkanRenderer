@@ -5,7 +5,6 @@
 #include <glm\gtc\type_ptr.hpp>
 #include <Engine/Graphics/vulkanVars.h>
 
-// Constructor
 ShaderBase::ShaderBase(const std::string& vertexShaderPath, const std::string& fragmentShaderPath)
     :vertexShaderModule_(VK_NULL_HANDLE), fragmentShaderModule_(VK_NULL_HANDLE)
 {
@@ -13,7 +12,6 @@ ShaderBase::ShaderBase(const std::string& vertexShaderPath, const std::string& f
     fragmentShaderCode_ = readFile(fragmentShaderPath);
 }
 
-// Destructor
 ShaderBase::~ShaderBase() {
 
 }
@@ -30,7 +28,6 @@ void ShaderBase::Destroy(const VkDevice& vkDevice)
     
 }
 
-// Initialize shader modules
 void ShaderBase::initialize(const VkPhysicalDevice& vkPhysicalDevice, const VkDevice& vkDevice, const VkVertexInputBindingDescription& vkVertexInputBindingDesc, std::vector<VkVertexInputAttributeDescription>& vkVertexInputAttributeDesc) {
     device_ = vkDevice;
 
@@ -50,7 +47,6 @@ void ShaderBase::initialize(const VkPhysicalDevice& vkPhysicalDevice, const VkDe
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         UniformBufferObject ubo{};
-        //ubo.model = glm::mat4{ {1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1} };
         ubo.view = glm::mat4{ {1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1} };
         ubo.proj = glm::mat4{ {1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1} };
 
@@ -88,7 +84,7 @@ void ShaderBase::createDescriptorSetLayout(const VkDevice& vkDevice)
     uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     uboLayoutBinding.descriptorCount = 1;
     uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
+    uboLayoutBinding.pImmutableSamplers = nullptr; 
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -105,23 +101,21 @@ void ShaderBase::bindDescriptorSet(VkCommandBuffer commandBuffer, VkPipelineLayo
     m_DescriptorPool.bindDescriptorSet(commandBuffer, pipelineLayout, index);
 }
 
-// Get Vertex Shader Stage Info
 VkPipelineShaderStageCreateInfo ShaderBase::getVertexShaderStageInfo()  {
     VkPipelineShaderStageCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     info.stage = VK_SHADER_STAGE_VERTEX_BIT;
     info.module = vertexShaderModule_;
-    info.pName = "main"; // Entry point
+    info.pName = "main";
     return info;
 }
 
-// Get Fragment Shader Stage Info
 VkPipelineShaderStageCreateInfo ShaderBase::getFragmentShaderStageInfo()  {
     VkPipelineShaderStageCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
     info.module = fragmentShaderModule_;
-    info.pName = "main"; // Entry point
+    info.pName = "main";
     return info;
 }
 
@@ -142,7 +136,6 @@ std::vector<char> ShaderBase::readFile(const std::string& filename) {
     return buffer;
 }
 
-// Private Helper: Create a shader module from bytecode
 VkShaderModule ShaderBase::createShaderModule(const std::vector<char>& code) {
     	VkShaderModuleCreateInfo createInfo{};
     	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -168,7 +161,7 @@ VkPipelineVertexInputStateCreateInfo& ShaderBase::getVertexInputStateInfo() {
 VkPipelineInputAssemblyStateCreateInfo& ShaderBase::getInputAssemblyStateInfo(VkPrimitiveTopology topology)  {
 
     m_VkPipelineInputAssemblyStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    m_VkPipelineInputAssemblyStateCreateInfo.topology = topology; //VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST
+    m_VkPipelineInputAssemblyStateCreateInfo.topology = topology;
     m_VkPipelineInputAssemblyStateCreateInfo.primitiveRestartEnable = VK_FALSE;
     return m_VkPipelineInputAssemblyStateCreateInfo;
 }

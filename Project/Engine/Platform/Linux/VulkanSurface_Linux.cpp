@@ -15,4 +15,4 @@ VkSurfaceKHR VulkanSurface_Linux::createSurface(VkInstance instance, PlatformWin
     return surface;
 }
 
-#endif // __linux__
+#endif 

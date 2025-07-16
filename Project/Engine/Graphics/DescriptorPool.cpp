@@ -22,7 +22,6 @@ DescriptorPool::DescriptorPool(const VkDevice& device, VkDeviceSize size, size_t
 
 void DescriptorPool::Initialize(const VkDevice& device)
 {
-	// create discription set layout
 	VkDescriptorSetLayoutBinding uboLayoutBinding{};
 	uboLayoutBinding.binding = 0;
 	uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;

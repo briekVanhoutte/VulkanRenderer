@@ -21,8 +21,6 @@ public:
 
 	void destroyParticleGroup(const VkDevice& device);
 
-	//void updateParticles(glm::vec3 pos, glm::vec3 color, glm::vec3 normal);
-
 	void draw(VkPipelineLayout pipelineLayout, VkCommandBuffer commandBuffer);
 private:
 

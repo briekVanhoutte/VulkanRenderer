@@ -11,10 +11,8 @@ PlatformWindow_Linux::PlatformWindow_Linux(int width, int height, const char* ti
     m_window = glfwCreateWindow(width, height, title, nullptr, nullptr);
     if (!m_window) throw std::runtime_error("Failed to create GLFW window");
 
-    // Set the WindowManager instance as the user pointer.
     glfwSetWindowUserPointer(m_window, this);
 
-    // Set up GLFW callbacks using our static functions.
     glfwSetKeyCallback(m_window, WindowManager::keyCallback);
     glfwSetCursorPosCallback(m_window, WindowManager::cursorPosCallback);
     glfwSetMouseButtonCallback(m_window, WindowManager::mouseButtonCallback);
@@ -26,10 +24,6 @@ PlatformWindow_Linux::~PlatformWindow_Linux() {
 }
 
 void* PlatformWindow_Linux::getNativeHandle() {
-    // On Linux, you might want to return the X11 or Wayland native handle,
-    // but in most cases, Vulkan+GLFW only needs the GLFWwindow pointer.
-    // You could use glfwGetX11Window(m_window) if you need the raw X11 window.
-    // For pure Vulkan/GLFW, just return the pointer for now.
     return static_cast<void*>(m_window);
 }
 
@@ -41,4 +35,4 @@ void PlatformWindow_Linux::pollEvents() {
     glfwPollEvents();
 }
 
-#endif // __linux__
+#endif 

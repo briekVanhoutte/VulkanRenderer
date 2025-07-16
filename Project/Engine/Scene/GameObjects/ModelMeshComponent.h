@@ -7,7 +7,6 @@
 
 class ModelMeshComponent : public Component {
 public:
-    // Constructor takes the parent GameObject and the model file path.
     ModelMeshComponent(GameObject* parent, const std::string& modelFile) {
         setParent(parent);
         addModelToScene(modelFile);

@@ -2,10 +2,10 @@
 #include <Engine/Graphics/vulkanVars.h>
 #include <Engine/Physics/PhysxBase.h>
 
-#include <glm/mat4x4.hpp> // glm::mat4
-#include <glm/ext/matrix_transform.hpp> // glm::translate, glm::rotate, glm::scale
-#include <glm/ext/matrix_clip_space.hpp> // glm::perspective
-#include <glm/ext/scalar_constants.hpp> // glm::pi
+#include <glm/mat4x4.hpp>
+#include <glm/ext/matrix_transform.hpp> 
+#include <glm/ext/matrix_clip_space.hpp> 
+#include <glm/ext/scalar_constants.hpp> 
 
 ParticleGroup::ParticleGroup(physx::PxVec4* particleBuffer, int ParticleCount,const std::vector<Particle>& particles)
 	:m_ParticleCount(ParticleCount) , m_pParticleBuffer(particleBuffer), m_Particles(particles)
@@ -48,32 +48,18 @@ void ParticleGroup::initialize(VkPhysicalDevice physicalDevice, VkDevice device,
 		VertexStagingBuffer->destroy(device);
 
 	}
-
-	/*VkDeviceSize particleBufferSizew = sizeof(physx::PxVec4) * m_ParticleCount;
-
-	m_ParticleBuffer = std::make_unique<DataBuffer>(physicalDevice, device,
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-		particleBufferSizew
-	);
-
-	m_ParticleBuffer->uploadRaw(particleBufferSizew, m_pParticleBuffer);*/
 }
 
 void ParticleGroup::setPosition(glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles)
 {
-	// Translation matrix for position
 	glm::mat4 translationMatrix = glm::translate(glm::mat4(1.0f), position);
 
-	// Rotation matrix for rotation angles
 	glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), glm::radians(rotationAngles.x), glm::vec3(1.0f, 0.0f, 0.0f));
 	rotationMatrix = glm::rotate(rotationMatrix, glm::radians(rotationAngles.y), glm::vec3(0.0f, 1.0f, 0.0f));
 	rotationMatrix = glm::rotate(rotationMatrix, glm::radians(rotationAngles.z), glm::vec3(0.0f, 0.0f, 1.0f));
 
-	// Scale matrix for scaling
 	glm::mat4 scaleMatrix = glm::scale(glm::mat4(1.0f), scale);
 
-	// Combine the transformations
 	m_VertexConstant.model = translationMatrix * rotationMatrix * scaleMatrix;
 }
 
@@ -95,15 +81,13 @@ void ParticleGroup::draw(VkPipelineLayout pipelineLayout, VkCommandBuffer comman
 	vkCmdPushConstants(
 		commandBuffer,
 		pipelineLayout,
-		VK_SHADER_STAGE_VERTEX_BIT, // Stage flag should match the push constant range in the layout
-		0,                          // Offset within the push constant block
-		sizeof(m_VertexConstant),          // Size of the push constants to update
+		VK_SHADER_STAGE_VERTEX_BIT,
+		0,                       
+		sizeof(m_VertexConstant),
 		&m_VertexConstant           
 	);
 
 	vkCmdDraw(commandBuffer, m_ParticleCount, 1, 0, 0);
-
-	//vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(m_Indices.size()), 1, 0, 0, 0);
 }
 
 void ParticleGroup::CreateParticleBuffer(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue)

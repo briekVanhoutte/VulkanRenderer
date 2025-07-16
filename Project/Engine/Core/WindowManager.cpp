@@ -7,7 +7,6 @@
     #include <Engine/Platform/Windows/PlatformWindow_Windows.h>
 #endif
 
-// You can define your window dimensions here.
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 
@@ -31,9 +30,6 @@ void WindowManager::initWindow() {
 
 }
 
-//GLFWwindow* WindowManager::getWindow() const {
-//    return window;
-//}
 
 PlatformWindow* WindowManager::getPlatformWindow() const
 {
@@ -41,21 +37,17 @@ PlatformWindow* WindowManager::getPlatformWindow() const
 }
 
 void WindowManager::handleKeyEvent(int key, int scancode, int action, int mods) {
-    // Fill in your key handling logic here.
     std::cout << "Key event: key = " << key << ", action = " << action << "\n";
 }
 
 void WindowManager::handleCursorPos(double xpos, double ypos) {
-    // Fill in your cursor movement logic here.
     std::cout << "Cursor position: (" << xpos << ", " << ypos << ")\n";
 }
 
 void WindowManager::handleMouseButton(int button, int action, int mods) {
-    // Fill in your mouse button handling logic here.
     std::cout << "Mouse button event: button = " << button << ", action = " << action << "\n";
 }
 
-// Static callback wrappers.
 #ifdef _WIN32
 void WindowManager::keyCallback(GLFWwindow* win, int key, int scancode, int action, int mods) {
     WindowManager* wm = static_cast<WindowManager*>(glfwGetWindowUserPointer(win));

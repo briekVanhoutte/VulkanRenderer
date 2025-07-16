@@ -79,10 +79,6 @@ void Pipeline::drawScene(uint32_t imageIndex, VkRenderPass renderPass,const std:
 	scissor.extent = swapChainExtent;
 	vkCmdSetScissor(vulkan_vars.commandBuffers[currentSlice].m_VkCommandBuffer, 0, 1, &scissor);
 
-	
-
-	//vkCmdBindPipeline(vulkan_vars.commandBuffer.m_VkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline3d);
-
 	m_Shader->bindDescriptorSet(vulkan_vars.commandBuffers[currentSlice].m_VkCommandBuffer, m_PipelineLayout, imageIndex);
 
 	assert(m_Shader);
@@ -229,9 +225,9 @@ void Pipeline::updateUniformBuffer(uint32_t currentImage, VkExtent2D swapChainEx
 VkPushConstantRange Pipeline::createPushConstantRange()
 {
 	VkPushConstantRange pushConstantRange = {};
-	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // Stage the push constant is accessible from
+	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; 
 	pushConstantRange.offset = 0;
-	pushConstantRange.size = sizeof(MeshData); // Size of push constant block
+	pushConstantRange.size = sizeof(MeshData); 
 
 	return pushConstantRange;
 }
