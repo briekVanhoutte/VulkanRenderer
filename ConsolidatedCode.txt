@@ -1,0 +1,2223 @@
+Consolidated Code from 'C:\Users\briek\Documents\GitHub\VulkanRenderer'
+
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Camera.h -----
+
+#pragma once
+#include <cassert>
+#include <iostream>
+//#include "vulkanbase\VulkanUtil.h"
+
+#include <glm/vec3.hpp> // glm::vec3
+#include <glm/vec4.hpp> // glm::vec4
+#include <glm/mat4x4.hpp> // glm::mat4
+#include <glm/ext/matrix_transform.hpp> // glm::translate, glm::rotate, glm::scale
+#include <glm/ext/matrix_clip_space.hpp> // glm::perspective
+#include <glm/ext/scalar_constants.hpp> // glm::pi
+
+struct Camera
+{
+	Camera() = default;
+
+	Camera(const glm::vec3& _origin, float _fovAngle, float _aspectRatio);
+
+
+	glm::vec3 origin{};
+	float fovAngle{ 90.f };
+	float fov{ glm::radians(fovAngle)};
+	float aspectRatio{1.f};
+
+	float nearPlane{ 0.1f };
+	float farPlane{ 100.f };
+
+	glm::vec3 forward{ 0.f,0.f,1.f };
+	glm::vec3 up{ 0.f,1.f,0.f };
+	glm::vec3 right{ 1.f,0.f,0.f };
+
+	float totalPitch{ 3.14f};
+	float totalYaw{};
+
+	glm::mat4 invViewMatrix{};
+	glm::mat4 viewMatrix{};
+
+	glm::mat4 projectionMatrix{};
+
+	void Initialize(float _fovAngle = 90.f, glm::vec3 _origin = { 0.f,0.f,0.f }, float _aspectRatio = 1.f);
+
+	void CalculateViewMatrix();
+	void CalculateProjectionMatrix();
+
+	glm::mat4 CalculateCameraToWorld();
+	void printValuesCamera();
+	
+	void update();
+
+	void rotate(glm::vec2 offset);
+	void translateForward(float posChange);
+	void translateRight(float posChange);
+
+	void SetFov(const float fovAngleNew);
+	void SetAspectRatio(const float aspect);
+
+	glm::mat4 CreateRotationX(float pitch) {
+		return glm::rotate(glm::mat4(1.0f), pitch, glm::vec3(1.0f, 0.0f, 0.0f));
+	}
+
+	glm::mat4 CreateRotationY(float yaw) {
+		return glm::rotate(glm::mat4(1.0f), yaw, glm::vec3(0.0f, 1.0f, 0.0f));
+	}
+
+	glm::mat4 CreateRotationZ(float roll) {
+		return glm::rotate(glm::mat4(1.0f), roll, glm::vec3(0.0f, 0.0f, 1.0f));
+	}
+
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Camera.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\CommandBuffer.h -----
+
+#pragma once
+#include "vulkan\vulkan_core.h"
+
+class CommandBuffer {
+public:
+	CommandBuffer() {};
+
+	void setVkCommandBuffer( VkCommandBuffer buffer);
+	VkCommandBuffer m_VkCommandBuffer;;
+	void reset()const;
+	void beginRecording()const;
+	void endRecording()const;
+
+	void submit(VkSubmitInfo& info) const;
+private:
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\CommandBuffer.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\CommandPool.h -----
+
+#pragma once
+
+#include "vulkan\vulkan_core.h"
+#include "CommandBuffer.h"
+#include <Engine/Vertex.h>
+#include <Engine/QueueFamilyIndices.h>
+class CommandPool
+{
+public:
+	CommandPool() {};
+	VkCommandPool m_CommandPool{ VK_NULL_HANDLE };
+	/*VkDevice m_VkDevice{ VK_NULL_HANDLE }
+	{
+
+	}*/
+	
+	void initialize( const QueueFamilyIndices& queue);
+	void destroy();
+
+	CommandBuffer createCommandBuffer() const;
+private:
+	VkDevice m_VkDevice;
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\CommandPool.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\DataBuffer.h -----
+
+#pragma once
+#include <stdexcept>
+
+#include "vulkan\vulkan_core.h"
+
+class DataBuffer
+{
+public:
+	DataBuffer(
+		VkPhysicalDevice physicalDevice,
+		VkDevice device,
+		VkBufferUsageFlags usage,
+		VkMemoryPropertyFlags properties,
+		VkDeviceSize size
+	);
+
+	~DataBuffer() {
+	}
+
+	void upload(VkDeviceSize size, void* data);
+	void uploadRaw(VkDeviceSize size, void* data);
+	void map(VkDeviceSize size, void* data);
+	void remap(VkDeviceSize size, void* data);
+	void destroy(const VkDevice& device);
+	void bindAsVertexBuffer(VkCommandBuffer commandBuffer);
+	void bindAsIndexBuffer(VkCommandBuffer commandBuffer);
+
+	VkBuffer getVkBuffer();
+	void* getUniformBuffer();
+	VkBuffer m_VkBuffer;
+	VkDeviceSize getSizeInBytes();
+	VkDeviceMemory getBufferMemory() { return m_VkBufferMemory; }
+
+	void copyBuffer(VkBuffer srcBuffer, const VkCommandPool& commandPool, const VkDevice& device, VkDeviceSize size, const VkQueue& graphicsQueue);
+
+	static uint32_t findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties);
+
+private:
+	
+
+	VkDevice m_VkDevice;
+	VkDeviceSize m_Size;
+	
+	VkDeviceMemory m_VkBufferMemory;
+
+	void* m_UniformBufferMapped;
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\DataBuffer.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\DescriptorPool.h -----
+
+#pragma once
+
+#include <vector>
+#include <memory>
+#include "Engine/DataBuffer.h"
+
+class DescriptorPool
+{
+public:
+	DescriptorPool() {};
+	DescriptorPool(const VkDevice& device, VkDeviceSize size, size_t count);
+	void Initialize(const VkDevice& device);
+
+	void Destroy(const VkDevice& device);
+
+	const VkDescriptorSetLayout& getDescriptorSetLayout()
+	{
+		return m_DescriptorSetLayout;
+	}
+
+	~DescriptorPool() ;
+	void createDescriptorSets(std::vector<VkBuffer> buffers);
+
+	void bindDescriptorSet(VkCommandBuffer buffer, VkPipelineLayout layout, size_t index);
+
+private:
+	VkDevice m_Device;
+	VkDeviceSize m_Size;
+	VkDescriptorPool m_DescriptorPool;
+	std::vector<VkDescriptorSet> m_DescriptorSets;
+	size_t m_Count;
+	VkDescriptorSetLayout m_DescriptorSetLayout;
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\DescriptorPool.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Game.h -----
+
+#pragma once
+
+#include <chrono>
+#include <iostream>
+#include <thread>
+#include <vector>
+#include <iomanip>
+
+#include "Engine/WindowManager.h"
+#include "Engine/InputManager.h"
+#include "Engine/RendererManager.h"
+#include "Engine/PhysxBase.h"
+#include "Engine/SceneModelManager.h"
+#include "Engine/GameSceneManager.h"
+
+class Game {
+public:
+    Game();
+    ~Game();
+
+    // Initializes the game (window, input, physics, camera, renderer, scene, etc.)
+    void init();
+
+    // Main loop that updates and renders the scene
+    void run();
+
+private:
+    // Helper to setup the scene
+    void initScene();
+
+    // Frame timing variables
+    bool m_CapFps = true;
+    const int m_FPSCap = 60;
+    const std::chrono::nanoseconds m_FrameDuration = std::chrono::nanoseconds(1'000'000'000 / m_FPSCap);
+
+
+    // Core engine objects
+    WindowManager& m_WindowManager;
+    RendererManager* m_Renderer;
+    Camera* m_Camera;
+
+    // For physics and scenes
+    PhysxBase& m_Physics;
+    SceneModelManager& m_SceneManager;
+    GameSceneManager& m_GameScene;
+
+    // Render items list (for example purposes)
+    std::vector<RenderItem> m_RenderItems;
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Game.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\GameSceneManager.h -----
+
+#pragma once
+#include <vector>
+#include <memory>
+#include "Gameobjects/GameObject.h"
+
+class GameSceneManager {
+public:
+    // Returns the singleton instance.
+    static GameSceneManager& getInstance() {
+        static GameSceneManager instance;
+        return instance;
+    }
+
+    // Adds a new GameObject to the scene and returns its pointer.
+    GameObject* addGameObject() {
+        auto obj = std::make_unique<GameObject>();
+        GameObject* rawPtr = obj.get();
+        m_gameObjects.push_back(std::move(obj));
+        return rawPtr;
+    }
+
+    // Optionally propagate lifecycle calls.
+    void initialize() {
+        for (auto& obj : m_gameObjects)
+            obj->initialize();
+    }
+
+    void update() {
+        for (auto& obj : m_gameObjects)
+            obj->update();
+    }
+
+    void render() {
+        for (auto& obj : m_gameObjects)
+            obj->render();
+    }
+
+private:
+    GameSceneManager() = default;
+    ~GameSceneManager() = default;
+    GameSceneManager(const GameSceneManager&) = delete;
+    GameSceneManager& operator=(const GameSceneManager&) = delete;
+
+    std::vector<std::unique_ptr<GameObject>> m_gameObjects;
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\GameSceneManager.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\InputManager.h -----
+
+#pragma once
+#include <GLFW/glfw3.h>
+#include <vector>
+#include "Camera.h"
+
+class InputManager {
+public:
+    static InputManager& GetInstance();
+
+    // Initialize the InputManager by installing callbacks on the provided window.
+    void Initialize(GLFWwindow* window);
+
+    // Query functions.
+    bool IsKeyDown(int key) const;
+    bool IsMouseButtonDown(int button) const;
+    double GetMouseX() const;
+    double GetMouseY() const;
+
+    // Update function (if you need per-frame processing)
+    void Update();
+
+    void HandleCameraInputs(Camera* camera, float deltaTime);
+private:
+    InputManager();
+    ~InputManager();
+
+    // Delete copy/move.
+    InputManager(const InputManager&) = delete;
+    InputManager& operator=(const InputManager&) = delete;
+    InputManager(InputManager&&) = delete;
+    InputManager& operator=(InputManager&&) = delete;
+
+    // Internal state.
+    std::vector<int> keysDown;
+    std::vector<int> mouseButtonsDown;
+    double mouseX;
+    double mouseY;
+
+    glm::vec2 m_LastMousePos;
+
+    // Static callback wrappers.
+    static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+    static void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
+    static void CursorPosCallback(GLFWwindow* window, double xpos, double ypos);
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\InputManager.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Mesh.h -----
+
+#pragma once
+
+#include "vulkan\vulkan_core.h"
+#include <Engine/Vertex.h>
+#include <glm/glm.hpp>
+#include "Engine\DataBuffer.h"
+#include <Engine/MeshData.h>
+#include <memory>
+class Mesh {
+public:
+	Mesh(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices);
+	void initialize(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue);
+	void destroyMesh(const VkDevice& device);
+
+	void setPosition(glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles);
+	glm::vec3 getPostion() { return m_Position; }
+	void addVertex(glm::vec3 pos, glm::vec3 color, glm::vec3 normal);
+	void addTriangle(uint16_t i1, uint16_t i2, uint16_t i3, uint16_t offset = 0);
+
+	void draw(VkPipelineLayout pipelineLayout, VkCommandBuffer commandBuffer);
+private:
+	std::vector<Vertex> m_Vertices;
+	std::vector<uint16_t> m_Indices;
+	std::unique_ptr<DataBuffer> m_VertexBuffer;
+	std::unique_ptr<DataBuffer> m_IndexBuffer;
+
+	//VertexConstant m_VertexConstant;
+
+	MeshData m_VertexConstant;
+
+	glm::vec3 m_Position = {};
+
+	void CreateVertexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue);
+	void CreateIndexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue);
+}; 
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Mesh.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\MeshData.h -----
+
+#pragma once
+#include <glm/glm.hpp>
+
+struct MeshData {
+	glm::mat4 model;
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\MeshData.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\MeshScene.h -----
+
+#pragma once
+
+#define GLM_ENABLE_EXPERIMENTAL
+
+#include "vulkan\vulkan_core.h"
+#include <glm/glm.hpp>
+#include "Mesh.h" 
+#include "objects/BaseObject.h"
+#include "Engine/Scene.h"
+#include <glm\gtx\quaternion.hpp>
+
+
+enum class ObjType {
+    plane,
+    model
+};
+
+
+class MeshScene : public Scene{
+public:
+
+    unsigned int addModel(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles)
+    {
+        BaseObject* object = new BaseObject{ Vertexes, indices };
+
+        object->setPosition(position, scale, rotationAngles);
+        m_BaseObjects.push_back(object);
+
+        return m_BaseObjects.size() - 1;
+    }
+
+    BaseObject* getBaseObject(unsigned int modelId)
+    {
+        if (modelId < m_BaseObjects.size())
+        {
+            return m_BaseObjects[modelId];
+        }
+        return nullptr;
+    }
+
+    unsigned int addRectangle( const glm::vec3& normal,
+        const glm::vec3& color,
+        float width,
+        float height, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles)
+    {
+        // Calculate half dimensions
+        float halfWidth = width / 2.0f;
+        float halfHeight = height / 2.0f;
+
+        // Define the four corners of the rectangle
+        glm::vec3 p0(-halfWidth, -halfHeight, 0.0f);
+        glm::vec3 p1(halfWidth, -halfHeight, 0.0f);
+        glm::vec3 p2(halfWidth, halfHeight, 0.0f);
+        glm::vec3 p3(-halfWidth, halfHeight, 0.0f);
+
+        std::vector<Vertex> vertices{};
+        std::vector<uint16_t> indices{};
+        // Default normal (pointing in the Z direction)
+        glm::vec3 defaultNormal(0.0f, 0.0f, 1.0f);
+
+        // Calculate rotation quaternion to align default normal with the given normal
+        glm::quat rotationQuat = glm::rotation(defaultNormal, normal);
+
+        // Rotate the vertices
+        p0 = rotationQuat * p0;
+        p1 = rotationQuat * p1;
+        p2 = rotationQuat * p2;
+        p3 = rotationQuat * p3;
+
+        // Define vertices for the rectangle with the correct normal and color
+        vertices.push_back({ p0, normal, color });
+        vertices.push_back({ p1, normal, color });
+        vertices.push_back({ p2, normal, color });
+        vertices.push_back({ p3, normal, color });
+
+        // Define indices for the two triangles
+        uint16_t baseIndex = static_cast<uint16_t>(vertices.size()) - 4;
+        indices.push_back(baseIndex + 0);
+        indices.push_back(baseIndex + 1);
+        indices.push_back(baseIndex + 2);
+
+        indices.push_back(baseIndex + 0);
+        indices.push_back(baseIndex + 2);
+        indices.push_back(baseIndex + 3);
+
+
+        BaseObject* object = new BaseObject{ vertices, indices };
+
+        object->setPosition(position, scale, rotationAngles);
+
+        m_BaseObjects.push_back(object);
+
+        return m_BaseObjects.size() - 1;
+    }
+
+    void initObject(VkPhysicalDevice& physicalDevice, VkDevice& device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue) {
+        for (auto& object : m_BaseObjects) {
+            object->init(physicalDevice, device, commandPool, graphicsQueue);
+        }
+    }
+
+    void drawScene(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer) {
+        for (auto& object : m_BaseObjects) {
+            object->draw(pipelineLayout, buffer);
+        }
+    }
+
+    void updateLocationObject(unsigned int pos, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles) {
+        if (pos < m_BaseObjects.size()) {
+            m_BaseObjects[pos]->setPosition(position, scale, rotationAngles);
+        }
+    }
+
+    glm::vec3 getLocation(unsigned int pos) {
+        if (pos < m_BaseObjects.size()) {
+            return m_BaseObjects[pos]->getPosition();
+        }
+    }
+
+    void deleteScene(VkDevice device) {
+        for (auto& object : m_BaseObjects) {
+            object->destroy(device);
+        }
+    }
+
+private:
+    std::vector<BaseObject*> m_BaseObjects{};
+};
+
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\MeshScene.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Particle.h -----
+
+#pragma once
+#include <glm/glm.hpp>
+#include <vulkan/vulkan_core.h>
+#include <vector>
+
+struct Particle {
+	glm::vec4 pos;
+
+	Particle(glm::vec4 p) { pos = p; }
+	Particle() { pos = {}; }
+
+	static VkVertexInputBindingDescription getBindingDescription() {
+		VkVertexInputBindingDescription bindingDescription{};
+		bindingDescription.binding = 0;
+		bindingDescription.stride = sizeof(Particle);
+		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+		return bindingDescription;
+	}
+
+	static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions() {
+		std::vector<VkVertexInputAttributeDescription> attributeDescriptions(1);
+
+		attributeDescriptions[0].binding = 0;
+		attributeDescriptions[0].location = 0;
+		attributeDescriptions[0].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+		attributeDescriptions[0].offset = offsetof(Particle, pos);
+
+		return attributeDescriptions;
+	}
+
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Particle.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\ParticleGroup.h -----
+
+#pragma once
+
+#include "vulkan\vulkan_core.h"
+#include <glm/glm.hpp>
+#include "Engine\DataBuffer.h"
+#include "PxParticleBuffer.h"
+#include <Engine/vulkanVars.h>
+#include <Engine/MeshData.h>
+#include <Engine/Particle.h>
+#include <memory>
+#include <array>
+
+class ParticleGroup {
+public:
+	ParticleGroup(physx::PxVec4* particleBuffer, int ParticleCount, const std::vector<Particle>& particles);
+	void initialize(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue);
+	
+	void setPosition(glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles);
+
+	void destroyParticleGroup(const VkDevice& device);
+
+	//void updateParticles(glm::vec3 pos, glm::vec3 color, glm::vec3 normal);
+
+	void draw(VkPipelineLayout pipelineLayout, VkCommandBuffer commandBuffer);
+private:
+
+	std::vector<Particle> m_Particles;
+	std::array<std::unique_ptr<DataBuffer>, MAX_FRAMES_IN_FLIGHT> m_ParticleBuffers;
+
+	MeshData m_VertexConstant = {  };
+	physx::PxVec4* m_pParticleBuffer;
+	int m_ParticleCount;
+	void CreateParticleBuffer(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue);
+
+	void update();
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\ParticleGroup.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\ParticleScene.h -----
+
+#pragma once
+
+#include "vulkan\vulkan_core.h"
+#include <glm/glm.hpp>
+#include "Mesh.h" 
+#include "objects/BaseObject.h"
+#include "Engine/Scene.h"
+
+#include "ParticleGroup.h"
+
+class ParticleScene : public Scene {
+public:
+
+    void addParticleGroup(physx::PxVec4* particleBuffer, int ParticleCount , std::vector<Particle> particles, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles)
+    {
+        ParticleGroup* object = new ParticleGroup{ particleBuffer , ParticleCount , particles};
+        object->setPosition(position, scale, rotationAngles);
+
+        m_ParticleGroups.push_back(object);
+    }
+
+    void addParticleGroup(std::vector<Particle> particles)
+    {
+        ParticleGroup* object = new ParticleGroup{ nullptr , 0 , particles };
+
+        m_ParticleGroups.push_back(object);
+    }
+
+    void drawScene(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer) {
+        for (auto& object : m_ParticleGroups) {
+            object->draw(pipelineLayout, buffer);
+        }
+    }
+
+    void deleteScene(VkDevice device) {
+        for (auto& object : m_ParticleGroups) {
+            object->destroyParticleGroup(device);
+        }
+    }
+
+    ParticleGroup* getLastParticleGroup()
+    {
+        if (m_ParticleGroups.size())
+        {
+            return m_ParticleGroups[m_ParticleGroups.size() - 1];
+        }
+        return nullptr;
+       
+    }
+
+private:
+    std::vector<ParticleGroup*> m_ParticleGroups{};
+};
+
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\ParticleScene.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\PhysicsManager.h -----
+
+#pragma once
+#include <PxPhysicsAPI.h>
+#include "PhysxBase.h"
+using namespace physx;
+
+class PhysicsManager {
+public:
+    static PhysicsManager& GetInstance() {
+        static PhysicsManager instance;
+        return instance;
+    }
+
+    void Initialize();
+
+    void StepPhysics(float deltaTime);
+
+    void Cleanup();
+
+private:
+    PhysicsManager() = default;
+    ~PhysicsManager() = default;
+    PhysicsManager(const PhysicsManager&) = delete;
+    PhysicsManager& operator=(const PhysicsManager&) = delete;
+
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\PhysicsManager.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\PhysxBase.h -----
+
+#pragma once
+
+#include <vector>
+#include <memory>
+#include "Engine/DataBuffer.h"
+#include <PxPhysicsAPI.h>
+#include <extensions/PxParticleExt.h>
+#include <Engine/Particle.h>
+#include <vector>
+
+#include <iostream>
+
+#include "PxPhysicsAPI.h"
+#include "cudamanager/PxCudaContext.h"
+#include "cudamanager/PxCudaContextManager.h"
+
+#include "engine/Singleton.h"
+#define CUDA_SUCCESS 0
+#define SHOW_SOLID_SDF_SLICE 0
+#define IDX(i, j, k, offset) ((i) + dimX * ((j) + dimY * ((k) + dimZ * (offset))))
+#define PVD_HOST "127.0.0.1"
+
+using namespace physx;
+using namespace ExtGpu;
+
+
+static PxDefaultAllocator				gAllocator;
+static PxDefaultErrorCallback			gErrorCallback;
+static PxFoundation* gFoundation = NULL;
+static PxPhysics* gPhysics = NULL;
+static PxDefaultCpuDispatcher* gDispatcher = NULL;
+static PxScene* gScene = NULL;
+static PxMaterial* gMaterial = NULL;
+static PxPvd* gPvd = NULL;
+static PxPBDParticleSystem* gParticleSystem = NULL;
+static PxParticleAndDiffuseBuffer* gParticleBuffer = NULL;
+static bool								gIsRunning = true;
+static bool								gStep = true;
+static PxCudaContextManager* cudaContextManager = NULL;
+
+static PxRigidDynamic* movingWall = nullptr;
+
+static int								gMaxDiffuseParticles = 0;
+
+
+static void initObstacles()
+{
+	PxShape* shape = gPhysics->createShape(PxCapsuleGeometry(1.0f, 2.5f), *gMaterial);
+	PxRigidDynamic* body = gPhysics->createRigidDynamic(PxTransform(PxVec3(3.5f, 3.5f, 0), PxQuat(PxPi * -0.5f, PxVec3(0, 0, 1))));
+	body->attachShape(*shape);
+	body->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
+	gScene->addActor(*body);
+	shape->release();
+
+	//shape = gPhysics->createShape(PxBoxGeometry(1.0f, 1.0f, 5.0f), *gMaterial);
+	body = gPhysics->createRigidDynamic(PxTransform(PxVec3(3.5f, 0.75f, 0)));
+	//body->attachShape(*shape);
+	body->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
+	gScene->addActor(*body);
+	//shape->release();
+}
+
+static void initScene()
+{
+	
+	if (PxGetSuggestedCudaDeviceOrdinal(gFoundation->getErrorCallback()) >= 0)
+	{
+		// initialize CUDA
+		PxCudaContextManagerDesc cudaContextManagerDesc;
+		cudaContextManager = PxCreateCudaContextManager(*gFoundation, cudaContextManagerDesc, PxGetProfilerCallback());
+		if (cudaContextManager && !cudaContextManager->contextIsValid())
+		{
+			cudaContextManager->release();
+			cudaContextManager = NULL;
+		}
+	}
+	if (cudaContextManager == NULL)
+	{
+		PxGetFoundation().error(PxErrorCode::eINVALID_OPERATION, PX_FL, "Failed to initialize CUDA!\n");
+	}
+
+	PxSceneDesc sceneDesc(gPhysics->getTolerancesScale());
+	sceneDesc.gravity = PxVec3(0.0f, -9.81f, 0.0f);
+	gDispatcher = PxDefaultCpuDispatcherCreate(2);
+	sceneDesc.cpuDispatcher = gDispatcher;
+	sceneDesc.filterShader = PxDefaultSimulationFilterShader;
+	sceneDesc.cudaContextManager = cudaContextManager;
+	sceneDesc.staticStructure = PxPruningStructureType::eDYNAMIC_AABB_TREE;
+	sceneDesc.flags |= PxSceneFlag::eENABLE_PCM;
+	sceneDesc.flags |= PxSceneFlag::eENABLE_GPU_DYNAMICS;
+	sceneDesc.broadPhaseType = PxBroadPhaseType::eGPU;
+	sceneDesc.solverType = PxSolverType::eTGS;
+	gScene = gPhysics->createScene(sceneDesc);
+}
+
+static int getNumDiffuseParticles()
+{
+	return gMaxDiffuseParticles;
+}
+
+static void initParticles(const PxU32 numX, const PxU32 numY, const PxU32 numZ, const PxVec3& position = PxVec3(0, 0, 0), const PxReal particleSpacing = 0.2f, const PxReal fluidDensity = 1000.f, const PxU32 maxDiffuseParticles = 100000)
+{
+	PxCudaContextManager* cudaContextManager = gScene->getCudaContextManager();
+	if (cudaContextManager == NULL)
+		return;
+
+	const PxU32 maxParticles = numX * numY * numZ;
+
+	const PxReal restOffset = 0.5f * particleSpacing / 0.6f;
+
+	// Material setup
+	PxPBDMaterial* defaultMat = gPhysics->createPBDMaterial(0.05f, 0.05f, 0.f, 0.001f, 0.5f, 0.005f, 0.01f, 0.f, 0.f);
+
+	defaultMat->setViscosity(0.001f);
+	defaultMat->setSurfaceTension(0.00704f);
+	defaultMat->setCohesion(0.0704f);
+	defaultMat->setVorticityConfinement(10.f);
+
+	PxPBDParticleSystem* particleSystem = gPhysics->createPBDParticleSystem(*cudaContextManager, 96);
+	gParticleSystem = particleSystem;
+
+	// General particle system setting
+
+	const PxReal solidRestOffset = restOffset;
+	const PxReal fluidRestOffset = restOffset * 0.6f;
+	const PxReal particleMass = fluidDensity * 1.333f * 3.14159f * particleSpacing * particleSpacing * particleSpacing;
+	particleSystem->setRestOffset(restOffset);
+	particleSystem->setContactOffset(restOffset + 0.01f);
+	particleSystem->setParticleContactOffset(fluidRestOffset / 0.6f);
+	particleSystem->setSolidRestOffset(solidRestOffset);
+	particleSystem->setFluidRestOffset(fluidRestOffset);
+	particleSystem->enableCCD(false);
+	particleSystem->setMaxVelocity(solidRestOffset * 100.f);
+	
+	gScene->addActor(*particleSystem);
+
+	// Diffuse particles setting
+	PxDiffuseParticleParams dpParams;
+	dpParams.threshold = 300.0f;
+	dpParams.bubbleDrag = 0.9f;
+	dpParams.buoyancy = 0.9f;
+	dpParams.airDrag = 0.0f;
+	dpParams.kineticEnergyWeight = 0.01f;
+	dpParams.pressureWeight = 1.0f;
+	dpParams.divergenceWeight = 10.f;
+	dpParams.lifetime = 1.0f;
+	dpParams.useAccurateVelocity = false;
+
+	gMaxDiffuseParticles = maxDiffuseParticles;
+
+	// Create particles and add them to the particle system
+	const PxU32 particlePhase = particleSystem->createPhase(defaultMat, PxParticlePhaseFlags(PxParticlePhaseFlag::eParticlePhaseFluid | PxParticlePhaseFlag::eParticlePhaseSelfCollide));
+
+	PxU32* phase = cudaContextManager->allocPinnedHostBuffer<PxU32>(maxParticles);
+	PxVec4* positionInvMass = cudaContextManager->allocPinnedHostBuffer<PxVec4>(maxParticles);
+	PxVec4* velocity = cudaContextManager->allocPinnedHostBuffer<PxVec4>(maxParticles);
+
+	PxReal x = position.x;
+	PxReal y = position.y;
+	PxReal z = position.z;
+
+	for (PxU32 i = 0; i < numX; ++i)
+	{
+		for (PxU32 j = 0; j < numY; ++j)
+		{
+			for (PxU32 k = 0; k < numZ; ++k)
+			{
+				const PxU32 index = i * (numY * numZ) + j * numZ + k;
+
+				PxVec4 pos(x, y, z, 1.0f / particleMass);
+				phase[index] = particlePhase;
+				positionInvMass[index] = pos;
+				velocity[index] = PxVec4(0.0f);
+
+				z += particleSpacing;
+			}
+			z = position.z;
+			y += particleSpacing;
+		}
+		y = position.y;
+		x += particleSpacing;
+	}
+
+
+	ExtGpu::PxParticleAndDiffuseBufferDesc bufferDesc;
+	bufferDesc.maxParticles = maxParticles;
+	bufferDesc.numActiveParticles = maxParticles;
+	bufferDesc.maxDiffuseParticles = maxDiffuseParticles;
+	bufferDesc.maxActiveDiffuseParticles = maxDiffuseParticles;
+	bufferDesc.diffuseParams = dpParams;
+
+	bufferDesc.positions = positionInvMass;
+	bufferDesc.velocities = velocity;
+	bufferDesc.phases = phase;
+
+	gParticleBuffer = physx::ExtGpu::PxCreateAndPopulateParticleAndDiffuseBuffer(bufferDesc, cudaContextManager);
+	gParticleSystem->addParticleBuffer(gParticleBuffer);
+
+	cudaContextManager->freePinnedHostBuffer(positionInvMass);
+	cudaContextManager->freePinnedHostBuffer(velocity);
+	cudaContextManager->freePinnedHostBuffer(phase);
+}
+
+
+
+class PhysxBase : public Singleton<PhysxBase>
+{
+	
+
+	public:
+		PxPBDParticleSystem* getParticleSystem()
+		{
+			return gParticleSystem;
+		}
+
+		PxParticleAndDiffuseBuffer* getParticleBuffer()
+		{
+			return gParticleBuffer;
+		}
+
+		~PhysxBase() {
+			cleanupPhysics(false);
+		}
+
+		void initPhysics(bool useLargeFluid)
+		{
+			gFoundation = PxCreateFoundation(PX_PHYSICS_VERSION, gAllocator, gErrorCallback);
+
+			gPvd = PxCreatePvd(*gFoundation);
+			PxPvdTransport* transport = PxDefaultPvdSocketTransportCreate(PVD_HOST, 5425, 10);
+			gPvd->connect(*transport, PxPvdInstrumentationFlag::eALL);
+
+			gPhysics = PxCreatePhysics(PX_PHYSICS_VERSION, *gFoundation, PxTolerancesScale(), true, gPvd);
+
+			initScene();
+
+			PxPvdSceneClient* pvdClient = gScene->getScenePvdClient();
+			if (pvdClient)
+			{
+				pvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_CONSTRAINTS, true);
+				pvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_CONTACTS, true);
+				pvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES, true);
+			}
+			gMaterial = gPhysics->createMaterial(0.5f, 0.5f, 0.6f);
+
+			// Setup PBF
+			bool useMovingWall = true;
+
+			const PxReal fluidDensity = 1000.0f;
+
+			const PxU32 maxDiffuseParticles = useLargeFluid ? 2000000 : 100000;
+			initParticles(50, 120 * (useLargeFluid ? 5 : 1), 30, PxVec3(-2.5f, 3.f, 0.5f), 0.1f, fluidDensity, maxDiffuseParticles);
+
+			//initObstacles();
+
+			// Setup container
+			gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(0.f, 1.f, 0.f, 0.0f), *gMaterial));
+			gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(-1.f, 0.f, 0.f, 3.f), *gMaterial));
+			gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(0.f, 0.f, 1.f, 3.f), *gMaterial));
+			gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(0.f, 0.f, -1.f, 3.f), *gMaterial));
+
+			if (!useMovingWall)
+			{
+				gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(1.f, 0.f, 0.f, 3.f), *gMaterial));
+				movingWall = NULL;
+			}
+			else
+			{
+				PxTransform trans = PxTransformFromPlaneEquation(PxPlane(1.f, 0.f, 0.f, 5.f));
+				movingWall = gPhysics->createRigidDynamic(trans);
+				movingWall->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
+				PxRigidActorExt::createExclusiveShape(*movingWall, PxPlaneGeometry(), *gMaterial);
+				gScene->addActor(*movingWall);
+			}
+
+			// Setup rigid bodies
+			const PxReal dynamicsDensity = fluidDensity * 0.5f;
+			const PxReal boxSize = 1.0f;
+			const PxReal boxMass = boxSize * boxSize * boxSize * dynamicsDensity;
+			PxShape* shape = gPhysics->createShape(PxBoxGeometry(0.5f * boxSize, 0.5f * boxSize, 0.5f * boxSize), *gMaterial);
+			for (int i = 0; i < 5; ++i)
+			{
+				PxRigidDynamic* body = gPhysics->createRigidDynamic(PxTransform(PxVec3(i - 3.0f, 10, 7.5f)));
+				body->attachShape(*shape);
+				PxRigidBodyExt::updateMassAndInertia(*body, boxMass);
+				gScene->addActor(*body);
+			}
+			shape->release();
+		}
+		bool wallMoveLeft = false;
+		bool wallMoveRight = false;
+
+		float getRightWallLocation() {
+			return movingWall->getGlobalPose().p.x;
+		}
+
+		void stepPhysics(bool interactive,float deltaTime)
+		{
+			if (gIsRunning || gStep)
+			{
+				gStep = false;
+				//PxReal dt = 1.0f / 60.0f;
+				//const PxReal dt = deltaTime;
+
+				if (movingWall)
+				{
+					PxReal speed = 3.f;
+
+
+					PxTransform pose = movingWall->getGlobalPose();
+					if (wallMoveRight)
+					{
+						
+
+						if (pose.p.x - deltaTime * speed > -9.f) {
+							pose.p.x -= deltaTime * speed;
+						}
+					}
+					if (wallMoveLeft)
+					{
+						if (pose.p.x + deltaTime * speed < -3.f)
+						{
+							pose.p.x += deltaTime * speed;
+						}
+
+
+					}
+					wallMoveLeft = false;
+					wallMoveRight = false;
+
+					movingWall->setKinematicTarget(pose);
+				}
+
+				gScene->simulate(deltaTime);
+				gScene->fetchResults(true);
+				gScene->fetchResultsParticleSystem();
+				getParticles();
+			}
+		}
+
+		void cleanupPhysics(bool /*interactive*/)
+		{
+			PX_RELEASE(gScene);
+			PX_RELEASE(gDispatcher);
+			PX_RELEASE(gPhysics);
+			if (gPvd)
+			{
+				PxPvdTransport* transport = gPvd->getTransport();
+				gPvd->release();	gPvd = NULL;
+				PX_RELEASE(transport);
+			}
+			PX_RELEASE(gFoundation);
+
+			printf("SnippetPBFFluid done.\n");
+		}	
+
+		void getParticles() {
+			// Determine the size of the buffer
+			auto pr = getParticleBuffer();
+
+			if (pr == nullptr)return;
+
+			size_t bufferSize = pr->getNbActiveParticles() * sizeof(PxVec4);
+
+			// Allocate normal host memory for bufferLocation
+			void* bufferLocation = malloc(bufferSize);
+			if (bufferLocation == nullptr) {
+				std::cerr << "Failed to allocate host memory" << std::endl;
+				return;
+			}
+
+			// Get the positions of the particles
+			PxVec4* bufferPos = pr->getPositionInvMasses();
+
+			// Cast the bufferPos to CUdeviceptr
+			CUdeviceptr ptr = reinterpret_cast<CUdeviceptr>(bufferPos);
+
+			// Get the CUDA context manager and context
+			auto cudaContextManager = gScene->getCudaContextManager();
+			auto cudaContext = cudaContextManager->getCudaContext();
+
+			// Perform the asynchronous memory copy from device to host
+			cudaContext->memcpyDtoH(bufferLocation, ptr, bufferSize);
+			
+			// Cast the bufferLocation to PxVec4* to read the values
+			PxVec4* positions = static_cast<PxVec4*>(bufferLocation);
+
+			// Create a vector to hold the positions
+			//std::vector<PxVec4> particlePositions(getParticleBuffer()->getNbActiveParticles());
+			
+			m_Particles.clear();
+			m_Particles.resize(pr->getNbActiveParticles());
+
+			// Copy the positions into the vector
+			for (size_t i = 0; i < pr->getNbActiveParticles(); ++i) {
+				m_Particles[i].pos.x = positions[i].x;
+				m_Particles[i].pos.y = positions[i].y;
+				m_Particles[i].pos.z = positions[i].z;
+				m_Particles[i].pos.w = positions[i].w;
+			}
+
+			// Free the allocated host memory
+			free(bufferLocation);
+		};
+
+		std::vector<Particle> m_Particles = { {} };
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\PhysxBase.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Pipeline.h -----
+
+#pragma once
+#include <vector>
+#include <memory>
+#include <vulkan\vulkan_core.h>
+
+#include "Engine\ShaderBase.h"
+#include "Engine\CommandBuffer.h"
+#include "Engine\CommandPool.h"
+#include "Engine\Scene.h"
+#include "UniformBufferObject.h"
+
+class Pipeline
+{
+public:
+	Pipeline();
+	~Pipeline();
+	void Destroy(const VkDevice& vkDevice);
+
+	void Initialize(const std::string& vertexShaderPath, const std::string& fragmentShaderPath, const VkVertexInputBindingDescription vkVertexInputBindingDesc, std::vector<VkVertexInputAttributeDescription> vkVertexInputAttributeDesc, VkPrimitiveTopology topology);
+	void Record(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene);
+	//CommandBuffer m_Buffer;
+
+	void setUbo(const UniformBufferObject& ubo) { m_Ubo = ubo; }
+
+	static VkFormat findDepthFormat(VkPhysicalDevice& vkPhysicalDevice, VkDevice& vkDevice);
+	VkImage getDepthImage() { return m_DepthImage; };
+	VkDeviceMemory getDepthImageMemory() { return m_DepthImageMemory; };
+	VkImageView getDepthImageView() { return m_DepthImageView; };
+
+private:
+	void drawScene(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene);
+
+	void CreatePipeline(VkDevice device, VkRenderPass renderPass, VkPrimitiveTopology topology);
+
+
+	VkPipeline m_Pipeline3d;
+	std::unique_ptr<ShaderBase> m_Shader;
+
+	UniformBufferObject m_Ubo{};
+
+	VkPipelineLayout m_PipelineLayout;
+	void updateUniformBuffer(uint32_t currentImage, VkExtent2D swapChainExtent);
+
+	VkPushConstantRange createPushConstantRange();
+
+
+	// depth buffer
+
+	void createImage(VkPhysicalDevice& vkPhysicalDevice, VkDevice& vkDevice,uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+	
+	static VkFormat findSupportedFormat(VkPhysicalDevice& vkPhysicalDevice, VkDevice& vkDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+	void createDepthResources(VkPhysicalDevice& vkPhysicalDevice, VkDevice& vkDevice, VkExtent2D swapChainExtent);
+
+	bool hasStencilComponent(VkFormat format);
+	VkImageView createImageView(VkDevice& vkDevice, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
+
+	VkImage m_DepthImage;
+	VkDeviceMemory m_DepthImageMemory;
+	VkImageView m_DepthImageView;
+};
+
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Pipeline.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\QueueFamilyIndices.h -----
+
+#pragma once
+#include <optional>
+
+struct QueueFamilyIndices {
+	std::optional<uint32_t> graphicsFamily;
+	std::optional<uint32_t> presentFamily;
+
+	bool isComplete() {
+		return graphicsFamily.has_value() && presentFamily.has_value();
+	}
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\QueueFamilyIndices.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\RendererManager.h -----
+
+#pragma once
+
+#include <vulkan/vulkan.h>
+#include <GLFW/glfw3.h>
+#include "Engine/Scene.h"
+#include "Engine/Camera.h"
+#include "Pipeline.h"
+#include <Engine/vulkanVars.h>
+#include <Engine/SwapChainSupportDetails.h>
+
+
+#ifdef NDEBUG
+const bool enableValidationLayers = false;
+#else
+const bool enableValidationLayers = true;
+#endif
+
+const std::vector<const char*> validationLayers = {
+    "VK_LAYER_KHRONOS_validation"
+};
+
+const std::vector<const char*> deviceExtensions = {
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME
+};
+
+
+
+
+struct RenderItem {
+    Scene* scene;
+    int pipelineIndex;  // For example: 0 = particles, 1 = 3D objects.
+};
+
+class RendererManager {
+public:
+    RendererManager();
+    ~RendererManager();
+
+    // Initialize all renderer resources (Vulkan instance, device, swap chain, etc.)
+    void Initialize();
+
+    // Render one frame using the provided scene and camera
+    void RenderFrame(const std::vector<RenderItem>& renderItems, Camera& camera);
+
+    // Cleanup all renderer resources
+    void Cleanup();
+
+private:
+    Pipeline m_Pipeline3d;
+    Pipeline m_PipelineParticles;
+
+    // Private helper functions can be added here (e.g. createInstance, createSwapChain, etc.
+    VkSurfaceKHR surface;
+    VkInstance instance;
+    VkQueue presentQueue;
+    VkSwapchainKHR swapChain;
+    std::vector<VkImage> swapChainImages;
+    VkFormat swapChainImageFormat;
+    std::vector<VkImageView> swapChainImageViews;
+
+    std::vector<VkFramebuffer> swapChainFramebuffers;
+    std::array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> imageAvailableSemaphores;
+    std::array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> renderFinishedSemaphores;
+    std::array<VkFence, MAX_FRAMES_IN_FLIGHT> inFlightFences;
+
+    std::vector<VkFence> imagesInFlight;
+
+    void createInstance();
+    bool checkValidationLayerSupport();
+    std::vector<const char*> getRequiredExtensions();
+    void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
+
+    void setupDebugMessenger();
+    VkDebugUtilsMessengerEXT debugMessenger;
+
+    void createSurface();
+
+    void pickPhysicalDevice();
+    bool isDeviceSuitable(VkPhysicalDevice device);
+    bool checkDeviceExtensionSupport(VkPhysicalDevice device);
+    void createLogicalDevice();
+
+    void createSwapChain();
+    SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
+    VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
+    VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
+    VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
+    void createImageViews();
+
+
+    void createRenderPass();
+
+    void initPipeLines();
+    void createFrameBuffers();
+
+    void createSyncObjects(size_t currentFrame = 0);
+    QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
+
+
+    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
+        std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+        return VK_FALSE;
+    }
+    VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
+    void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
+
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\RendererManager.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Scene.h -----
+
+#pragma once
+
+class Scene {
+public:
+
+    virtual void drawScene(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer) = 0;
+    virtual  void deleteScene(VkDevice device) = 0;
+    
+};
+
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Scene.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\SceneModelManager.h -----
+
+#pragma once
+
+#include <vector>
+#include <variant>
+#include "MeshScene.h"
+#include "ParticleScene.h"
+
+// Enumeration to track the kind of object.
+enum class SceneModelType {
+    Mesh,
+    Particle
+};
+
+// A unified scene object wrapper that holds either a mesh object or a particle group.
+struct SceneObject {
+    SceneModelType type;
+    // Using a std::variant to store either a BaseObject* (from MeshScene)
+    // or a ParticleGroup* (from ParticleScene).
+    std::variant<BaseObject*, ParticleGroup*> object;
+};
+
+class SceneModelManager {
+public:
+    // Get the singleton instance.
+    static SceneModelManager& getInstance() {
+        static SceneModelManager instance;
+        return instance;
+    }
+
+    // Delete copy and assignment.
+    SceneModelManager(const SceneModelManager&) = delete;
+    SceneModelManager& operator=(const SceneModelManager&) = delete;
+
+    // Initialize both underlying scenes.
+    void initScenes(VkPhysicalDevice& physicalDevice, VkDevice& device,
+        const VkCommandPool& commandPool, const VkQueue& graphicsQueue) {
+        m_meshScene->initObject(physicalDevice, device, commandPool, graphicsQueue);
+        // (If your particle scene needs any initialization, do it here.)
+    }
+
+    // --- Functions to add objects to the scenes and to our unified list ---
+
+    // Add a mesh model.
+    BaseObject* addMeshModel(const std::vector<Vertex>& vertices,
+        const std::vector<uint16_t>& indices,
+        glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles)
+    {
+        // Add the object to the MeshScene.
+        // (Assume addModel returns an index and that you add a corresponding getter.)
+        unsigned int index = m_meshScene->addModel(vertices, indices, position, scale, rotationAngles);
+        BaseObject* obj = m_meshScene->getBaseObject(index); // << You must implement getBaseObject in MeshScene.
+        // Add to unified list.
+        m_sceneObjects.push_back({ SceneModelType::Mesh, obj });
+        return obj;
+    }
+
+    // Add a mesh rectangle.
+    BaseObject* addMeshRectangle(const glm::vec3& normal,
+        const glm::vec3& color,
+        float width, float height,
+        glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles)
+    {
+        unsigned int index = m_meshScene->addRectangle(normal, color, width, height, position, scale, rotationAngles);
+        BaseObject* obj = m_meshScene->getBaseObject(index); // << Implement getBaseObject.
+        m_sceneObjects.push_back({ SceneModelType::Mesh, obj });
+        return obj;
+    }
+
+    
+    // Add a particle group 
+    ParticleGroup* addParticleGroup(physx::PxVec4* particleBuffer, int ParticleCount, std::vector<Particle> particles, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles)
+    {
+        m_particleScene->addParticleGroup(particleBuffer,ParticleCount,particles,position,scale,rotationAngles);
+        ParticleGroup* obj = m_particleScene->getLastParticleGroup(); // << Implement getLastParticleGroup.
+        m_sceneObjects.push_back({ SceneModelType::Particle, obj });
+        return obj;
+    }
+
+    // --- Access and update transforms for unified objects ---
+
+    // Returns the unified list.
+    const std::vector<SceneObject>& getSceneObjects() const {
+        return m_sceneObjects;
+    }
+
+    // Update the transform (position, scale, rotation) for an object in the unified list.
+    // This function checks the type and calls setPosition on the underlying object.
+    void updateObjectTransform(size_t index, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles) {
+        if (index >= m_sceneObjects.size()) {
+            // Handle error (for example, throw or log)
+            return;
+        }
+        const SceneObject& sceneObj = m_sceneObjects[index];
+        if (sceneObj.type == SceneModelType::Mesh) {
+            BaseObject* obj = std::get<BaseObject*>(sceneObj.object);
+            if (obj)
+                obj->setPosition(position, scale, rotationAngles);
+        }
+        else if (sceneObj.type == SceneModelType::Particle) {
+            ParticleGroup* obj = std::get<ParticleGroup*>(sceneObj.object);
+            if (obj)
+                obj->setPosition(position, scale, rotationAngles);
+        }
+    }
+
+    // Clean up both scenes.
+    void destroy(VkDevice device) {
+        m_meshScene->deleteScene(device);
+        m_particleScene->deleteScene(device);
+    }
+
+    // (Optionally provide access to the underlying scenes if needed.)
+    MeshScene* getMeshScene() { return m_meshScene; }
+    ParticleScene* getParticleScene() { return m_particleScene; }
+
+private:
+    SceneModelManager() {
+        m_meshScene = new MeshScene();
+        m_particleScene = new ParticleScene();
+    }
+
+    // Destructor cleans up the allocated objects.
+    ~SceneModelManager() {
+        delete m_meshScene;
+        delete m_particleScene;
+    }
+
+    MeshScene* m_meshScene;
+    ParticleScene* m_particleScene;
+    // A unified list of pointers to every object added.
+    std::vector<SceneObject> m_sceneObjects;
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\SceneModelManager.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\ShaderBase.h -----
+
+#pragma once
+#ifndef SHADERBASE_H
+#define SHADERBASE_H
+
+#include <vulkan/vulkan.h>
+#include <Engine/Vertex.h>
+#include <vector>
+#include <string>
+#include <memory>
+#include <array>
+#include "Engine\DataBuffer.h"
+#include "Engine\DescriptorPool.h"
+#include <Engine/UniformBufferObject.h>
+
+
+
+class ShaderBase {
+public:
+    // Constructor and Destructor
+    ShaderBase() {};
+    ShaderBase( const std::string& vertexShaderPath, const std::string& fragmentShaderPath);
+    ~ShaderBase();
+
+    void Destroy(const VkDevice& vkDevice);
+
+    // Public interface for ShaderBase
+    void initialize(const VkPhysicalDevice& vkPhysicalDevice, const VkDevice& vkDevice, const VkVertexInputBindingDescription& vkVertexInputBindingDesc, std::vector<VkVertexInputAttributeDescription>& vkVertexInputAttributeDesc);
+
+    void createDescriptorSetLayout(const VkDevice& vkDevice);
+    const VkDescriptorSetLayout& getDescriptorSetLayout()
+    {
+        return m_DescriptorSetLayout;
+    }
+    void bindDescriptorSet(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, size_t index);
+
+    void updateUniformBuffer(uint32_t currentImage, UniformBufferObject& ubo);
+
+    VkPipelineShaderStageCreateInfo getVertexShaderStageInfo() ;
+    VkPipelineShaderStageCreateInfo getFragmentShaderStageInfo() ;
+    VkPipelineVertexInputStateCreateInfo& getVertexInputStateInfo() ;
+    VkPipelineInputAssemblyStateCreateInfo& getInputAssemblyStateInfo(VkPrimitiveTopology topology) ;
+
+private:
+    VkDevice device_{};
+    std::vector<char> vertexShaderCode_{};
+    std::vector<char> fragmentShaderCode_{};
+
+    VkVertexInputBindingDescription m_VkVertexInputBindingDesc{};
+    VkPipelineInputAssemblyStateCreateInfo m_VkPipelineInputAssemblyStateCreateInfo{};
+    std::vector<VkVertexInputAttributeDescription> m_VkVertexInputAttributeDesc{};
+       
+    VkShaderModule vertexShaderModule_{};
+    VkShaderModule fragmentShaderModule_{};
+
+    VkPipelineVertexInputStateCreateInfo m_VertexInputStateInfo{};
+
+    VkDescriptorSetLayout m_DescriptorSetLayout{};
+    std::vector<std::unique_ptr<DataBuffer>> m_UBOBuffers{};
+
+    UniformBufferObject m_UBOSrc{};
+    DescriptorPool m_DescriptorPool{};
+
+
+    std::vector<char> readFile(const std::string& filename);
+    VkShaderModule createShaderModule(const std::vector<char>& code);
+};
+
+#endif // SHADERBASE_H
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\ShaderBase.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Singleton.h -----
+
+#pragma once
+
+template <typename T>
+class Singleton
+{
+public:
+	static T& GetInstance()
+	{
+		static T instance{};
+		return instance;
+	}
+
+	virtual ~Singleton() = default;
+	Singleton(const Singleton& other) = delete;
+	Singleton(Singleton&& other) = delete;
+	Singleton& operator=(const Singleton& other) = delete;
+	Singleton& operator=(Singleton&& other) = delete;
+
+protected:
+	Singleton() = default;
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Singleton.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\SwapChainSupportDetails.h -----
+
+#pragma once
+#include <vulkan/vulkan_core.h>
+#include <vector>
+
+
+struct SwapChainSupportDetails {
+	VkSurfaceCapabilitiesKHR capabilities;
+	std::vector<VkSurfaceFormatKHR> formats;
+	std::vector<VkPresentModeKHR> presentModes;
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\SwapChainSupportDetails.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\UniformBufferObject.h -----
+
+#pragma once
+#include <glm/glm.hpp>
+
+struct UniformBufferObject {
+	glm::mat4 proj;
+	glm::mat4 view;
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\UniformBufferObject.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Vertex.h -----
+
+#pragma once
+#include <glm/glm.hpp>
+#include <vulkan/vulkan_core.h>
+#include <vector>
+
+
+
+struct Vertex
+{
+	glm::vec3 pos;
+	glm::vec3 normal;
+	glm::vec3 color;
+
+	Vertex(glm::vec3 pos, glm::vec3 normal, glm::vec3 color)
+		:pos(pos), normal(normal), color(color)
+	{
+	}
+	Vertex()
+	{
+		pos = {};
+		normal = {};
+		color = {};
+	}
+
+	static VkVertexInputBindingDescription getBindingDescription() {
+		VkVertexInputBindingDescription bindingDescription{};
+		bindingDescription.binding = 0;
+		bindingDescription.stride = sizeof(Vertex);
+		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+		return bindingDescription;
+	}
+
+	static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions() {
+		std::vector<VkVertexInputAttributeDescription> attributeDescriptions(3);
+
+		attributeDescriptions[0].binding = 0;
+		attributeDescriptions[0].location = 0;
+		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescriptions[0].offset = offsetof(Vertex, pos);
+
+		attributeDescriptions[1].binding = 0;
+		attributeDescriptions[1].location = 1;
+		attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescriptions[1].offset = offsetof(Vertex, normal);
+
+		attributeDescriptions[2].binding = 0;
+		attributeDescriptions[2].location = 2;
+		attributeDescriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescriptions[2].offset = offsetof(Vertex, color);
+
+		return attributeDescriptions;
+	}
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Vertex.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\vulkanVars.h -----
+
+#pragma once
+
+#include "Engine/Singleton.h"
+#include "Engine/CommandBuffer.h"
+#include "Engine/CommandPool.h"
+
+const uint32_t WIDTH = 800;
+const uint32_t HEIGHT = 600;
+const int MAX_FRAMES_IN_FLIGHT = 3;
+
+class vulkanVars : public Singleton<vulkanVars> {
+public:
+	CommandPool commandPoolModelPipeline{};
+	CommandPool commandPoolParticlesPipeline{};
+	VkDevice device = VK_NULL_HANDLE;
+	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+	VkRenderPass renderPass = VK_NULL_HANDLE;
+	VkQueue graphicsQueue = VK_NULL_HANDLE;
+	VkExtent2D swapChainExtent;
+	std::vector<CommandBuffer> commandBuffers; 
+	size_t currentFrame = 0;
+};
+
+
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\vulkanVars.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\WindowManager.h -----
+
+#pragma once
+#include <GLFW/glfw3.h>
+#include <Engine/Platform/PlatformWindow.h>
+
+class WindowManager {
+public:
+    // Get the singleton instance.
+    static WindowManager& GetInstance();
+
+    // Initializes GLFW and creates the window.
+    void initWindow();
+
+    // Returns the stored GLFW window pointer.
+    //GLFWwindow* getWindow() const;
+    PlatformWindow* getPlatformWindow() const;
+
+    void handleKeyEvent(int key, int scancode, int action, int mods);
+    void handleCursorPos(double xpos, double ypos);
+    void handleMouseButton(int button, int action, int mods);
+
+#ifdef _WIN32
+    // Static callback wrappers that retrieve the singleton instance.
+    static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+    static void cursorPosCallback(GLFWwindow* window, double xpos, double ypos);
+    static void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
+#endif
+
+private:
+    // Private constructor/destructor to enforce singleton.
+    WindowManager();
+    ~WindowManager();
+
+    // Delete copy/move constructors and assignment operators.
+    WindowManager(const WindowManager&) = delete;
+    WindowManager& operator=(const WindowManager&) = delete;
+    WindowManager(WindowManager&&) = delete;
+    WindowManager& operator=(WindowManager&&) = delete;
+
+    PlatformWindow* m_platformWindow = nullptr;
+};
+
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\WindowManager.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\GameObjects\Component.h -----
+
+#pragma once
+
+// Forward declaration to avoid circular dependency.
+class GameObject;
+
+class Component {
+public:
+    virtual ~Component() = default;
+
+    // Called to set the parent GameObject.
+    void setParent(GameObject* parent) { m_parent = parent; }
+
+    // Retrieve the parent GameObject.
+    GameObject* getParent() const { return m_parent; }
+
+    // Lifecycle methods.
+    virtual void initialize() {}
+    virtual void update() {}
+    virtual void render() {}
+
+protected:
+    GameObject* m_parent = nullptr; // Link to the parent GameObject.
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\GameObjects\Component.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\GameObjects\GameObject.h -----
+
+#pragma once
+
+#include <vector>
+#include <memory>
+#include <type_traits>
+#include "Component.h"
+#include "TransformComponent.h"
+#include "ModelMeshComponent.h"
+#include "PrimitiveMeshComponent.h"
+
+class GameObject {
+public:
+    GameObject() {
+        // Automatically add a TransformComponent to every GameObject.
+        m_transform = addComponent<TransformComponent>();
+    }
+
+    ~GameObject() = default;
+
+    // Template function to add any component type.
+    template<typename T, typename... Args>
+    T* addComponent(Args&&... args) {
+        static_assert(std::is_base_of<Component, T>::value, "T must derive from Component");
+        auto component = std::make_unique<T>(std::forward<Args>(args)...);
+        T* rawPtr = component.get();
+        // Link the component back to this GameObject.
+        rawPtr->setParent(this);
+        m_components.push_back(std::move(component));
+        return rawPtr;
+    }
+
+    // Template function to check if a component of type T exists.
+    template<typename T>
+    bool hasComponent() const {
+        for (const auto& comp : m_components) {
+            if (dynamic_cast<T*>(comp.get()))
+                return true;
+        }
+        return false;
+    }
+
+    // Lifecycle functions to propagate calls to all components.
+    void initialize() {
+        for (auto& comp : m_components)
+            comp->initialize();
+    }
+
+    void update() {
+        for (auto& comp : m_components)
+            comp->update();
+    }
+
+    void render() {
+        for (auto& comp : m_components)
+            comp->render();
+    }
+
+    // Convenience accessor for the default TransformComponent.
+    TransformComponent* getTransform() const { return m_transform; }
+
+private:
+    std::vector<std::unique_ptr<Component>> m_components;
+    TransformComponent* m_transform; // Cached pointer to the GameObject's transform.
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\GameObjects\GameObject.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\GameObjects\ModelMeshComponent.h -----
+
+#pragma once
+
+#include "Component.h"
+#include <vector>
+#include <string>
+#include <iostream>
+
+class ModelMeshComponent : public Component {
+public:
+    // Constructor takes the parent GameObject and the model file path.
+    ModelMeshComponent(GameObject* parent, const std::string& modelFile) {
+        setParent(parent);
+        addModelToScene(modelFile);
+    }
+
+    void initialize() override {
+        std::cout << "ModelMeshComponent initialized." << std::endl;
+    }
+    void update() override {
+        std::cout << "ModelMeshComponent updated." << std::endl;
+    }
+    void render() override {
+        std::cout << "ModelMeshComponent rendered." << std::endl;
+    }
+
+private:
+    void addModelToScene(const std::string& modelFile); 
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\GameObjects\ModelMeshComponent.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\GameObjects\PrimitiveMeshComponent.h -----
+
+#pragma once
+
+#include "Component.h"
+#include "../SceneModelManager.h"
+#include <glm/glm.hpp>
+#include <iostream>
+
+enum class PrimitiveType {
+    Plane,
+    Cube
+    // Extend with additional primitives (Sphere, etc.) as needed.
+};
+
+class PrimitiveMeshComponent : public Component {
+public:
+    // Constructor takes the parent GameObject, a primitive type, and dimensions.
+    PrimitiveMeshComponent(GameObject* parent, PrimitiveType type, float width = 1.f, float height = 1.f, float depth = 1.f) {
+        setParent(parent);
+        addPrimitiveToScene(type, width, height, depth);
+    }
+
+    void initialize() override {
+        std::cout << "PrimitiveMeshComponent initialized." << std::endl;
+    }
+    void update() override {
+        std::cout << "PrimitiveMeshComponent updated." << std::endl;
+    }
+    void render() override {
+        std::cout << "PrimitiveMeshComponent rendered." << std::endl;
+    }
+
+private:
+    // Updated to accept dimensions.
+    void addPrimitiveToScene(PrimitiveType type, float width, float height, float depth);
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\GameObjects\PrimitiveMeshComponent.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\GameObjects\TransformComponent.h -----
+
+#pragma once
+
+#include "Component.h"
+#include <glm/glm.hpp>
+#include <iostream>
+
+class TransformComponent : public Component {
+public:
+    TransformComponent()
+        : position(0.0f), scale(1.0f), rotation(0.0f) {
+    }
+
+    glm::vec3 position;
+    glm::vec3 scale;
+    glm::vec3 rotation;  // Euler angles (could be in degrees or radians)
+
+    void initialize() override {
+        std::cout << "TransformComponent initialized." << std::endl;
+    }
+
+    void update() override {
+        std::cout << "TransformComponent updated." << std::endl;
+    }
+
+    void render() override {
+        // Although transforms are generally not "rendered" directly,
+        // this is provided for consistency.
+        std::cout << "TransformComponent rendered." << std::endl;
+    }
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\GameObjects\TransformComponent.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Objects\BaseObject.h -----
+
+#pragma once
+
+#include <glm/glm.hpp>
+#include "./Engine/Mesh.h"
+#include <memory>
+
+class BaseObject {
+public:
+    BaseObject(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices) {
+        mesh = std::make_unique<Mesh>(Vertexes, indices);
+    }
+   
+    void draw(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer) {
+        mesh->draw(pipelineLayout, buffer);
+    }
+
+    void setPosition(glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles) {
+        mesh->setPosition(position, scale, rotationAngles);
+    }
+
+    glm::vec3 getPosition() {
+        return mesh->getPostion();
+    }
+
+    void init(VkPhysicalDevice& physicalDevice, VkDevice& device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue) {
+        mesh->initialize(physicalDevice, device, commandPool, graphicsQueue);
+    }
+
+    void destroy(VkDevice device) {
+        mesh->destroyMesh(device);
+    }
+
+protected:
+    std::unique_ptr<Mesh> mesh;
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Objects\BaseObject.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\ObjUtils\ObjUtils.h -----
+
+#pragma once
+
+#include <Engine/Vertex.h>
+#include <Engine/Particle.h>
+#include <cstddef>
+#include <vector>
+#include <fstream>
+#include <optional>
+#include <array>
+#include <glm/glm.hpp>
+
+static bool ParseOBJ(const std::string& filename, std::vector<Vertex>& vertices, std::vector<uint16_t>& indices,glm::vec3 color ,bool flipAxisAndWinding = true)
+{
+	std::ifstream file(filename);
+	if (!file)
+		return false;
+
+	std::vector<glm::vec3> positions{};
+	std::vector<glm::vec3> normals{};
+	std::vector<glm::vec2> UVs{};
+
+	vertices.clear();
+	indices.clear();
+
+	std::string sCommand;
+	// start a while iteration ending when the end of file is reached (ios::eof)
+	while (!file.eof())
+	{
+		//read the first word of the string, use the >> operator (istream::operator>>) 
+		file >> sCommand;
+		//use conditional statements to process the different commands	
+		if (sCommand == "#")
+		{
+			// Ignore Comment
+		}
+		else if (sCommand == "v")
+		{
+			//Vertex
+			float x, y, z;
+			file >> x >> y >> z;
+
+			positions.emplace_back(x, y, z);
+		}
+		else if (sCommand == "vt")
+		{
+			// Vertex TexCoord
+			float u, v;
+			file >> u >> v;
+			UVs.emplace_back(u, 1 - v);
+		}
+		else if (sCommand == "vn")
+		{
+			// Vertex Normal
+			float x, y, z;
+			file >> x >> y >> z;
+
+			normals.emplace_back(x, y, z);
+		}
+		else if (sCommand == "f")
+		{
+			//if a face is read:
+			//construct the 3 vertices, add them to the vertex array
+			//add three indices to the index array
+			//add the material index as attibute to the attribute array
+			//
+			// Faces or triangles
+			Vertex vertex{};
+			size_t iPosition, iTexCoord, iNormal;
+
+			uint16_t tempIndices[3];
+			for (size_t iFace = 0; iFace < 3; iFace++)
+			{
+				// OBJ format uses 1-based arrays
+				file >> iPosition;
+	
+				vertex.pos = positions[iPosition - 1];
+
+				if ('/' == file.peek())//is next in buffer ==  '/' ?
+				{
+					file.ignore();//read and ignore one element ('/')
+
+					if ('/' != file.peek())
+					{
+						// Optional texture coordinate
+						file >> iTexCoord;
+						//vertex.uv = UVs[iTexCoord - 1];
+					}
+
+					if ('/' == file.peek())
+					{
+						file.ignore();
+
+						// Optional vertex normal
+						file >> iNormal;
+						vertex.normal = normals[iNormal - 1];
+					}
+				}
+
+				vertex.color = color;
+				vertices.push_back(vertex);
+				tempIndices[iFace] = uint16_t(vertices.size()) - 1;
+			}
+
+			indices.push_back(tempIndices[0]);
+			if (flipAxisAndWinding)
+			{
+				indices.push_back(tempIndices[2]);
+				indices.push_back(tempIndices[1]);
+			}
+			else
+			{
+				indices.push_back(tempIndices[1]);
+				indices.push_back(tempIndices[2]);
+			}
+		}
+		//read till end of line and ignore all remaining chars
+		file.ignore(1000, '\n');
+	}
+}
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\ObjUtils\ObjUtils.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Platform\PlatformVulkanSurface.h -----
+
+#pragma once
+
+#include "vulkan\vulkan_core.h"
+#include <Engine/Platform/PlatformWindow.h>
+
+class PlatformVulkanSurface {
+public:
+    virtual ~PlatformVulkanSurface() {}
+    virtual VkSurfaceKHR createSurface(VkInstance instance, PlatformWindow* window) = 0;
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Platform\PlatformVulkanSurface.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Platform\PlatformWindow.h -----
+
+#pragma once
+
+class PlatformWindow {
+public:
+    virtual ~PlatformWindow() {}
+    virtual void* getNativeHandle() = 0;
+    virtual bool shouldClose() const = 0;
+    virtual void pollEvents() = 0;
+    virtual void getFramebufferSize(int& width, int& height) const = 0;
+    // todo Add more as needed (resize, close, etc.)
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Platform\PlatformWindow.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Platform\Windows\PlatformWindow_Windows.h -----
+
+#pragma once
+
+#ifdef _WIN32
+
+#include <GLFW/glfw3.h>
+#include <Engine/Platform/PlatformWindow.h>
+
+class PlatformWindow_Windows : public PlatformWindow {
+public:
+    PlatformWindow_Windows(int width, int height, const char* title);
+    ~PlatformWindow_Windows();
+    void getFramebufferSize(int& width, int& height) const override {
+        glfwGetFramebufferSize(m_window, &width, &height);
+    }
+    void* getNativeHandle() override;
+
+    GLFWwindow* getGLFWwindow() const { return m_window; }
+
+    bool shouldClose() const override;
+    void pollEvents() override;
+
+private:
+    GLFWwindow* m_window;
+};
+
+#endif // _WIN32
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Platform\Windows\PlatformWindow_Windows.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Platform\Windows\VulkanSurface_Windows.h -----
+
+// VulkanSurface_Windows.h
+#pragma once
+#ifdef _WIN32
+
+#include "../PlatformVulkanSurface.h"
+class VulkanSurface_Windows : public PlatformVulkanSurface {
+public:
+    VkSurfaceKHR createSurface(VkInstance instance, PlatformWindow* window) override;
+};
+#endif
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Platform\Windows\VulkanSurface_Windows.h -----
+

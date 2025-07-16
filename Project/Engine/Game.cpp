@@ -1,5 +1,7 @@
 ﻿#include "Game.h"
 #include <Engine/vulkanVars.h>
+#include "Platform/Windows/PlatformWindow_Windows.h"
+
 Game::Game()
     : m_WindowManager(WindowManager::GetInstance()),
     m_Physics(PhysxBase::GetInstance()),
@@ -18,7 +20,15 @@ Game::~Game() {
 void Game::init() {
     m_WindowManager.initWindow();
 
-    InputManager::GetInstance().Initialize(m_WindowManager.getWindow());
+#ifdef WIN32
+    auto* winPtr = static_cast<PlatformWindow_Windows*>(m_WindowManager.getPlatformWindow());
+    InputManager::GetInstance().Initialize(winPtr->getGLFWwindow());
+#else
+#error not implemented for this os!
+#endif // WIN32
+
+
+   
 
     m_Physics.initPhysics(false);
 
@@ -106,14 +116,18 @@ void Game::run() {
     int frameCount = 0;
     auto& vulkan_vars = vulkanVars::GetInstance();
     auto startEngine = clock::now();
-    while (!glfwWindowShouldClose(m_WindowManager.getWindow())) {
+
+    // Use platform window abstraction!
+    PlatformWindow* window = m_WindowManager.getPlatformWindow();
+
+    while (!window->shouldClose()) {
         auto frameStart = clock::now();
         float deltaTime = std::chrono::duration<float>(frameStart - lastTime).count();
         lastTime = frameStart;
 
         vulkan_vars.currentFrame = frameCount;
 
-        glfwPollEvents();
+        window->pollEvents();
 
         m_Physics.stepPhysics(false, deltaTime);
         m_Renderer->RenderFrame(m_RenderItems, *m_Camera);
@@ -143,7 +157,7 @@ void Game::run() {
                 }
 
                 while (clock::now() - frameStart < m_FrameDuration) {
-                    // busy wait
+                    // busy wait (for high-precision FPS cap)
                 }
             }
         }

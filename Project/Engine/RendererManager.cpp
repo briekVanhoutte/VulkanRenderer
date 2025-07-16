@@ -4,6 +4,7 @@
 #include <set>
 #include <algorithm>
 #include <Engine/Particle.h>
+#include "Platform/Windows/VulkanSurface_Windows.h"
 RendererManager::RendererManager() {
 	// Initialize member variables if necessary
 }
@@ -247,9 +248,12 @@ void RendererManager::setupDebugMessenger()
 }
 void RendererManager::createSurface()
 {
-	if (glfwCreateWindowSurface(instance, WindowManager::GetInstance().getWindow(), nullptr, &surface) != VK_SUCCESS) {
-		throw std::runtime_error("failed to create window surface!");
-	}
+#ifdef _WIN32
+	VulkanSurface_Windows surfaceCreator;
+	surface = surfaceCreator.createSurface(instance, WindowManager::GetInstance().getPlatformWindow());
+#else
+#error "No Vulkan surface implementation for this OS"
+#endif
 }
 void RendererManager::pickPhysicalDevice()
 {
@@ -468,7 +472,7 @@ VkExtent2D RendererManager::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& cap
 	}
 	else {
 		int width, height;
-		glfwGetFramebufferSize(WindowManager::GetInstance().getWindow(), &width, &height);
+		WindowManager::GetInstance().getPlatformWindow()->getFramebufferSize(width, height);
 
 		VkExtent2D actualExtent = {
 			static_cast<uint32_t>(width),

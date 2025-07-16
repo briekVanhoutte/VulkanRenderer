@@ -8,10 +8,6 @@
 #include <Engine/vulkanVars.h>
 #include <Engine/SwapChainSupportDetails.h>
 
-#define VK_USE_PLATFORM_WIN32_KHR
-#define GLFW_INCLUDE_VULKAN
-#define GLFW_EXPOSE_NATIVE_WIN32
-
 
 #ifdef NDEBUG
 const bool enableValidationLayers = false;

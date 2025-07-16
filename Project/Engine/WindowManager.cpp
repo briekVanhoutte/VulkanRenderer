@@ -2,6 +2,11 @@
 #include <iostream>
 #include <stdexcept>
 
+
+#ifdef _WIN32
+    #include <Engine/Platform/Windows/PlatformWindow_Windows.h>
+#endif
+
 // You can define your window dimensions here.
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
@@ -11,37 +16,28 @@ WindowManager& WindowManager::GetInstance() {
     return instance;
 }
 
-WindowManager::WindowManager() : window(nullptr) {}
+WindowManager::WindowManager() {}
 
 WindowManager::~WindowManager() {
-    if (window)
-        glfwDestroyWindow(window);
-    glfwTerminate();
+    delete m_platformWindow;
 }
 
 void WindowManager::initWindow() {
-    if (!glfwInit())
-        throw std::runtime_error("Failed to initialize GLFW!");
+#ifdef _WIN32
+    m_platformWindow = new PlatformWindow_Windows(WIDTH, HEIGHT, "Vulkan");
+#else
+    #error "No platform window implementation provided for this OS"
+#endif
 
-    // Tell GLFW not to create an OpenGL context.
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-
-    window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
-    if (!window)
-        throw std::runtime_error("Failed to create GLFW window!");
-
-    // Set the WindowManager instance as the user pointer.
-    glfwSetWindowUserPointer(window, this);
-
-    // Set up GLFW callbacks using our static functions.
-    glfwSetKeyCallback(window, WindowManager::keyCallback);
-    glfwSetCursorPosCallback(window, WindowManager::cursorPosCallback);
-    glfwSetMouseButtonCallback(window, WindowManager::mouseButtonCallback);
 }
 
-GLFWwindow* WindowManager::getWindow() const {
-    return window;
+//GLFWwindow* WindowManager::getWindow() const {
+//    return window;
+//}
+
+PlatformWindow* WindowManager::getPlatformWindow() const
+{
+    return m_platformWindow;
 }
 
 void WindowManager::handleKeyEvent(int key, int scancode, int action, int mods) {
@@ -60,7 +56,7 @@ void WindowManager::handleMouseButton(int button, int action, int mods) {
 }
 
 // Static callback wrappers.
-
+#ifdef _WIN32
 void WindowManager::keyCallback(GLFWwindow* win, int key, int scancode, int action, int mods) {
     WindowManager* wm = static_cast<WindowManager*>(glfwGetWindowUserPointer(win));
     if (wm)
@@ -78,3 +74,4 @@ void WindowManager::mouseButtonCallback(GLFWwindow* win, int button, int action,
     if (wm)
         wm->handleMouseButton(button, action, mods);
 }
+#endif
