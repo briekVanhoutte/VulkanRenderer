@@ -1,6 +1,7 @@
 ﻿#include "Game.h"
 #include <Engine/Graphics/vulkanVars.h>
 #include "Platform/Windows/PlatformWindow_Windows.h"
+#include <Engine/Graphics/MaterialManager.h>
 
 Game::Game()
     : m_WindowManager(WindowManager::GetInstance()),
@@ -35,7 +36,7 @@ void Game::init() {
 
     m_Camera = new Camera{};
     m_Camera->Initialize(fov, cameraStartLocation, aspectRatio);
-
+    
     m_Renderer = new RendererManager();
     m_Renderer->Initialize();
 
@@ -78,7 +79,7 @@ void Game::initScene() {
     backWall->getTransform()->position = posBackWall;
     backWall->getTransform()->scale = scaleParticles;
     backWall->getTransform()->rotation = glm::vec3(-90.f, 0.f, 0.f);
-    backWall->addComponent<PrimitiveMeshComponent>(backWall, PrimitiveType::Plane, 12.f, 6.f, 1.f);
+    backWall->addComponent<PrimitiveMeshComponent>(backWall, PrimitiveType::Plane, 12.f, 6.f, 1.f,"Resources/Textures/testTexture.jpg");
 
     GameObject* rightWall = m_GameScene.addGameObject();
     rightWall->getTransform()->position = posRightWall;
@@ -90,7 +91,7 @@ void Game::initScene() {
     leftWall->getTransform()->position = posLeftWall;
     leftWall->getTransform()->scale = scaleParticles;
     leftWall->getTransform()->rotation = glm::vec3(-90.f, 0.f, 90.f);
-    leftWall->addComponent<PrimitiveMeshComponent>(leftWall, PrimitiveType::Plane, 6.f, 6.f, 1.f);
+    leftWall->addComponent<PrimitiveMeshComponent>(leftWall, PrimitiveType::Plane, 6.f, 6.f, 1.f, "Resources/Textures/testTexture.jpg");
 
     GameObject* bottomWall = m_GameScene.addGameObject();
     bottomWall->getTransform()->position = posBotWall;

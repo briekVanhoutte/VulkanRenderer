@@ -19,9 +19,9 @@ enum class ObjType {
 class MeshScene : public Scene{
 public:
 
-    unsigned int addModel(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles)
+    unsigned int addModel(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles, const std::string& TexturePath = {})
     {
-        BaseObject* object = new BaseObject{ Vertexes, indices };
+        BaseObject* object = new BaseObject{ Vertexes, indices ,TexturePath };
 
         object->setPosition(position, scale, rotationAngles);
         m_BaseObjects.push_back(object);
@@ -41,7 +41,7 @@ public:
     unsigned int addRectangle(const glm::vec3& normal,
         const glm::vec3& color,
         float width,
-        float height, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles)
+        float height, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles, const std::string& TexturePath = {})
     {
         float halfWidth = width / 2.0f;
         float halfHeight = height / 2.0f;
@@ -83,7 +83,7 @@ public:
         indices.push_back(baseIndex + 2); // top right
         indices.push_back(baseIndex + 3); // top left
 
-        BaseObject* object = new BaseObject{ vertices, indices };
+        BaseObject* object = new BaseObject{ vertices, indices,TexturePath};
         object->setPosition(position, scale, rotationAngles);
 
         m_BaseObjects.push_back(object);

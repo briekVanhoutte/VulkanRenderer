@@ -12,6 +12,8 @@
 
 #include <PxParticleBuffer.h>
 
+#include <Engine/Graphics/ShaderBase.h>
+
 class ParticleGroup {
 public:
 	ParticleGroup(physx::PxVec4* particleBuffer, int ParticleCount, const std::vector<Particle>& particles);

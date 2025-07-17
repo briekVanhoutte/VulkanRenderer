@@ -1,0 +1,20 @@
+3d shader:
+
+texture per model/quad
+pointLight/directionlight
+skybox
+pbr material
+bloom
+specular
+vfx
+opacity map
+Volumetric fog
+shadows
+
+point shader:
+liquid texturing 
+stop showing points show a group liquid
+
+other:
+physics
+scene loading/saving with editor features

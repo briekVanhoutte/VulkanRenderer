@@ -239,10 +239,10 @@ public:
 	}
 
 	~DescriptorPool() ;
-	void createDescriptorSets(std::vector<VkBuffer> buffers);
+	void createDescriptorSets(const std::vector<VkBuffer>& buffers, const std::vector<VkDescriptorImageInfo>& images);
 
 	void bindDescriptorSet(VkCommandBuffer buffer, VkPipelineLayout layout, size_t index);
-
+	VkDescriptorSet getDescriptorSet(size_t index) { return m_DescriptorSets.at(index); }
 private:
 	VkDevice m_Device;
 	VkDeviceSize m_Size;
@@ -253,6 +253,92 @@ private:
 };
 
 ----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\DescriptorPool.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\ImageDataBuffer.h -----
+
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\ImageDataBuffer.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\Material.h -----
+
+#pragma once
+
+#include <memory>
+#include <string>
+#include <Engine/Graphics/Texture.h>
+#include <atomic>
+
+class Material {
+public:
+    Material(const std::string& textureFilename);
+
+    std::shared_ptr<Texture> getTexture() const { return m_Texture; }
+    uint32_t getMaterialID() const { return m_MaterialID; }
+
+private:
+    std::shared_ptr<Texture> m_Texture;
+
+    uint32_t m_MaterialID;
+    static std::atomic<uint32_t> s_NextID;
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\Material.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\MaterialManager.h -----
+
+#pragma once
+
+#include <unordered_map>
+#include <memory>
+#include <string>
+#include <vector>
+#include <Engine/Graphics/Material.h>
+#include <Engine/Graphics/Texture.h>
+#include <Engine/Core/Singleton.h>
+
+class MaterialManager : public Singleton<MaterialManager> {
+public:
+    // Get or create material by filepath (uses cache)
+    std::shared_ptr<Material> getOrCreateMaterial(const std::string& filepath);
+
+    // Standard material getter/setter
+    void setStandardMaterial(const std::shared_ptr<Material>& material) { m_standardMaterial = material; }
+    std::shared_ptr<Material> getStandardMaterial() const { return m_standardMaterial; }
+
+    // Active materials getters/setters
+    std::vector<std::shared_ptr<Material>>& getActiveMaterials() { return m_activeMaterials; }
+    const std::vector<std::shared_ptr<Material>>& getActiveMaterials() const { return m_activeMaterials; }
+    void setActiveMaterials(const std::vector<std::shared_ptr<Material>>& mats);
+
+    // Add/remove material to/from active list (prevents duplicates)
+    void addActiveMaterial(const std::shared_ptr<Material>& material);
+    void removeActiveMaterial(const std::shared_ptr<Material>& material);
+
+    // Find by ID or index (utility)
+    std::shared_ptr<Material> getMaterialByID(uint32_t materialID) const;
+    std::shared_ptr<Material> getMaterialByIndex(size_t idx) const;
+
+    // Get number of active materials/textures
+    size_t getNumActiveMaterials() const { return m_activeMaterials.size(); }
+
+    // Clear active material list
+    void clearActiveMaterials();
+
+    // (Optional) Get all cached materials (not just active)
+    std::vector<std::shared_ptr<Material>> getAllCachedMaterials() const;
+private:
+    friend class Singleton<MaterialManager>;
+    MaterialManager();
+
+    std::unordered_map<std::string, std::shared_ptr<Material>> m_materialCache;
+    std::vector<std::shared_ptr<Material>> m_activeMaterials;
+    std::shared_ptr<Material> m_standardMaterial;
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\MaterialManager.h -----
 
 
 ----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\Particle.h -----
@@ -308,6 +394,8 @@ struct Particle {
 
 #include <PxParticleBuffer.h>
 
+#include <Engine/Graphics/ShaderBase.h>
+
 class ParticleGroup {
 public:
 	ParticleGroup(physx::PxVec4* particleBuffer, int ParticleCount, const std::vector<Particle>& particles);
@@ -317,7 +405,7 @@ public:
 
 	void destroyParticleGroup(const VkDevice& device);
 
-	void draw(VkPipelineLayout pipelineLayout, VkCommandBuffer commandBuffer);
+	void draw(VkPipelineLayout pipelineLayout, VkCommandBuffer commandBuffer, ShaderBase* shaderBase);
 private:
 
 	std::vector<Particle> m_Particles;
@@ -358,12 +446,12 @@ public:
 	void Record(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene);
 
 	void setUbo(const UniformBufferObject& ubo) { m_Ubo = ubo; }
-
+	std::shared_ptr<ShaderBase> getShader() { return m_Shader; }
 	static VkFormat findDepthFormat(VkPhysicalDevice& vkPhysicalDevice, VkDevice& vkDevice);
 	VkImage getDepthImage() { return m_DepthImage; };
 	VkDeviceMemory getDepthImageMemory() { return m_DepthImageMemory; };
 	VkImageView getDepthImageView() { return m_DepthImageView; };
-
+	const VkDescriptorSetLayout& getDescriptorSetLayout() const { return m_Shader->getDescriptorSetLayout(); }
 private:
 	void drawScene(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene);
 
@@ -371,7 +459,7 @@ private:
 
 
 	VkPipeline m_Pipeline3d;
-	std::unique_ptr<ShaderBase> m_Shader;
+	std::shared_ptr<ShaderBase> m_Shader;
 
 	UniformBufferObject m_Ubo{};
 
@@ -455,7 +543,7 @@ public:
     ~RendererManager();
 
     void Initialize();
-
+   
    
     void RenderFrame(const std::vector<RenderItem>& renderItems, Camera& camera);
 
@@ -539,9 +627,10 @@ private:
 #include <Engine/Graphics/DataBuffer.h>
 #include <Engine/Graphics/DescriptorPool.h>
 #include <Engine/Graphics/UniformBufferObject.h>
-
-
-
+#include <memory>
+#include <Engine/Graphics/Texture.h>
+#include "Material.h"
+#include <Engine/Graphics/vulkanVars.h>
 class ShaderBase {
 public:
     ShaderBase() {};
@@ -550,21 +639,28 @@ public:
 
     void Destroy(const VkDevice& vkDevice);
 
-    void initialize(const VkPhysicalDevice& vkPhysicalDevice, const VkDevice& vkDevice, const VkVertexInputBindingDescription& vkVertexInputBindingDesc, std::vector<VkVertexInputAttributeDescription>& vkVertexInputAttributeDesc);
+    void initialize(const VkPhysicalDevice& vkPhysicalDevice, const VkDevice& vkDevice, const VkVertexInputBindingDescription& vkVertexInputBindingDesc, std::vector<VkVertexInputAttributeDescription>& vkVertexInputAttributeDesc, const std::vector<std::shared_ptr<Material>>& materials);
 
-    void createDescriptorSetLayout(const VkDevice& vkDevice);
-    const VkDescriptorSetLayout& getDescriptorSetLayout()
+    void createDescriptorSetLayout(const VkDevice& vkDevice, uint32_t textureCount);
+    VkDescriptorSetLayout& getDescriptorSetLayout()
     {
         return m_DescriptorSetLayout;
     }
     void bindDescriptorSet(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, size_t index);
 
     void updateUniformBuffer(uint32_t currentImage, UniformBufferObject& ubo);
-
+    void updateDescriptorSets(uint32_t currentImage, Texture& tex);
     VkPipelineShaderStageCreateInfo getVertexShaderStageInfo() ;
     VkPipelineShaderStageCreateInfo getFragmentShaderStageInfo() ;
     VkPipelineVertexInputStateCreateInfo& getVertexInputStateInfo() ;
     VkPipelineInputAssemblyStateCreateInfo& getInputAssemblyStateInfo(VkPrimitiveTopology topology) ;
+    //const std::vector<VkDescriptorSet>& getDescriptorSets() const { return m_DescriptorPool.getDescriptorSets(); }
+    VkDescriptorSet getDescriptorSet(size_t index) { return m_DescriptorPool.getDescriptorSet(index); }
+
+    void setMaterials(const std::vector<std::shared_ptr<Material>>& materials) {
+        m_Materials = materials;
+        updateAllMaterialDescriptors();
+    }
 
 private:
     VkDevice device_{};
@@ -589,6 +685,20 @@ private:
 
     std::vector<char> readFile(const std::string& filename);
     VkShaderModule createShaderModule(const std::vector<char>& code);
+
+    //test
+    std::unique_ptr<Texture> m_Tex;
+
+    std::vector<std::shared_ptr<Material>> m_Materials;
+
+    void updateAllMaterialDescriptors() {
+        // For now: assume 1 material, 1 texture, future: loop for many
+        if (m_Materials.empty()) return;
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+            updateDescriptorSets(i, *m_Materials[0]->getTexture());
+        }
+    }
+
 };
 
 #endif
@@ -610,6 +720,39 @@ struct SwapChainSupportDetails {
 };
 
 ----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\SwapChainSupportDetails.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\Texture.h -----
+
+#pragma once
+
+#include <vulkan/vulkan.h>
+#include <string>
+
+class Texture {
+public:
+    Texture(const std::string& filename);
+    ~Texture();
+
+    VkImageView getImageView() const { return m_ImageView; }
+    VkSampler getSampler() const { return m_Sampler; }
+    VkDescriptorImageInfo getDescriptorInfo() const;
+
+private:
+    void createTextureImage(const std::string& filename);
+    void createTextureImageView();
+    void createTextureSampler();
+    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+    void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+
+    VkImage m_Image = VK_NULL_HANDLE;
+    VkDeviceMemory m_ImageMemory = VK_NULL_HANDLE;
+    VkImageView m_ImageView = VK_NULL_HANDLE;
+    VkSampler m_Sampler = VK_NULL_HANDLE;
+    uint32_t m_Width = 0, m_Height = 0;
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\Texture.h -----
 
 
 ----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\UniformBufferObject.h -----
@@ -637,9 +780,10 @@ struct Vertex
 	glm::vec3 pos;
 	glm::vec3 normal;
 	glm::vec3 color;
+	glm::vec2 texCoord;
 
-	Vertex(glm::vec3 pos, glm::vec3 normal, glm::vec3 color)
-		:pos(pos), normal(normal), color(color)
+	Vertex(glm::vec3 pos, glm::vec3 normal, glm::vec3 color, glm::vec2 texCoord)
+		:pos(pos), normal(normal), color(color), texCoord(texCoord)
 	{
 	}
 	Vertex()
@@ -658,7 +802,7 @@ struct Vertex
 	}
 
 	static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions() {
-		std::vector<VkVertexInputAttributeDescription> attributeDescriptions(3);
+		std::vector<VkVertexInputAttributeDescription> attributeDescriptions(4);
 
 		attributeDescriptions[0].binding = 0;
 		attributeDescriptions[0].location = 0;
@@ -675,6 +819,11 @@ struct Vertex
 		attributeDescriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
 		attributeDescriptions[2].offset = offsetof(Vertex, color);
 
+		attributeDescriptions[3].binding = 0;
+		attributeDescriptions[3].location = 3;
+		attributeDescriptions[3].format = VK_FORMAT_R32G32_SFLOAT;
+		attributeDescriptions[3].offset = offsetof(Vertex, texCoord);
+
 		return attributeDescriptions;
 	}
 };
@@ -689,10 +838,12 @@ struct Vertex
 #include <Engine/Core/Singleton.h>
 #include <Engine/Graphics/CommandBuffer.h>
 #include <Engine/Graphics/CommandPool.h>
+#include <Engine/Graphics/Material.h>
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 const int MAX_FRAMES_IN_FLIGHT = 3;
+#include <memory>
 
 class vulkanVars : public Singleton<vulkanVars> {
 public:
@@ -705,6 +856,7 @@ public:
 	VkExtent2D swapChainExtent;
 	std::vector<CommandBuffer> commandBuffers; 
 	size_t currentFrame = 0;
+	std::shared_ptr<Material> standardMaterial;
 };
 
 
@@ -1552,11 +1704,16 @@ private:
 #include <glm/glm.hpp>
 #include <Engine/Graphics/DataBuffer.h>
 #include <Engine/Scene/MeshData.h>
-
+#include <Engine/Graphics/Material.h>
+#include <Engine/Graphics/ShaderBase.h>
 #include <memory>
+
 class Mesh {
 public:
-	Mesh(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices);
+	Mesh(const std::vector<Vertex>& vertices, const std::vector<uint16_t>& indices, const std::vector<std::string>& textureFilepaths = {});
+	Mesh(const std::vector<Vertex>& vertices, const std::vector<uint16_t>& indices, const std::string& textureFilename)
+		: Mesh(vertices, indices, std::vector<std::string>{textureFilename}) {
+	}
 	void initialize(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue);
 	void destroyMesh(const VkDevice& device);
 
@@ -1565,7 +1722,10 @@ public:
 	void addVertex(glm::vec3 pos, glm::vec3 color, glm::vec3 normal);
 	void addTriangle(uint16_t i1, uint16_t i2, uint16_t i3, uint16_t offset = 0);
 
-	void draw(VkPipelineLayout pipelineLayout, VkCommandBuffer commandBuffer);
+	void draw(VkPipelineLayout pipelineLayout, VkCommandBuffer commandBuffer, ShaderBase* shader);
+	
+	void createDescriptorSet(VkDevice device, VkDescriptorSetLayout layout, std::shared_ptr<Texture> texture);
+	VkDescriptorSet getDescriptorSet() const { return m_DescriptorSet; }
 private:
 	std::vector<Vertex> m_Vertices;
 	std::vector<uint16_t> m_Indices;
@@ -1574,10 +1734,15 @@ private:
 
 	MeshData m_VertexConstant;
 
-	glm::vec3 m_Position = {};
+	std::vector<std::shared_ptr<Material>> m_Materials;
+	std::vector<std::string> m_MaterialFilepaths;
 
+	glm::vec3 m_Position = {};
+	VkDescriptorSet m_DescriptorSet;
 	void CreateVertexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue);
 	void CreateIndexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue);
+
+	void initializeMaterials();
 }; 
 
 ----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Scene\Mesh.h -----
@@ -1618,9 +1783,9 @@ enum class ObjType {
 class MeshScene : public Scene{
 public:
 
-    unsigned int addModel(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles)
+    unsigned int addModel(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles, const std::string& TexturePath = {})
     {
-        BaseObject* object = new BaseObject{ Vertexes, indices };
+        BaseObject* object = new BaseObject{ Vertexes, indices ,TexturePath };
 
         object->setPosition(position, scale, rotationAngles);
         m_BaseObjects.push_back(object);
@@ -1637,18 +1802,24 @@ public:
         return nullptr;
     }
 
-    unsigned int addRectangle( const glm::vec3& normal,
+    unsigned int addRectangle(const glm::vec3& normal,
         const glm::vec3& color,
         float width,
-        float height, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles)
+        float height, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles, const std::string& TexturePath = {})
     {
         float halfWidth = width / 2.0f;
         float halfHeight = height / 2.0f;
 
-        glm::vec3 p0(-halfWidth, -halfHeight, 0.0f);
-        glm::vec3 p1(halfWidth, -halfHeight, 0.0f);
-        glm::vec3 p2(halfWidth, halfHeight, 0.0f);
-        glm::vec3 p3(-halfWidth, halfHeight, 0.0f);
+        glm::vec3 p0(-halfWidth, -halfHeight, 0.0f); // bottom left
+        glm::vec3 p1(halfWidth, -halfHeight, 0.0f);  // bottom right
+        glm::vec3 p2(halfWidth, halfHeight, 0.0f);   // top right
+        glm::vec3 p3(-halfWidth, halfHeight, 0.0f);  // top left
+
+        // UVs: (0,0)=bottom left, (1,0)=bottom right, (1,1)=top right, (0,1)=top left
+        glm::vec2 uv0(0.0f, 0.0f); // bottom left
+        glm::vec2 uv1(1.0f, 0.0f); // bottom right
+        glm::vec2 uv2(1.0f, 1.0f); // top right
+        glm::vec2 uv3(0.0f, 1.0f); // top left
 
         std::vector<Vertex> vertices{};
         std::vector<uint16_t> indices{};
@@ -1661,27 +1832,25 @@ public:
         p2 = rotationQuat * p2;
         p3 = rotationQuat * p3;
 
-        vertices.push_back({ p0, normal, color });
-        vertices.push_back({ p1, normal, color });
-        vertices.push_back({ p2, normal, color });
-        vertices.push_back({ p3, normal, color });
+        // Make sure your Vertex struct is Vertex(glm::vec3 pos, glm::vec3 normal, glm::vec3 color, glm::vec2 texCoord)
+        vertices.push_back({ p0, normal, color, uv0 }); // bottom left
+        vertices.push_back({ p1, normal, color, uv1 }); // bottom right
+        vertices.push_back({ p2, normal, color, uv2 }); // top right
+        vertices.push_back({ p3, normal, color, uv3 }); // top left
 
         uint16_t baseIndex = static_cast<uint16_t>(vertices.size()) - 4;
-        indices.push_back(baseIndex + 0);
-        indices.push_back(baseIndex + 1);
-        indices.push_back(baseIndex + 2);
+        indices.push_back(baseIndex + 0); // bottom left
+        indices.push_back(baseIndex + 1); // bottom right
+        indices.push_back(baseIndex + 2); // top right
 
-        indices.push_back(baseIndex + 0);
-        indices.push_back(baseIndex + 2);
-        indices.push_back(baseIndex + 3);
+        indices.push_back(baseIndex + 0); // bottom left
+        indices.push_back(baseIndex + 2); // top right
+        indices.push_back(baseIndex + 3); // top left
 
-
-        BaseObject* object = new BaseObject{ vertices, indices };
-
+        BaseObject* object = new BaseObject{ vertices, indices,TexturePath};
         object->setPosition(position, scale, rotationAngles);
 
         m_BaseObjects.push_back(object);
-
         return m_BaseObjects.size() - 1;
     }
 
@@ -1691,9 +1860,9 @@ public:
         }
     }
 
-    void drawScene(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer) {
+    void drawScene(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer, ShaderBase* shader) {
         for (auto& object : m_BaseObjects) {
-            object->draw(pipelineLayout, buffer);
+            object->draw(pipelineLayout, buffer, shader);
         }
     }
 
@@ -1752,9 +1921,9 @@ public:
         m_ParticleGroups.push_back(object);
     }
 
-    void drawScene(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer) {
+    void drawScene(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer, ShaderBase* shader) {
         for (auto& object : m_ParticleGroups) {
-            object->draw(pipelineLayout, buffer);
+            object->draw(pipelineLayout, buffer, shader);
         }
     }
 
@@ -1785,11 +1954,11 @@ private:
 ----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Scene\Scene.h -----
 
 #pragma once
-
+#include <Engine/Graphics/ShaderBase.h>
 class Scene {
 public:
 
-    virtual void drawScene(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer) = 0;
+    virtual void drawScene(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer, ShaderBase* shader) = 0;
     virtual  void deleteScene(VkDevice device) = 0;
     
 };
@@ -1835,9 +2004,9 @@ public:
 
     BaseObject* addMeshModel(const std::vector<Vertex>& vertices,
         const std::vector<uint16_t>& indices,
-        glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles)
+        glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles, const std::string& filePath = "")
     {
-        unsigned int index = m_meshScene->addModel(vertices, indices, position, scale, rotationAngles);
+        unsigned int index = m_meshScene->addModel(vertices, indices, position, scale, rotationAngles, filePath);
         BaseObject* obj = m_meshScene->getBaseObject(index); 
         m_sceneObjects.push_back({ SceneModelType::Mesh, obj });
         return obj;
@@ -1846,9 +2015,9 @@ public:
     BaseObject* addMeshRectangle(const glm::vec3& normal,
         const glm::vec3& color,
         float width, float height,
-        glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles)
+        glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles, const std::string& filePath = "")
     {
-        unsigned int index = m_meshScene->addRectangle(normal, color, width, height, position, scale, rotationAngles);
+        unsigned int index = m_meshScene->addRectangle(normal, color, width, height, position, scale, rotationAngles, filePath);
         BaseObject* obj = m_meshScene->getBaseObject(index); 
         m_sceneObjects.push_back({ SceneModelType::Mesh, obj });
         return obj;
@@ -1920,12 +2089,12 @@ private:
 
 class BaseObject {
 public:
-    BaseObject(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices) {
-        mesh = std::make_unique<Mesh>(Vertexes, indices);
+    BaseObject(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices, const std::string& textureFilename = "") {
+        mesh = std::make_unique<Mesh>(Vertexes, indices, textureFilename);
     }
    
-    void draw(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer) {
-        mesh->draw(pipelineLayout, buffer);
+    void draw(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer, ShaderBase* shader) {
+        mesh->draw(pipelineLayout, buffer, shader);
     }
 
     void setPosition(glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles) {
@@ -1943,7 +2112,6 @@ public:
     void destroy(VkDevice device) {
         mesh->destroyMesh(device);
     }
-
 protected:
     std::unique_ptr<Mesh> mesh;
 };
@@ -2089,9 +2257,9 @@ enum class PrimitiveType {
 
 class PrimitiveMeshComponent : public Component {
 public:
-    PrimitiveMeshComponent(GameObject* parent, PrimitiveType type, float width = 1.f, float height = 1.f, float depth = 1.f) {
+    PrimitiveMeshComponent(GameObject* parent, PrimitiveType type, float width = 1.f, float height = 1.f, float depth = 1.f, const std::string& filePath = "") {
         setParent(parent);
-        addPrimitiveToScene(type, width, height, depth);
+        addPrimitiveToScene(type, width, height, depth,filePath);
     }
 
     void initialize() override {
@@ -2106,7 +2274,7 @@ public:
 
 private:
     // Updated to accept dimensions.
-    void addPrimitiveToScene(PrimitiveType type, float width, float height, float depth);
+    void addPrimitiveToScene(PrimitiveType type, float width, float height, float depth, const std::string& filePath = "");
 };
 
 ----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Scene\GameObjects\PrimitiveMeshComponent.h -----

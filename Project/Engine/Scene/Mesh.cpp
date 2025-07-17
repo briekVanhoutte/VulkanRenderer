@@ -9,11 +9,13 @@
 #include <Engine/Scene/MeshData.h>
 
 
-Mesh::Mesh(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices)
+Mesh::Mesh(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices, const std::string& TexturePath)
 	:m_Vertices(Vertexes), m_Indices(indices)
 {
 	m_VertexConstant = {};
 	m_VertexConstant.model = glm::mat4{ {1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1} };
+	auto& mat_manager = MaterialManager::GetInstance();
+	m_Material = mat_manager.getOrCreateMaterial(TexturePath);
 }
 
 void Mesh::initialize(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue) {

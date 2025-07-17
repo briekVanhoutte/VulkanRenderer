@@ -6,8 +6,8 @@
 
 class BaseObject {
 public:
-    BaseObject(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices) {
-        mesh = std::make_unique<Mesh>(Vertexes, indices);
+    BaseObject(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices, const std::string& textureFilename = "") {
+        mesh = std::make_unique<Mesh>(Vertexes, indices, textureFilename);
     }
    
     void draw(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer) {
@@ -29,7 +29,6 @@ public:
     void destroy(VkDevice device) {
         mesh->destroyMesh(device);
     }
-
 protected:
     std::unique_ptr<Mesh> mesh;
 };

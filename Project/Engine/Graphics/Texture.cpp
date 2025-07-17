@@ -4,10 +4,29 @@
 #include <cstring>
 #include <Engine/Graphics/vulkanVars.h>
 #include <Engine/Graphics/DataBuffer.h>
+#include <iostream>
+
+namespace {
+    const std::string kErrorTexturePath = "Resources/Textures/errorTexture.jpg";
+}
 
 Texture::Texture(const std::string& filename)
 {
-    createTextureImage(filename);
+    try {
+        createTextureImage(filename);
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Texture load failed for: " << filename
+            << ". Error: " << e.what()
+            << "\nUsing error texture instead: " << kErrorTexturePath << std::endl;
+        try {
+            createTextureImage(kErrorTexturePath);
+        }
+        catch (const std::exception& e2) {
+            std::cerr << "Critical: Error texture also failed to load: " << e2.what() << std::endl;
+            throw;
+        }
+    }
     createTextureImageView();
     createTextureSampler();
 }
