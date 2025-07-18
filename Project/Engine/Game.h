@@ -24,7 +24,7 @@ public:
 private:
     void initScene();
 
-    bool m_CapFps = true;
+    bool m_CapFps = false;
     const int m_FPSCap = 60;
     const std::chrono::nanoseconds m_FrameDuration = std::chrono::nanoseconds(1'000'000'000 / m_FPSCap);
 

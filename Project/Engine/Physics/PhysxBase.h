@@ -1,381 +1,59 @@
 #pragma once
 
 #include <vector>
-#include <memory>
-
 #include <PxPhysicsAPI.h>
 #include <extensions/PxParticleExt.h>
-
-#include <vector>
-
-#include <iostream>
-
-#include "PxPhysicsAPI.h"
-#include "cudamanager/PxCudaContext.h"
-#include "cudamanager/PxCudaContextManager.h"
-#include <Engine/Graphics/DataBuffer.h>
 #include <Engine/Graphics/Particle.h>
 #include <Engine/Core/Singleton.h>
-#define CUDA_SUCCESS 0
-#define SHOW_SOLID_SDF_SLICE 0
-#define IDX(i, j, k, offset) ((i) + dimX * ((j) + dimY * ((k) + dimZ * (offset))))
-#define PVD_HOST "127.0.0.1"
+#include <Engine/Graphics/DataBuffer.h>
+
 
 using namespace physx;
 using namespace ExtGpu;
 
-
-static PxDefaultAllocator				gAllocator;
-static PxDefaultErrorCallback			gErrorCallback;
-static PxFoundation* gFoundation = NULL;
-static PxPhysics* gPhysics = NULL;
-static PxDefaultCpuDispatcher* gDispatcher = NULL;
-static PxScene* gScene = NULL;
-static PxMaterial* gMaterial = NULL;
-static PxPvd* gPvd = NULL;
-static PxPBDParticleSystem* gParticleSystem = NULL;
-static PxParticleAndDiffuseBuffer* gParticleBuffer = NULL;
-static bool								gIsRunning = true;
-static bool								gStep = true;
-static PxCudaContextManager* cudaContextManager = NULL;
-
-static PxRigidDynamic* movingWall = nullptr;
-
-static int								gMaxDiffuseParticles = 0;
-
-
-static void initObstacles()
-{
-	PxShape* shape = gPhysics->createShape(PxCapsuleGeometry(1.0f, 2.5f), *gMaterial);
-	PxRigidDynamic* body = gPhysics->createRigidDynamic(PxTransform(PxVec3(3.5f, 3.5f, 0), PxQuat(PxPi * -0.5f, PxVec3(0, 0, 1))));
-	body->attachShape(*shape);
-	body->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
-	gScene->addActor(*body);
-	shape->release();
-
-	body = gPhysics->createRigidDynamic(PxTransform(PxVec3(3.5f, 0.75f, 0)));
-	body->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
-	gScene->addActor(*body);
-}
-
-static void initScene()
-{
-	
-	if (PxGetSuggestedCudaDeviceOrdinal(gFoundation->getErrorCallback()) >= 0)
-	{
-		PxCudaContextManagerDesc cudaContextManagerDesc;
-		cudaContextManager = PxCreateCudaContextManager(*gFoundation, cudaContextManagerDesc, PxGetProfilerCallback());
-		if (cudaContextManager && !cudaContextManager->contextIsValid())
-		{
-			cudaContextManager->release();
-			cudaContextManager = NULL;
-		}
-	}
-	if (cudaContextManager == NULL)
-	{
-		PxGetFoundation().error(PxErrorCode::eINVALID_OPERATION, PX_FL, "Failed to initialize CUDA!\n");
-	}
-
-	PxSceneDesc sceneDesc(gPhysics->getTolerancesScale());
-	sceneDesc.gravity = PxVec3(0.0f, -9.81f, 0.0f);
-	gDispatcher = PxDefaultCpuDispatcherCreate(2);
-	sceneDesc.cpuDispatcher = gDispatcher;
-	sceneDesc.filterShader = PxDefaultSimulationFilterShader;
-	sceneDesc.cudaContextManager = cudaContextManager;
-	sceneDesc.staticStructure = PxPruningStructureType::eDYNAMIC_AABB_TREE;
-	sceneDesc.flags |= PxSceneFlag::eENABLE_PCM;
-	sceneDesc.flags |= PxSceneFlag::eENABLE_GPU_DYNAMICS;
-	sceneDesc.broadPhaseType = PxBroadPhaseType::eGPU;
-	sceneDesc.solverType = PxSolverType::eTGS;
-	gScene = gPhysics->createScene(sceneDesc);
-}
-
-static int getNumDiffuseParticles()
-{
-	return gMaxDiffuseParticles;
-}
-
-static void initParticles(const PxU32 numX, const PxU32 numY, const PxU32 numZ, const PxVec3& position = PxVec3(0, 0, 0), const PxReal particleSpacing = 0.2f, const PxReal fluidDensity = 1000.f, const PxU32 maxDiffuseParticles = 100000)
-{
-	PxCudaContextManager* cudaContextManager = gScene->getCudaContextManager();
-	if (cudaContextManager == NULL)
-		return;
-
-	const PxU32 maxParticles = numX * numY * numZ;
-
-	const PxReal restOffset = 0.5f * particleSpacing / 0.6f;
-
-	PxPBDMaterial* defaultMat = gPhysics->createPBDMaterial(0.05f, 0.05f, 0.f, 0.001f, 0.5f, 0.005f, 0.01f, 0.f, 0.f);
-
-	defaultMat->setViscosity(0.001f);
-	defaultMat->setSurfaceTension(0.00704f);
-	defaultMat->setCohesion(0.0704f);
-	defaultMat->setVorticityConfinement(10.f);
-
-	PxPBDParticleSystem* particleSystem = gPhysics->createPBDParticleSystem(*cudaContextManager, 96);
-	gParticleSystem = particleSystem;
-
-	const PxReal solidRestOffset = restOffset;
-	const PxReal fluidRestOffset = restOffset * 0.6f;
-	const PxReal particleMass = fluidDensity * 1.333f * 3.14159f * particleSpacing * particleSpacing * particleSpacing;
-	particleSystem->setRestOffset(restOffset);
-	particleSystem->setContactOffset(restOffset + 0.01f);
-	particleSystem->setParticleContactOffset(fluidRestOffset / 0.6f);
-	particleSystem->setSolidRestOffset(solidRestOffset);
-	particleSystem->setFluidRestOffset(fluidRestOffset);
-	particleSystem->enableCCD(false);
-	particleSystem->setMaxVelocity(solidRestOffset * 100.f);
-	
-	gScene->addActor(*particleSystem);
-
-	PxDiffuseParticleParams dpParams;
-	dpParams.threshold = 300.0f;
-	dpParams.bubbleDrag = 0.9f;
-	dpParams.buoyancy = 0.9f;
-	dpParams.airDrag = 0.0f;
-	dpParams.kineticEnergyWeight = 0.01f;
-	dpParams.pressureWeight = 1.0f;
-	dpParams.divergenceWeight = 10.f;
-	dpParams.lifetime = 1.0f;
-	dpParams.useAccurateVelocity = false;
-
-	gMaxDiffuseParticles = maxDiffuseParticles;
-
-	const PxU32 particlePhase = particleSystem->createPhase(defaultMat, PxParticlePhaseFlags(PxParticlePhaseFlag::eParticlePhaseFluid | PxParticlePhaseFlag::eParticlePhaseSelfCollide));
-
-	PxU32* phase = cudaContextManager->allocPinnedHostBuffer<PxU32>(maxParticles);
-	PxVec4* positionInvMass = cudaContextManager->allocPinnedHostBuffer<PxVec4>(maxParticles);
-	PxVec4* velocity = cudaContextManager->allocPinnedHostBuffer<PxVec4>(maxParticles);
-
-	PxReal x = position.x;
-	PxReal y = position.y;
-	PxReal z = position.z;
-
-	for (PxU32 i = 0; i < numX; ++i)
-	{
-		for (PxU32 j = 0; j < numY; ++j)
-		{
-			for (PxU32 k = 0; k < numZ; ++k)
-			{
-				const PxU32 index = i * (numY * numZ) + j * numZ + k;
-
-				PxVec4 pos(x, y, z, 1.0f / particleMass);
-				phase[index] = particlePhase;
-				positionInvMass[index] = pos;
-				velocity[index] = PxVec4(0.0f);
-
-				z += particleSpacing;
-			}
-			z = position.z;
-			y += particleSpacing;
-		}
-		y = position.y;
-		x += particleSpacing;
-	}
-
-
-	ExtGpu::PxParticleAndDiffuseBufferDesc bufferDesc;
-	bufferDesc.maxParticles = maxParticles;
-	bufferDesc.numActiveParticles = maxParticles;
-	bufferDesc.maxDiffuseParticles = maxDiffuseParticles;
-	bufferDesc.maxActiveDiffuseParticles = maxDiffuseParticles;
-	bufferDesc.diffuseParams = dpParams;
-
-	bufferDesc.positions = positionInvMass;
-	bufferDesc.velocities = velocity;
-	bufferDesc.phases = phase;
-
-	gParticleBuffer = physx::ExtGpu::PxCreateAndPopulateParticleAndDiffuseBuffer(bufferDesc, cudaContextManager);
-	gParticleSystem->addParticleBuffer(gParticleBuffer);
-
-	cudaContextManager->freePinnedHostBuffer(positionInvMass);
-	cudaContextManager->freePinnedHostBuffer(velocity);
-	cudaContextManager->freePinnedHostBuffer(phase);
-}
-
-
+// Forward declarations
+class PxCudaContextManager;
 
 class PhysxBase : public Singleton<PhysxBase>
 {
-	
+public:
+    PhysxBase();
+    ~PhysxBase();
 
-	public:
-		PxPBDParticleSystem* getParticleSystem()
-		{
-			return gParticleSystem;
-		}
+    void initPhysics(bool useLargeFluid);
+    void stepPhysics(bool interactive, float deltaTime);
+    void cleanupPhysics(bool interactive);
+    float getRightWallLocation();
+    std::vector<Particle>& getParticles();
 
-		PxParticleAndDiffuseBuffer* getParticleBuffer()
-		{
-			return gParticleBuffer;
-		}
+    PxPBDParticleSystem* getParticleSystem();
+    PxParticleAndDiffuseBuffer* getParticleBuffer();
 
-		~PhysxBase() {
-			cleanupPhysics(false);
-		}
+    // Wall movement controls
+    bool wallMoveLeft = false;
+    bool wallMoveRight = false;
 
-		void initPhysics(bool useLargeFluid)
-		{
-			gFoundation = PxCreateFoundation(PX_PHYSICS_VERSION, gAllocator, gErrorCallback);
+private:
+    void initObstacles();
+    void initScene();
+    void initParticles(PxU32 numX, PxU32 numY, PxU32 numZ, const PxVec3& position, PxReal particleSpacing, PxReal fluidDensity, PxU32 maxDiffuseParticles);
+    void getParticlesInternal();
 
-			gPvd = PxCreatePvd(*gFoundation);
-			PxPvdTransport* transport = PxDefaultPvdSocketTransportCreate(PVD_HOST, 5425, 10);
-			gPvd->connect(*transport, PxPvdInstrumentationFlag::eALL);
+    // PhysX SDK objects
+    physx::PxFoundation* mFoundation = nullptr;
+    physx::PxPhysics* mPhysics = nullptr;
+    physx::PxDefaultCpuDispatcher* mDispatcher = nullptr;
+    physx::PxScene* mScene = nullptr;
+    physx::PxMaterial* mMaterial = nullptr;
+    physx::PxPvd* mPvd = nullptr;
+    physx::PxCudaContextManager* mCudaContextManager = nullptr; // <-- FULLY QUALIFIED
+    physx::PxPBDParticleSystem* mParticleSystem = nullptr;
+    physx::PxParticleAndDiffuseBuffer* mParticleBuffer = nullptr;
+    physx::PxRigidDynamic* mMovingWall = nullptr;
 
-			gPhysics = PxCreatePhysics(PX_PHYSICS_VERSION, *gFoundation, PxTolerancesScale(), true, gPvd);
+    int mMaxDiffuseParticles = 0;
+    bool mIsRunning = true;
+    bool mStep = true;
 
-			initScene();
-
-			PxPvdSceneClient* pvdClient = gScene->getScenePvdClient();
-			if (pvdClient)
-			{
-				pvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_CONSTRAINTS, true);
-				pvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_CONTACTS, true);
-				pvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES, true);
-			}
-			gMaterial = gPhysics->createMaterial(0.5f, 0.5f, 0.6f);
-
-			bool useMovingWall = true;
-
-			const PxReal fluidDensity = 1000.0f;
-
-			const PxU32 maxDiffuseParticles = useLargeFluid ? 2000000 : 100000;
-			initParticles(50, 120 * (useLargeFluid ? 5 : 1), 30, PxVec3(-2.5f, 3.f, 0.5f), 0.1f, fluidDensity, maxDiffuseParticles);
-
-			gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(0.f, 1.f, 0.f, 0.0f), *gMaterial));
-			gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(-1.f, 0.f, 0.f, 3.f), *gMaterial));
-			gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(0.f, 0.f, 1.f, 3.f), *gMaterial));
-			gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(0.f, 0.f, -1.f, 3.f), *gMaterial));
-
-			if (!useMovingWall)
-			{
-				gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(1.f, 0.f, 0.f, 3.f), *gMaterial));
-				movingWall = NULL;
-			}
-			else
-			{
-				PxTransform trans = PxTransformFromPlaneEquation(PxPlane(1.f, 0.f, 0.f, 5.f));
-				movingWall = gPhysics->createRigidDynamic(trans);
-				movingWall->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
-				PxRigidActorExt::createExclusiveShape(*movingWall, PxPlaneGeometry(), *gMaterial);
-				gScene->addActor(*movingWall);
-			}
-
-			const PxReal dynamicsDensity = fluidDensity * 0.5f;
-			const PxReal boxSize = 1.0f;
-			const PxReal boxMass = boxSize * boxSize * boxSize * dynamicsDensity;
-			PxShape* shape = gPhysics->createShape(PxBoxGeometry(0.5f * boxSize, 0.5f * boxSize, 0.5f * boxSize), *gMaterial);
-			for (int i = 0; i < 5; ++i)
-			{
-				PxRigidDynamic* body = gPhysics->createRigidDynamic(PxTransform(PxVec3(i - 3.0f, 10, 7.5f)));
-				body->attachShape(*shape);
-				PxRigidBodyExt::updateMassAndInertia(*body, boxMass);
-				gScene->addActor(*body);
-			}
-			shape->release();
-		}
-		bool wallMoveLeft = false;
-		bool wallMoveRight = false;
-
-		float getRightWallLocation() {
-			return movingWall->getGlobalPose().p.x;
-		}
-
-		void stepPhysics(bool interactive,float deltaTime)
-		{
-			if (gIsRunning || gStep)
-			{
-				gStep = false;
-
-				if (movingWall)
-				{
-					PxReal speed = 3.f;
-
-
-					PxTransform pose = movingWall->getGlobalPose();
-					if (wallMoveRight)
-					{
-						
-
-						if (pose.p.x - deltaTime * speed > -9.f) {
-							pose.p.x -= deltaTime * speed;
-						}
-					}
-					if (wallMoveLeft)
-					{
-						if (pose.p.x + deltaTime * speed < -3.f)
-						{
-							pose.p.x += deltaTime * speed;
-						}
-
-
-					}
-					wallMoveLeft = false;
-					wallMoveRight = false;
-
-					movingWall->setKinematicTarget(pose);
-				}
-
-				gScene->simulate(deltaTime);
-				gScene->fetchResults(true);
-				gScene->fetchResultsParticleSystem();
-				getParticles();
-			}
-		}
-
-		void cleanupPhysics(bool /*interactive*/)
-		{
-			PX_RELEASE(gScene);
-			PX_RELEASE(gDispatcher);
-			PX_RELEASE(gPhysics);
-			if (gPvd)
-			{
-				PxPvdTransport* transport = gPvd->getTransport();
-				gPvd->release();	gPvd = NULL;
-				PX_RELEASE(transport);
-			}
-			PX_RELEASE(gFoundation);
-
-			printf("SnippetPBFFluid done.\n");
-		}	
-
-		void getParticles() {
-			auto pr = getParticleBuffer();
-
-			if (pr == nullptr)return;
-
-			size_t bufferSize = pr->getNbActiveParticles() * sizeof(PxVec4);
-
-			void* bufferLocation = malloc(bufferSize);
-			if (bufferLocation == nullptr) {
-				std::cerr << "Failed to allocate host memory" << std::endl;
-				return;
-			}
-
-			PxVec4* bufferPos = pr->getPositionInvMasses();
-
-			CUdeviceptr ptr = reinterpret_cast<CUdeviceptr>(bufferPos);
-
-			auto cudaContextManager = gScene->getCudaContextManager();
-			auto cudaContext = cudaContextManager->getCudaContext();
-
-			cudaContext->memcpyDtoH(bufferLocation, ptr, bufferSize);
-			
-			PxVec4* positions = static_cast<PxVec4*>(bufferLocation);
-
-			m_Particles.clear();
-			m_Particles.resize(pr->getNbActiveParticles());
-
-			// Copy the positions into the vector
-			for (size_t i = 0; i < pr->getNbActiveParticles(); ++i) {
-				m_Particles[i].pos.x = positions[i].x;
-				m_Particles[i].pos.y = positions[i].y;
-				m_Particles[i].pos.z = positions[i].z;
-				m_Particles[i].pos.w = positions[i].w;
-			}
-
-			free(bufferLocation);
-		};
-
-		std::vector<Particle> m_Particles = { {} };
+    std::vector<Particle> m_Particles;
 };

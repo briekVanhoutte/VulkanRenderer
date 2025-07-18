@@ -5,7 +5,7 @@
 #include <Engine/Graphics/DataBuffer.h>
 
 #include <Engine/Graphics/vulkanVars.h>
-#include <Engine/Scene/MeshData.h>
+#include <Engine/Graphics/MeshData.h>
 #include <Engine/Graphics/Particle.h>
 #include <memory>
 #include <array>

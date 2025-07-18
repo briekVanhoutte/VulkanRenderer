@@ -81,7 +81,7 @@ void ParticleGroup::draw(VkPipelineLayout pipelineLayout, VkCommandBuffer comman
 	vkCmdPushConstants(
 		commandBuffer,
 		pipelineLayout,
-		VK_SHADER_STAGE_VERTEX_BIT,
+		VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
 		0,                       
 		sizeof(m_VertexConstant),
 		&m_VertexConstant           
@@ -99,8 +99,8 @@ void ParticleGroup::update()
 {
 	auto& physx_base = PhysxBase::GetInstance();
 	auto& vulkan_vars = vulkanVars::GetInstance();
-	m_Particles = physx_base.m_Particles;
-	m_ParticleCount = physx_base.m_Particles.size();
+	m_Particles = physx_base.getParticles();
+	m_ParticleCount = m_Particles.size();
 
 	VkDeviceSize vertexBufferSize = sizeof(m_Particles[0]) * m_Particles.size();
 

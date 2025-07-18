@@ -5,7 +5,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <chrono>
 #include <Engine/Graphics/vulkanVars.h>
-#include <Engine/Scene/MeshData.h>
+#include <Engine/Graphics/MeshData.h>
 #include <iostream>
 
 
@@ -204,12 +204,6 @@ void Pipeline::CreatePipeline(VkDevice device, VkRenderPass renderPass, VkPrimit
 
 	auto& vertexInput = m_Shader->getVertexInputStateInfo();
 
-	std::cout << " === Vertex Input Check ===\n";
-	std::cout << "bindingDesc.binding: " << vertexInput.pVertexBindingDescriptions[0].binding << "\n";
-	std::cout << "bindingDesc.stride: " << vertexInput.pVertexBindingDescriptions[0].stride << "\n";
-	std::cout << "bindingDesc.inputRate: " << vertexInput.pVertexBindingDescriptions[0].inputRate << "\n";
-
-
 	vkDestroyShaderModule(device, vertShaderStageInfo.module, nullptr);
 	vkDestroyShaderModule(device, fragShaderStageInfo.module, nullptr);
 }
@@ -225,7 +219,7 @@ void Pipeline::updateUniformBuffer(uint32_t currentImage, VkExtent2D swapChainEx
 VkPushConstantRange Pipeline::createPushConstantRange()
 {
 	VkPushConstantRange pushConstantRange = {};
-	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 	pushConstantRange.offset = 0;
 	pushConstantRange.size = sizeof(MeshData);
 
@@ -294,6 +288,11 @@ void Pipeline::createDepthResources(VkPhysicalDevice& vkPhysicalDevice, VkDevice
 	createImage(vkPhysicalDevice, vkDevice, swapChainExtent.width, swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_DepthImage, m_DepthImageMemory);
 
 	m_DepthImageView = createImageView(vkDevice, m_DepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+}
+
+void Pipeline::updateDescriptorSets()
+{
+	m_Shader->updateDescriptorSet();
 }
 
 VkFormat Pipeline::findDepthFormat(VkPhysicalDevice& vkPhysicalDevice, VkDevice& vkDevice)

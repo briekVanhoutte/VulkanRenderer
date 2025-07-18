@@ -19,18 +19,26 @@ std::shared_ptr<Material> MaterialManager::getOrCreateMaterial(const std::string
 void MaterialManager::addActiveMaterial(const std::shared_ptr<Material>& material) {
     if (!material) return;
     if (std::find(m_activeMaterials.begin(), m_activeMaterials.end(), material) == m_activeMaterials.end())
+    {
         m_activeMaterials.push_back(material);
+        m_textureListDirty = true;
+    }
+        
 }
 
 // Remove material from active list
 void MaterialManager::removeActiveMaterial(const std::shared_ptr<Material>& material) {
     auto it = std::remove(m_activeMaterials.begin(), m_activeMaterials.end(), material);
-    m_activeMaterials.erase(it, m_activeMaterials.end());
+    if (it != m_activeMaterials.end()) {
+        m_activeMaterials.erase(it, m_activeMaterials.end());
+        m_textureListDirty = true; // Mark dirty
+    }
 }
 
 // Replace active material list (optionally clears first)
 void MaterialManager::setActiveMaterials(const std::vector<std::shared_ptr<Material>>& mats) {
     m_activeMaterials = mats;
+    m_textureListDirty = true; // Mark dirty
 }
 
 // Find material by unique ID (linear search)
@@ -50,6 +58,7 @@ std::shared_ptr<Material> MaterialManager::getMaterialByIndex(size_t idx) const 
 // Clear the active material list
 void MaterialManager::clearActiveMaterials() {
     m_activeMaterials.clear();
+    m_textureListDirty = true;
 }
 
 // Return all cached materials

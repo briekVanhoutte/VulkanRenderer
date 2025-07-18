@@ -2,6 +2,8 @@
 #include <iostream>
 #include <Engine/Graphics/vulkanVars.h>
 #include <array>
+
+
 DescriptorPool::DescriptorPool(const VkDevice& device, VkDeviceSize size, size_t count)
 	:m_Device{device}, m_Size{size},m_Count{count}
 {
@@ -9,7 +11,7 @@ DescriptorPool::DescriptorPool(const VkDevice& device, VkDeviceSize size, size_t
 	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	poolSizes[0].descriptorCount = static_cast<uint32_t>(count);
 	poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	poolSizes[1].descriptorCount = static_cast<uint32_t>(count);
+	poolSizes[1].descriptorCount = static_cast<uint32_t>(count * MAX_TEXTURES);
 
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -28,14 +30,14 @@ void DescriptorPool::Initialize(const VkDevice& device)
 	uboLayoutBinding.binding = 0;
 	uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	uboLayoutBinding.descriptorCount = 1;
-	uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 	uboLayoutBinding.pImmutableSamplers = nullptr;
 
 	VkDescriptorSetLayoutBinding samplerLayoutBinding{};
 	samplerLayoutBinding.binding = 1;
 	samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	samplerLayoutBinding.descriptorCount = 1;
-	samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	samplerLayoutBinding.descriptorCount = MAX_TEXTURES;
+	samplerLayoutBinding.stageFlags =  VK_SHADER_STAGE_FRAGMENT_BIT;
 	samplerLayoutBinding.pImmutableSamplers = nullptr;
 
 	std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
@@ -62,7 +64,7 @@ DescriptorPool::~DescriptorPool()
 
 }
 
-void DescriptorPool::createDescriptorSets(const std::vector<VkBuffer>& buffers, const std::vector<VkDescriptorImageInfo>& images)
+void DescriptorPool::createDescriptorSets(const std::vector<VkBuffer>& buffers, const std::vector<std::vector<VkDescriptorImageInfo>>& images)
 {
 	std::vector<VkDescriptorSetLayout> layouts(m_Count, m_DescriptorSetLayout);
 	VkDescriptorSetAllocateInfo allocInfo{};
@@ -100,8 +102,8 @@ void DescriptorPool::createDescriptorSets(const std::vector<VkBuffer>& buffers, 
 		descriptorWrites[1].dstBinding = 1;
 		descriptorWrites[1].dstArrayElement = 0;
 		descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		descriptorWrites[1].descriptorCount = 1;
-		descriptorWrites[1].pImageInfo = &images[i];
+		descriptorWrites[1].descriptorCount = MAX_TEXTURES;
+		descriptorWrites[1].pImageInfo = images[i].data();
 
 		vkUpdateDescriptorSets(m_Device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 	}

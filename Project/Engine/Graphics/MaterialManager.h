@@ -38,6 +38,10 @@ public:
 
     // (Optional) Get all cached materials (not just active)
     std::vector<std::shared_ptr<Material>> getAllCachedMaterials() const;
+
+    bool isTextureListDirty() const { return m_textureListDirty; }
+    void clearTextureListDirty() { m_textureListDirty = false; }
+
 private:
     friend class Singleton<MaterialManager>;
     MaterialManager();
@@ -45,4 +49,6 @@ private:
     std::unordered_map<std::string, std::shared_ptr<Material>> m_materialCache;
     std::vector<std::shared_ptr<Material>> m_activeMaterials;
     std::shared_ptr<Material> m_standardMaterial;
+
+    bool m_textureListDirty = true;
 };

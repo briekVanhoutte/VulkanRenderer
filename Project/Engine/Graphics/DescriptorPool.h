@@ -19,7 +19,7 @@ public:
 	}
 
 	~DescriptorPool() ;
-	void createDescriptorSets(const std::vector<VkBuffer>& buffers, const std::vector<VkDescriptorImageInfo>& images);
+	void createDescriptorSets(const std::vector<VkBuffer>& buffers, const std::vector<std::vector<VkDescriptorImageInfo>>& images);
 
 	void bindDescriptorSet(VkCommandBuffer buffer, VkPipelineLayout layout, size_t index);
 

@@ -4,7 +4,7 @@
 #include <iostream>
 #include <glm\gtc\type_ptr.hpp>
 #include <Engine/Graphics/vulkanVars.h>
-
+#include <Engine/Graphics/MaterialManager.h>
 #include <Engine/Graphics/Texture.h>
 
 ShaderBase::ShaderBase(const std::string& vertexShaderPath, const std::string& fragmentShaderPath)
@@ -72,18 +72,87 @@ void ShaderBase::initialize(const VkPhysicalDevice& vkPhysicalDevice, const VkDe
     m_DescriptorPool.Initialize(vkDevice);
     std::vector<VkBuffer> buffers{};
     std::vector<VkDescriptorImageInfo> images{};
+    std::vector<std::vector<VkDescriptorImageInfo>> imagesPerFrame(MAX_FRAMES_IN_FLIGHT);
 
-    
+    const auto& defaultMat = MaterialManager::GetInstance().getStandardMaterial();
+    const auto& activeMaterials = MaterialManager::GetInstance().getActiveMaterials();
+    auto& vulkan_vars = vulkanVars::GetInstance();
 
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         buffers.push_back(m_UBOBuffers[i]->getVkBuffer());
-        images.push_back(m_Tex->getDescriptorInfo());
+
+        imagesPerFrame[i].resize(MAX_TEXTURES);
+        for (size_t j = 0; j < MAX_TEXTURES; ++j) {
+            if (j < activeMaterials.size() && activeMaterials[j] && activeMaterials[j]->getTexture()) {
+                imagesPerFrame[i][j] = activeMaterials[j]->getTexture()->getDescriptorInfo();
+            }
+            else if (defaultMat) {
+                imagesPerFrame[i][j] = defaultMat->getTexture()->getDescriptorInfo();
+            }
+            else {
+                // Zero out in case defaultTexture is not set (should NOT happen in real code)
+                imagesPerFrame[i][j] = VkDescriptorImageInfo{};
+            }
+        }
+    }
+
+    m_DescriptorPool.createDescriptorSets(buffers, imagesPerFrame);
+
+}
+
+void ShaderBase::updateDescriptorSet()
+{
+    auto& vulkan_vars = vulkanVars::GetInstance();
+    m_UBOBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        UniformBufferObject ubo{};
+        ubo.view = glm::mat4{ {1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1} };
+        ubo.proj = glm::mat4{ {1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1} };
+
+        m_UBOBuffers[i] = std::make_unique<DataBuffer>(
+            vulkan_vars.physicalDevice,
+            vulkan_vars.device,
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            sizeof(ubo)
+        );
+
+        m_UBOBuffers[i]->upload(sizeof(ubo), &ubo);
+
+
     }
 
 
-    m_DescriptorPool.createDescriptorSets(buffers, images);
 
+    m_DescriptorPool = { vulkan_vars.device, sizeof(UniformBufferObject), MAX_FRAMES_IN_FLIGHT };
+    m_DescriptorPool.Initialize(vulkan_vars.device);
+    std::vector<VkBuffer> buffers{};
+    std::vector<VkDescriptorImageInfo> images{};
+    std::vector<std::vector<VkDescriptorImageInfo>> imagesPerFrame(MAX_FRAMES_IN_FLIGHT);
+
+    const auto& defaultMat = MaterialManager::GetInstance().getStandardMaterial();
+    const auto& activeMaterials = MaterialManager::GetInstance().getAllCachedMaterials();
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        buffers.push_back(m_UBOBuffers[i]->getVkBuffer());
+
+        imagesPerFrame[i].resize(MAX_TEXTURES);
+        for (size_t j = 0; j < MAX_TEXTURES; ++j) {
+            if (j < activeMaterials.size() && activeMaterials[j] && activeMaterials[j]->getTexture()) {
+                imagesPerFrame[i][j] = activeMaterials[j]->getTexture()->getDescriptorInfo();
+                std::cout << activeMaterials[j]->getMaterialID();
+            }
+            else if (defaultMat) {
+                imagesPerFrame[i][j] = defaultMat->getTexture()->getDescriptorInfo();
+            }
+            else {
+                // Zero out in case defaultTexture is not set (should NOT happen in real code)
+                imagesPerFrame[i][j] = VkDescriptorImageInfo{};
+            }
+        }
+    }
+
+    m_DescriptorPool.createDescriptorSets(buffers, imagesPerFrame);
 }
 
 void ShaderBase::createDescriptorSetLayout(const VkDevice& vkDevice)
@@ -93,13 +162,13 @@ void ShaderBase::createDescriptorSetLayout(const VkDevice& vkDevice)
     uboLayoutBinding.binding = 0;
     uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     uboLayoutBinding.descriptorCount = 1;
-    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     uboLayoutBinding.pImmutableSamplers = nullptr;
 
     // Combined Image Sampler (binding 1)
     VkDescriptorSetLayoutBinding samplerLayoutBinding{};
     samplerLayoutBinding.binding = 1;
-    samplerLayoutBinding.descriptorCount = 1;
+    samplerLayoutBinding.descriptorCount = MAX_TEXTURES;
     samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     samplerLayoutBinding.pImmutableSamplers = nullptr;
     samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -191,3 +260,5 @@ void ShaderBase::updateUniformBuffer(uint32_t currentImage, UniformBufferObject&
         m_UBOBuffers[currentImage]->remap(sizeof(ubo), &ubo);
     }   
 }
+
+

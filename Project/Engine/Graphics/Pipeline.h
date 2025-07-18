@@ -20,7 +20,7 @@ public:
 	void Record(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene);
 
 	void setUbo(const UniformBufferObject& ubo) { m_Ubo = ubo; }
-
+	void updateDescriptorSets();
 	static VkFormat findDepthFormat(VkPhysicalDevice& vkPhysicalDevice, VkDevice& vkDevice);
 	VkImage getDepthImage() { return m_DepthImage; };
 	VkDeviceMemory getDepthImageMemory() { return m_DepthImageMemory; };
@@ -30,7 +30,6 @@ private:
 	void drawScene(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene);
 
 	void CreatePipeline(VkDevice device, VkRenderPass renderPass, VkPrimitiveTopology topology);
-
 
 	VkPipeline m_Pipeline3d;
 	std::unique_ptr<ShaderBase> m_Shader;

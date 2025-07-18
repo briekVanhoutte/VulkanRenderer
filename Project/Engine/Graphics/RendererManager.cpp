@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <Engine/Graphics/Particle.h>
 #include <Engine/Platform/Windows/VulkanSurface_Windows.h>
+#include <Engine/Graphics/MaterialManager.h>
+
 RendererManager::RendererManager() {
 }
 
@@ -60,6 +62,12 @@ void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Ca
 
 	m_Pipeline3d.setUbo(vp);
 	m_PipelineParticles.setUbo(vp);
+
+	auto& matMgr = MaterialManager::GetInstance();
+	if (matMgr.isTextureListDirty()) {
+		m_Pipeline3d.updateDescriptorSets();
+		matMgr.clearTextureListDirty(); // Reset the flag
+	}
 
 	vulkan_vars.commandBuffers[frameIndex].reset();
 	vulkan_vars.commandBuffers[frameIndex].beginRecording();

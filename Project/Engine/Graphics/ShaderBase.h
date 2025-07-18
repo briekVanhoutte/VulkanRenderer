@@ -33,7 +33,7 @@ public:
     void bindDescriptorSet(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, size_t index);
 
     void updateUniformBuffer(uint32_t currentImage, UniformBufferObject& ubo);
-
+    void updateDescriptorSet();
     VkPipelineShaderStageCreateInfo getVertexShaderStageInfo() ;
     VkPipelineShaderStageCreateInfo getFragmentShaderStageInfo() ;
     VkPipelineVertexInputStateCreateInfo& getVertexInputStateInfo() ;

@@ -2,7 +2,7 @@
 
 #include <vulkan\vulkan_core.h>
 #include <glm/glm.hpp>
-#include <Engine/Scene/Mesh.h>
+#include <Engine/Graphics/Mesh.h>
 #include <Engine/Scene/GameObjects/BaseObject.h>
 #include <Engine/Scene/Scene.h>
 #include <Engine/Graphics/ParticleGroup.h>

@@ -6,7 +6,8 @@
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/scalar_constants.hpp>
 #include <iostream>
-#include <Engine/Scene/MeshData.h>
+#include <Engine/Graphics/MeshData.h>
+#include "MeshData.h"
 
 
 Mesh::Mesh(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices, const std::string& TexturePath)
@@ -87,6 +88,7 @@ void Mesh::setPosition(glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAn
 	glm::mat4 scaleMatrix = glm::scale(glm::mat4(1.0f), scale);
 
 	m_VertexConstant.model = translationMatrix * rotationMatrix * scaleMatrix;
+	m_VertexConstant.textureID = m_Material->getMaterialID();
 }
 
 void Mesh::draw(VkPipelineLayout pipelineLayout, VkCommandBuffer commandBuffer) {
@@ -98,7 +100,7 @@ void Mesh::draw(VkPipelineLayout pipelineLayout, VkCommandBuffer commandBuffer) 
 	vkCmdPushConstants(
 		commandBuffer,
 		pipelineLayout,
-		VK_SHADER_STAGE_VERTEX_BIT, 
+		VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
 		0,                          
 		sizeof(MeshData),         
 		&m_VertexConstant 

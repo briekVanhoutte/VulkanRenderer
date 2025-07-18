@@ -27,7 +27,7 @@ void Game::init() {
 #else
 #error not implemented for this os!
 #endif
-
+     
     m_Physics.initPhysics(false);
 
     float fov = 90.f;
@@ -53,12 +53,28 @@ void Game::initScene() {
     glm::vec3 scaleParticles{ 1.f, 1.f, 1.f };
     glm::vec3 rotParticles{ 0.f, 0.f, 0.f };
 
-    m_SceneManager.addParticleGroup(
-        m_Physics.getParticleBuffer()->getPositionInvMasses(),
-        m_Physics.getParticleBuffer()->getNbActiveParticles(),
-        m_Physics.m_Particles,
-        posParticles, scaleParticles, rotParticles);
+    auto* particleBuffer = m_Physics.getParticleBuffer();
 
+    if (particleBuffer) {
+        // Optionally check that positionInvMasses is valid and nbActiveParticles > 0
+        auto* positions = particleBuffer->getPositionInvMasses();
+        int nbActive = particleBuffer->getNbActiveParticles();
+
+        if (positions && nbActive > 0) {
+            m_SceneManager.addParticleGroup(
+                positions,
+                nbActive,
+                m_Physics.getParticles(),
+                posParticles, scaleParticles, rotParticles);
+        }
+        else {
+            // You can log or handle the error case here
+            // std::cout << "Particle buffer is empty or invalid!\n";
+        }
+    }
+    else {
+        // std::cout << "No particle buffer available!\n";
+    }
     posParticles.y += 3.f;
 
     glm::vec3 posBackWall = posParticles;

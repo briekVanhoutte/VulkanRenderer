@@ -7,6 +7,7 @@
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 const int MAX_FRAMES_IN_FLIGHT = 3;
+const int MAX_TEXTURES = 32;
 
 class vulkanVars : public Singleton<vulkanVars> {
 public:

@@ -4,7 +4,7 @@
 #include <Engine/Graphics/Vertex.h>
 #include <glm/glm.hpp>
 #include <Engine/Graphics/DataBuffer.h>
-#include <Engine/Scene/MeshData.h>
+#include <Engine/Graphics/MeshData.h>
 #include <Engine/Graphics/MaterialManager.h>
 #include <memory>
 class Mesh {
