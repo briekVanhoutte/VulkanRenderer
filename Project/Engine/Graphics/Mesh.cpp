@@ -10,13 +10,13 @@
 #include "MeshData.h"
 
 
-Mesh::Mesh(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices, const std::string& TexturePath)
+Mesh::Mesh(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices, const std::shared_ptr<Material> mat)
 	:m_Vertices(Vertexes), m_Indices(indices)
 {
 	m_VertexConstant = {};
 	m_VertexConstant.model = glm::mat4{ {1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1} };
 	auto& mat_manager = MaterialManager::GetInstance();
-	m_Material = mat_manager.getOrCreateMaterial(TexturePath);
+	m_Material = mat;
 }
 
 void Mesh::initialize(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue) {
@@ -88,7 +88,11 @@ void Mesh::setPosition(glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAn
 	glm::mat4 scaleMatrix = glm::scale(glm::mat4(1.0f), scale);
 
 	m_VertexConstant.model = translationMatrix * rotationMatrix * scaleMatrix;
-	m_VertexConstant.textureID = m_Material->getMaterialID();
+	m_VertexConstant.AlbedoID = m_Material->getAlbedoMapID();
+	m_VertexConstant.MetalnessID = m_Material->getMetalnessMapID();
+	m_VertexConstant.NormalMapID = m_Material->getNormalMapID();
+	m_VertexConstant.RoughnessID = m_Material->getRoughnessMapID();
+	m_VertexConstant.HeightMapID = m_Material->getHeightMapID();
 }
 
 void Mesh::draw(VkPipelineLayout pipelineLayout, VkCommandBuffer commandBuffer) {

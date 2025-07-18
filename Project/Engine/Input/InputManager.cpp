@@ -41,25 +41,30 @@ void InputManager::Update() {
 
 void InputManager::HandleCameraInputs(Camera* camera, float deltaTime)
 {
-    const float moveSpeed = deltaTime * 10.f;
+    const float moveSpeed = 10.f; // Units per second (tweak as needed)
+    const float rotationSpeed = 0.005f; // Radians per pixel (tweak as needed)
 
+    // Movement
     if (IsKeyDown(GLFW_KEY_W)) {
-        camera->translateForward(-moveSpeed);
+        camera->translateForward(-moveSpeed * deltaTime);
     }
     if (IsKeyDown(GLFW_KEY_S)) {
-        camera->translateForward(moveSpeed);
+        camera->translateForward(moveSpeed * deltaTime);
     }
     if (IsKeyDown(GLFW_KEY_A)) {
-        camera->translateRight(-moveSpeed);
+        camera->translateRight(-moveSpeed * deltaTime);
     }
     if (IsKeyDown(GLFW_KEY_D)) {
-        camera->translateRight(moveSpeed);
+        camera->translateRight(moveSpeed * deltaTime);
     }
 
+    // Rotation
     if (IsMouseButtonDown(GLFW_MOUSE_BUTTON_RIGHT)) {
         glm::vec2 currentPos(static_cast<float>(GetMouseX()), static_cast<float>(GetMouseY()));
         glm::vec2 offset = currentPos - m_LastMousePos;
-        const float rotationSpeed = deltaTime * 0.1f;
+
+        // Rotation should not depend on deltaTime (if using pixels for offset),
+        // unless you want mouse movement to be time-dependent (which is rare).
         offset *= rotationSpeed;
 
         if (offset.x != 0.f || offset.y != 0.f) {

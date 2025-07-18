@@ -1,7 +1,7 @@
 #include "PrimitiveMeshComponent.h"
 #include "GameObject.h"
 
-void PrimitiveMeshComponent::addPrimitiveToScene(PrimitiveType type, float width, float height, float depth, const std::string& filePath) {
+void PrimitiveMeshComponent::addPrimitiveToScene(PrimitiveType type, float width, float height, float depth, const std::shared_ptr<Material> mat) {
     auto parent = getParent();
     if (!parent) return;
 
@@ -15,7 +15,7 @@ void PrimitiveMeshComponent::addPrimitiveToScene(PrimitiveType type, float width
             parent->getTransform()->position,
             parent->getTransform()->scale,
             parent->getTransform()->rotation,
-            filePath);
+            mat);
         break;
     }
     case PrimitiveType::Cube: {
@@ -27,42 +27,42 @@ void PrimitiveMeshComponent::addPrimitiveToScene(PrimitiveType type, float width
             glm::vec3 faceRotation = baseRotation;
             glm::vec3 faceNormal = glm::vec3(0.f, 0.f, 1.f);
             sceneManager.addMeshRectangle(faceNormal, color, width, height,
-                facePosition, parent->getTransform()->scale, faceRotation, filePath);
+                facePosition, parent->getTransform()->scale, faceRotation, mat);
         }
         {
             glm::vec3 facePosition = cubeCenter + glm::vec3(0.f, 0.f, -halfDims.z);
             glm::vec3 faceRotation = baseRotation + glm::vec3(0.f, 180.f, 0.f);
             glm::vec3 faceNormal = glm::vec3(0.f, 0.f, -1.f);
             sceneManager.addMeshRectangle(faceNormal, color, width, height,
-                facePosition, parent->getTransform()->scale, faceRotation, filePath);
+                facePosition, parent->getTransform()->scale, faceRotation, mat);
         }
         {
             glm::vec3 facePosition = cubeCenter + glm::vec3(halfDims.x, 0.f, 0.f);
             glm::vec3 faceRotation = baseRotation + glm::vec3(0.f, 90.f, 0.f);
             glm::vec3 faceNormal = glm::vec3(1.f, 0.f, 0.f);
             sceneManager.addMeshRectangle(faceNormal, color, depth, height,
-                facePosition, parent->getTransform()->scale, faceRotation, filePath);
+                facePosition, parent->getTransform()->scale, faceRotation, mat);
         }
         {
             glm::vec3 facePosition = cubeCenter + glm::vec3(-halfDims.x, 0.f, 0.f);
             glm::vec3 faceRotation = baseRotation + glm::vec3(0.f, -90.f, 0.f);
             glm::vec3 faceNormal = glm::vec3(-1.f, 0.f, 0.f);
             sceneManager.addMeshRectangle(faceNormal, color, depth, height,
-                facePosition, parent->getTransform()->scale, faceRotation, filePath);
+                facePosition, parent->getTransform()->scale, faceRotation, mat);
         }
         {
             glm::vec3 facePosition = cubeCenter + glm::vec3(0.f, halfDims.y, 0.f);
             glm::vec3 faceRotation = baseRotation + glm::vec3(-90.f, 0.f, 0.f);
             glm::vec3 faceNormal = glm::vec3(0.f, 1.f, 0.f);
             sceneManager.addMeshRectangle(faceNormal, color, width, depth,
-                facePosition, parent->getTransform()->scale, faceRotation, filePath);
+                facePosition, parent->getTransform()->scale, faceRotation, mat);
         }
         {
             glm::vec3 facePosition = cubeCenter + glm::vec3(0.f, -halfDims.y, 0.f);
             glm::vec3 faceRotation = baseRotation + glm::vec3(90.f, 0.f, 0.f);
             glm::vec3 faceNormal = glm::vec3(0.f, -1.f, 0.f);
             sceneManager.addMeshRectangle(faceNormal, color, width, depth,
-                facePosition, parent->getTransform()->scale, faceRotation, filePath);
+                facePosition, parent->getTransform()->scale, faceRotation, mat);
         }
         break;
     }

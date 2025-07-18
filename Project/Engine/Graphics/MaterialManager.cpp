@@ -44,7 +44,7 @@ void MaterialManager::setActiveMaterials(const std::vector<std::shared_ptr<Mater
 // Find material by unique ID (linear search)
 std::shared_ptr<Material> MaterialManager::getMaterialByID(uint32_t materialID) const {
     for (const auto& mat : m_activeMaterials)
-        if (mat && mat->getMaterialID() == materialID)
+        if (mat && mat->getAlbedoMapID() == materialID)
             return mat;
     return nullptr;
 }

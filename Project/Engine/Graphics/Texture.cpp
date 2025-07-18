@@ -6,12 +6,14 @@
 #include <Engine/Graphics/DataBuffer.h>
 #include <iostream>
 
-namespace {
-    const std::string kErrorTexturePath = "Resources/Textures/errorTexture.jpg";
-}
+
+
+std::atomic<uint32_t> Texture::s_NextID = 0;
 
 Texture::Texture(const std::string& filename)
 {
+    m_ID = s_NextID;
+    s_NextID += 1;
     try {
         createTextureImage(filename);
     }
@@ -47,6 +49,16 @@ VkDescriptorImageInfo Texture::getDescriptorInfo() const
     imageInfo.imageView = m_ImageView;
     imageInfo.sampler = m_Sampler;
     return imageInfo;
+}
+
+uint32_t Texture::getID()
+{
+
+    if (m_ID > MAX_TEXTURES)
+    {
+        return 0;
+    }
+    return m_ID;
 }
 
 void Texture::createTextureImage(const std::string& filename)

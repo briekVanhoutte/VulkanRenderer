@@ -2,17 +2,26 @@
 
 #include <vulkan/vulkan.h>
 #include <string>
+#include <atomic>
+
+namespace {
+    const std::string kErrorTexturePath = "Resources/Textures/errorTexture.jpg";
+}
 
 class Texture {
+    friend class TextureManager;
 public:
-    Texture(const std::string& filename);
+   
     ~Texture();
 
     VkImageView getImageView() const { return m_ImageView; }
     VkSampler getSampler() const { return m_Sampler; }
     VkDescriptorImageInfo getDescriptorInfo() const;
 
+    uint32_t getID();
 private:
+    Texture(const std::string& filename);
+
     void createTextureImage(const std::string& filename);
     void createTextureImageView();
     void createTextureSampler();
@@ -24,4 +33,7 @@ private:
     VkImageView m_ImageView = VK_NULL_HANDLE;
     VkSampler m_Sampler = VK_NULL_HANDLE;
     uint32_t m_Width = 0, m_Height = 0;
+    uint32_t m_ID = -1;
+
+    static std::atomic<uint32_t> s_NextID;
 };

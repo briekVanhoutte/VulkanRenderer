@@ -64,7 +64,7 @@ private:
     VkShaderModule createShaderModule(const std::vector<char>& code);
 
     //test
-    std::unique_ptr<Texture> m_Tex;
+    std::shared_ptr<Texture> m_Tex;
 };
 
 #endif

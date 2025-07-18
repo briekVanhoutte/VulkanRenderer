@@ -7,8 +7,8 @@
     #include <Engine/Platform/Windows/PlatformWindow_Windows.h>
 #endif
 
-const uint32_t WIDTH = 800;
-const uint32_t HEIGHT = 600;
+const uint32_t WIDTH = 1600;
+const uint32_t HEIGHT = 900;
 
 WindowManager& WindowManager::GetInstance() {
     static WindowManager instance;

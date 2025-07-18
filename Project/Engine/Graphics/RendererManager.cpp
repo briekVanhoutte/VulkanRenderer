@@ -59,16 +59,17 @@ void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Ca
 
 	vp.view = { glm::inverse(camera.CalculateCameraToWorld()) };
 	vp.proj = glm::perspective(glm::radians(camera.fovAngle), camera.aspectRatio, camera.nearPlane, camera.farPlane);
+	vp.cameraPos = camera.origin;
 
 	m_Pipeline3d.setUbo(vp);
 	m_PipelineParticles.setUbo(vp);
 
-	auto& matMgr = MaterialManager::GetInstance();
+	auto& matMgr = TextureManager::GetInstance();
 	if (matMgr.isTextureListDirty()) {
 		m_Pipeline3d.updateDescriptorSets();
 		matMgr.clearTextureListDirty(); // Reset the flag
 	}
-
+	
 	vulkan_vars.commandBuffers[frameIndex].reset();
 	vulkan_vars.commandBuffers[frameIndex].beginRecording();
 
@@ -574,8 +575,8 @@ void RendererManager::initPipeLines()
 {
 	auto& vulkan_vars = vulkanVars::GetInstance();
 
-	m_Pipeline3d.Initialize("shaders/shader3d.vert.spv", "shaders/shader3d.frag.spv", Vertex::getBindingDescription(), Vertex::getAttributeDescriptions(), VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-	m_PipelineParticles.Initialize("shaders/computeShader.vert.spv", "shaders/computeShader.frag.spv", Particle::getBindingDescription(), Particle::getAttributeDescriptions(), VK_PRIMITIVE_TOPOLOGY_POINT_LIST);
+	m_Pipeline3d.Initialize("shaders/pbrShader.vert.spv", "shaders/pbrShader.frag.spv", Vertex::getBindingDescription(), Vertex::getAttributeDescriptions(), VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+	m_PipelineParticles.Initialize("shaders/particleShader.vert.spv", "shaders/particleShader.frag.spv", Particle::getBindingDescription(), Particle::getAttributeDescriptions(), VK_PRIMITIVE_TOPOLOGY_POINT_LIST);
 }
 void RendererManager::createFrameBuffers()
 {

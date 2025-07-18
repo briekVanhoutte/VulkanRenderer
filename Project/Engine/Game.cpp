@@ -91,29 +91,35 @@ void Game::initScene() {
     posBotWall.y -= 3.f;
     posBotWall.x -= 3.f;
 
+    std::shared_ptr<Material> stoneMat = std::make_shared<Material>("Resources/Textures/Rocks/rocks_albedo.jpg", "Resources/Textures/Rocks/rocks_normal.jpg", "", "Resources/Textures/Rocks/rocks_roughness.jpg", "Resources/Textures/Rocks/rocks_displacement.jpg");
+    std::shared_ptr<Material> bronMat = std::make_shared<Material>("Resources/Textures/errorTexture.jpg");
+    std::shared_ptr<Material> serraMat = std::make_shared<Material>("Resources/Textures/testTexture.jpg");
+    std::shared_ptr<Material> errorMat = std::make_shared<Material>();
+
+
     GameObject* backWall = m_GameScene.addGameObject();
     backWall->getTransform()->position = posBackWall;
     backWall->getTransform()->scale = scaleParticles;
     backWall->getTransform()->rotation = glm::vec3(-90.f, 0.f, 0.f);
-    backWall->addComponent<PrimitiveMeshComponent>(backWall, PrimitiveType::Plane, 12.f, 6.f, 1.f,"Resources/Textures/testTexture.jpg");
+    backWall->addComponent<PrimitiveMeshComponent>(backWall, PrimitiveType::Plane, 12.f, 6.f, 1.f, stoneMat);
 
     GameObject* rightWall = m_GameScene.addGameObject();
     rightWall->getTransform()->position = posRightWall;
     rightWall->getTransform()->scale = scaleParticles;
-    rightWall->getTransform()->rotation = glm::vec3(-90.f, 0.f, -90.f);
-    rightWall->addComponent<PrimitiveMeshComponent>(rightWall, PrimitiveType::Plane, 6.f, 6.f, 1.f);
+    rightWall->getTransform()->rotation = glm::vec3(-90.f, 0.f, 90.f);
+    rightWall->addComponent<PrimitiveMeshComponent>(rightWall, PrimitiveType::Plane, 6.f, 6.f, 1.f, bronMat);
 
     GameObject* leftWall = m_GameScene.addGameObject();
     leftWall->getTransform()->position = posLeftWall;
     leftWall->getTransform()->scale = scaleParticles;
     leftWall->getTransform()->rotation = glm::vec3(-90.f, 0.f, 90.f);
-    leftWall->addComponent<PrimitiveMeshComponent>(leftWall, PrimitiveType::Plane, 6.f, 6.f, 1.f, "Resources/Textures/testTexture.jpg");
+    leftWall->addComponent<PrimitiveMeshComponent>(leftWall, PrimitiveType::Plane, 6.f, 6.f, 1.f, serraMat);
 
     GameObject* bottomWall = m_GameScene.addGameObject();
     bottomWall->getTransform()->position = posBotWall;
     bottomWall->getTransform()->scale = scaleParticles;
     bottomWall->getTransform()->rotation = glm::vec3(0.f, 0.f, 0.f);
-    bottomWall->addComponent<PrimitiveMeshComponent>(bottomWall, PrimitiveType::Plane, 12.f, 6.f, 1.f);
+    bottomWall->addComponent<PrimitiveMeshComponent>(bottomWall, PrimitiveType::Plane, 12.f, 6.f, 1.f, serraMat);
 
     m_GameScene.initialize();
 
@@ -142,7 +148,7 @@ void Game::run() {
 
         window->pollEvents();
 
-        m_Physics.stepPhysics(false, deltaTime);
+        //m_Physics.stepPhysics(false, deltaTime);
         m_Renderer->RenderFrame(m_RenderItems, *m_Camera);
 
         InputManager::GetInstance().HandleCameraInputs(m_Camera, deltaTime);

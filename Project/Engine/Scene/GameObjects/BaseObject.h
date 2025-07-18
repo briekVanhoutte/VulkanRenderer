@@ -6,8 +6,8 @@
 
 class BaseObject {
 public:
-    BaseObject(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices, const std::string& textureFilename = "") {
-        mesh = std::make_unique<Mesh>(Vertexes, indices, textureFilename);
+    BaseObject(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices, const std::shared_ptr<Material> mat = {}) {
+        mesh = std::make_unique<Mesh>(Vertexes, indices, mat);
     }
    
     void draw(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer) {

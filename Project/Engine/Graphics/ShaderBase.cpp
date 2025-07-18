@@ -6,13 +6,16 @@
 #include <Engine/Graphics/vulkanVars.h>
 #include <Engine/Graphics/MaterialManager.h>
 #include <Engine/Graphics/Texture.h>
-
+#include <Engine/Graphics/TextureManager.h>
+#include <algorithm>
 ShaderBase::ShaderBase(const std::string& vertexShaderPath, const std::string& fragmentShaderPath)
     :vertexShaderModule_(VK_NULL_HANDLE), fragmentShaderModule_(VK_NULL_HANDLE)
 {
     vertexShaderCode_ = readFile(vertexShaderPath);
     fragmentShaderCode_ = readFile(fragmentShaderPath);
-    m_Tex = std::make_unique<Texture>( "Resources/Textures/texture.jpg" );
+
+
+    m_Tex = TextureManager::GetInstance().getOrCreateTexture(kErrorTexturePath);
 }
 
 ShaderBase::~ShaderBase() {
@@ -74,8 +77,9 @@ void ShaderBase::initialize(const VkPhysicalDevice& vkPhysicalDevice, const VkDe
     std::vector<VkDescriptorImageInfo> images{};
     std::vector<std::vector<VkDescriptorImageInfo>> imagesPerFrame(MAX_FRAMES_IN_FLIGHT);
 
-    const auto& defaultMat = MaterialManager::GetInstance().getStandardMaterial();
-    const auto& activeMaterials = MaterialManager::GetInstance().getActiveMaterials();
+    const auto& defaultTexture = TextureManager::GetInstance().getStandardTexture();
+    auto& cachedTextures = TextureManager::GetInstance().getAllCachedTextures();
+    size_t numTextures = cachedTextures.size();
     auto& vulkan_vars = vulkanVars::GetInstance();
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
@@ -83,14 +87,13 @@ void ShaderBase::initialize(const VkPhysicalDevice& vkPhysicalDevice, const VkDe
 
         imagesPerFrame[i].resize(MAX_TEXTURES);
         for (size_t j = 0; j < MAX_TEXTURES; ++j) {
-            if (j < activeMaterials.size() && activeMaterials[j] && activeMaterials[j]->getTexture()) {
-                imagesPerFrame[i][j] = activeMaterials[j]->getTexture()->getDescriptorInfo();
+            if (j < cachedTextures.size() && cachedTextures[j]  ) {
+                imagesPerFrame[i][j] = cachedTextures[j]->getDescriptorInfo();
             }
-            else if (defaultMat) {
-                imagesPerFrame[i][j] = defaultMat->getTexture()->getDescriptorInfo();
+            else if (defaultTexture ) {
+                imagesPerFrame[i][j] = defaultTexture->getDescriptorInfo();
             }
             else {
-                // Zero out in case defaultTexture is not set (should NOT happen in real code)
                 imagesPerFrame[i][j] = VkDescriptorImageInfo{};
             }
         }
@@ -131,22 +134,33 @@ void ShaderBase::updateDescriptorSet()
     std::vector<VkDescriptorImageInfo> images{};
     std::vector<std::vector<VkDescriptorImageInfo>> imagesPerFrame(MAX_FRAMES_IN_FLIGHT);
 
-    const auto& defaultMat = MaterialManager::GetInstance().getStandardMaterial();
-    const auto& activeMaterials = MaterialManager::GetInstance().getAllCachedMaterials();
+    auto& texmanager = TextureManager::GetInstance();
+
+    const auto& defaultTexture = texmanager.getStandardTexture();
+    auto& cachedTextures = texmanager.getAllCachedTextures();
+
+    std::sort(
+        cachedTextures.begin(),
+        cachedTextures.end(),
+        [](const std::shared_ptr<Texture>& a, const std::shared_ptr<Texture>& b) {
+            return a->getID() < b->getID();
+        }
+    );
+
+    size_t numTextures = cachedTextures.size();
+
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         buffers.push_back(m_UBOBuffers[i]->getVkBuffer());
 
         imagesPerFrame[i].resize(MAX_TEXTURES);
         for (size_t j = 0; j < MAX_TEXTURES; ++j) {
-            if (j < activeMaterials.size() && activeMaterials[j] && activeMaterials[j]->getTexture()) {
-                imagesPerFrame[i][j] = activeMaterials[j]->getTexture()->getDescriptorInfo();
-                std::cout << activeMaterials[j]->getMaterialID();
+            if (j < cachedTextures.size() && cachedTextures[j] ) {
+                imagesPerFrame[i][j] = cachedTextures[j]->getDescriptorInfo();
             }
-            else if (defaultMat) {
-                imagesPerFrame[i][j] = defaultMat->getTexture()->getDescriptorInfo();
+            else if (defaultTexture) {
+                imagesPerFrame[i][j] = defaultTexture->getDescriptorInfo();
             }
             else {
-                // Zero out in case defaultTexture is not set (should NOT happen in real code)
                 imagesPerFrame[i][j] = VkDescriptorImageInfo{};
             }
         }

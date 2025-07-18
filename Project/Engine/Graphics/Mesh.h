@@ -9,7 +9,7 @@
 #include <memory>
 class Mesh {
 public:
-	Mesh(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices,const std::string& TexturePath="");
+	Mesh(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices, const std::shared_ptr<Material> mat = {});
 	void initialize(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue);
 	void destroyMesh(const VkDevice& device);
 

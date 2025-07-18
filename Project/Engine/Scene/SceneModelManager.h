@@ -33,9 +33,9 @@ public:
 
     BaseObject* addMeshModel(const std::vector<Vertex>& vertices,
         const std::vector<uint16_t>& indices,
-        glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles, const std::string& filePath = "")
+        glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles, const std::shared_ptr<Material> mat = {})
     {
-        unsigned int index = m_meshScene->addModel(vertices, indices, position, scale, rotationAngles, filePath);
+        unsigned int index = m_meshScene->addModel(vertices, indices, position, scale, rotationAngles, mat);
         BaseObject* obj = m_meshScene->getBaseObject(index); 
         m_sceneObjects.push_back({ SceneModelType::Mesh, obj });
         return obj;
@@ -44,9 +44,9 @@ public:
     BaseObject* addMeshRectangle(const glm::vec3& normal,
         const glm::vec3& color,
         float width, float height,
-        glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles, const std::string& filePath = "")
+        glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles, const std::shared_ptr<Material> mat = {})
     {
-        unsigned int index = m_meshScene->addRectangle(normal, color, width, height, position, scale, rotationAngles, filePath);
+        unsigned int index = m_meshScene->addRectangle(normal, color, width, height, position, scale, rotationAngles, mat);
         BaseObject* obj = m_meshScene->getBaseObject(index); 
         m_sceneObjects.push_back({ SceneModelType::Mesh, obj });
         return obj;
