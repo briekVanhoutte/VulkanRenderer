@@ -43,6 +43,8 @@ void RendererManager::Initialize() {
 	createFrameBuffers();
 
 	createSyncObjects();
+
+	setupStages();
 }
 
 void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Camera& camera) {
@@ -56,7 +58,6 @@ void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Ca
 	vkAcquireNextImageKHR(vulkan_vars.device, swapChain, UINT64_MAX, imageAvailableSemaphores[frameIndex], VK_NULL_HANDLE, &imageIndex);
 
 	UniformBufferObject vp{};
-
 	vp.view = { glm::inverse(camera.CalculateCameraToWorld()) };
 	vp.proj = glm::perspective(glm::radians(camera.fovAngle), camera.aspectRatio, camera.nearPlane, camera.farPlane);
 	vp.cameraPos = camera.origin;
@@ -67,44 +68,45 @@ void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Ca
 	auto& matMgr = TextureManager::GetInstance();
 	if (matMgr.isTextureListDirty()) {
 		m_Pipeline3d.updateDescriptorSets();
-		matMgr.clearTextureListDirty(); // Reset the flag
+		matMgr.clearTextureListDirty();
 	}
-	
+
 	vulkan_vars.commandBuffers[frameIndex].reset();
 	vulkan_vars.commandBuffers[frameIndex].beginRecording();
 
-	VkRenderPassBeginInfo renderPassInfo{};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = vulkan_vars.renderPass;
-	renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
-	renderPassInfo.renderArea.offset = { 0, 0 };
-	renderPassInfo.renderArea.extent = vulkan_vars.swapChainExtent;
+	// === RenderStage loop (just 1 stage now, but easily extendable) ===
+	for (const RenderStage& stage : m_RenderStages) {
+		VkRenderPassBeginInfo renderPassInfo{};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = stage.renderPass;
+		renderPassInfo.framebuffer = stage.framebuffers->at(imageIndex);
+		renderPassInfo.renderArea.offset = { 0, 0 };
+		renderPassInfo.renderArea.extent = vulkan_vars.swapChainExtent;
 
-	std::array<VkClearValue, 2> clearValues{};
-	clearValues[0].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
-	clearValues[1].depthStencil = { 1.0f, 0 };
+		std::array<VkClearValue, 2> clearValues{};
+		clearValues[0].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
+		clearValues[1].depthStencil = { 1.0f, 0 };
+		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+		renderPassInfo.pClearValues = clearValues.data();
 
-	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-	renderPassInfo.pClearValues = clearValues.data();
+		vkCmdBeginRenderPass(vulkan_vars.commandBuffers[frameIndex].m_VkCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-	vkCmdBeginRenderPass(vulkan_vars.commandBuffers[frameIndex].m_VkCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-
-	for (const RenderItem& item : renderItems) {
-
-		switch (item.pipelineIndex) {
-		case 0:
-			m_Pipeline3d.Record(imageIndex, vulkan_vars.renderPass, swapChainFramebuffers, vulkan_vars.swapChainExtent, *item.scene);
-			break;
-		case 1:
-			m_PipelineParticles.Record(imageIndex, vulkan_vars.renderPass, swapChainFramebuffers, vulkan_vars.swapChainExtent, *item.scene);
-			break;
-		default:
-			throw std::runtime_error("Invalid pipeline index in RenderItem!");
+		// Draw all pipelines in the stage
+		for (Pipeline* pipeline : stage.pipelines) {
+			for (const RenderItem& item : renderItems) {
+				// You need a way to know which pipeline this RenderItem wants!
+				if (pipeline == &m_Pipeline3d && item.pipelineIndex == 0) {
+					pipeline->Record(imageIndex, stage.renderPass, *(stage.framebuffers), vulkan_vars.swapChainExtent, *item.scene);
+				}
+				else if (pipeline == &m_PipelineParticles && item.pipelineIndex == 1) {
+					pipeline->Record(imageIndex, stage.renderPass, *(stage.framebuffers), vulkan_vars.swapChainExtent, *item.scene);
+				}
+			}
 		}
-	}
 
-	vkCmdEndRenderPass(vulkan_vars.commandBuffers[frameIndex].m_VkCommandBuffer);
+
+		vkCmdEndRenderPass(vulkan_vars.commandBuffers[frameIndex].m_VkCommandBuffer);
+	}
 
 	vulkan_vars.commandBuffers[frameIndex].endRecording();
 
@@ -113,13 +115,12 @@ void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Ca
 
 	VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[frameIndex] };
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-
 	submitInfo.waitSemaphoreCount = 1;
 	submitInfo.pWaitSemaphores = waitSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
 
 	vulkan_vars.commandBuffers[frameIndex].submit(submitInfo);
-	
+
 	VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[frameIndex] };
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
@@ -130,14 +131,11 @@ void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Ca
 
 	VkPresentInfoKHR presentInfo{};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-
 	presentInfo.waitSemaphoreCount = 1;
 	presentInfo.pWaitSemaphores = signalSemaphores;
-
 	VkSwapchainKHR swapChains[] = { swapChain };
 	presentInfo.swapchainCount = 1;
 	presentInfo.pSwapchains = swapChains;
-
 	presentInfo.pImageIndices = &imageIndex;
 
 	vkQueuePresentKHR(presentQueue, &presentInfo);
@@ -576,6 +574,7 @@ void RendererManager::initPipeLines()
 	auto& vulkan_vars = vulkanVars::GetInstance();
 
 	m_Pipeline3d.Initialize("shaders/pbrShader.vert.spv", "shaders/pbrShader.frag.spv", Vertex::getBindingDescription(), Vertex::getAttributeDescriptions(), VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+	m_PipelinePostProcess.Initialize("shaders/postProcess.vert.spv", "shaders/postProcess.frag.spv",Vertex::getBindingDescription(),Vertex::getAttributeDescriptions(),	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 	m_PipelineParticles.Initialize("shaders/particleShader.vert.spv", "shaders/particleShader.frag.spv", Particle::getBindingDescription(), Particle::getAttributeDescriptions(), VK_PRIMITIVE_TOPOLOGY_POINT_LIST);
 }
 void RendererManager::createFrameBuffers()
@@ -586,7 +585,7 @@ void RendererManager::createFrameBuffers()
 		std::array<VkImageView, 2> attachments = {
 			swapChainImageViews[i],
 			m_Pipeline3d.getDepthImageView()
-		};
+		}; 
 
 		VkFramebufferCreateInfo framebufferInfo{};
 		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -672,4 +671,14 @@ void RendererManager::DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebug
 	if (func != nullptr) {
 		func(instance, debugMessenger, pAllocator);
 	}
+}
+
+void RendererManager::setupStages()
+{
+	RenderStage mainStage;
+	mainStage.name = "MainStage";
+	mainStage.renderPass = vulkanVars::GetInstance().renderPass;
+	mainStage.framebuffers = &swapChainFramebuffers;
+	mainStage.pipelines = { &m_Pipeline3d, &m_PipelineParticles };
+	m_RenderStages = { mainStage };
 }

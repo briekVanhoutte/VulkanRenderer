@@ -23,7 +23,12 @@ const std::vector<const char*> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
-
+struct RenderStage {
+    std::string name; // Optional, for debugging
+    VkRenderPass renderPass;
+    std::vector<VkFramebuffer>* framebuffers;
+    std::vector<Pipeline*> pipelines;
+};
 
 
 struct RenderItem {
@@ -46,6 +51,9 @@ public:
 private:
     Pipeline m_Pipeline3d;
     Pipeline m_PipelineParticles;
+    Pipeline m_PipelinePostProcess;
+
+    std::vector<RenderStage> m_RenderStages;
 
     VkSurfaceKHR surface;
     VkInstance instance;
@@ -101,4 +109,6 @@ private:
     VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
     void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
 
+    void setupStages();
+    // Offscreen render target
 };

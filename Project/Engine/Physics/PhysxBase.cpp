@@ -48,8 +48,8 @@ void PhysxBase::initPhysics(bool useLargeFluid)
     mMaterial = mPhysics->createMaterial(0.5f, 0.5f, 0.6f);
 
     const PxReal fluidDensity = 1000.0f;
-    const PxU32 maxDiffuseParticles = useLargeFluid ? 2000000 : 100000;
-    initParticles(50, 120 * (useLargeFluid ? 5 : 1), 30, PxVec3(-2.5f, 3.f, 0.5f), 0.1f, fluidDensity, maxDiffuseParticles);
+    const PxU32 maxDiffuseParticles = useLargeFluid ? 20000 : 1;
+    initParticles(1, 1 * (useLargeFluid ? 5 : 1), 1, PxVec3(-2.5f, 3.f, 0.5f), 0.1f, fluidDensity, maxDiffuseParticles);
 
     // Add boundary planes and walls
     mScene->addActor(*PxCreatePlane(*mPhysics, PxPlane(0.f, 1.f, 0.f, 0.0f), *mMaterial));

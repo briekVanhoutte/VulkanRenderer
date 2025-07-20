@@ -148,7 +148,7 @@ void Game::run() {
 
         window->pollEvents();
 
-        //m_Physics.stepPhysics(false, deltaTime);
+        m_Physics.stepPhysics(false, deltaTime);
         m_Renderer->RenderFrame(m_RenderItems, *m_Camera);
 
         InputManager::GetInstance().HandleCameraInputs(m_Camera, deltaTime);
