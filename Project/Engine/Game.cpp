@@ -69,11 +69,11 @@ void Game::initScene() {
         }
         else {
             // You can log or handle the error case here
-            // std::cout << "Particle buffer is empty or invalid!\n";
+             std::cout << "Particle buffer is empty or invalid!\n";
         }
     }
     else {
-        // std::cout << "No particle buffer available!\n";
+         std::cout << "No particle buffer available!\n";
     }
     posParticles.y += 3.f;
 
