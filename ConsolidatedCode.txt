@@ -30,7 +30,7 @@ public:
 private:
     void initScene();
 
-    bool m_CapFps = true;
+    bool m_CapFps = false;
     const int m_FPSCap = 60;
     const std::chrono::nanoseconds m_FrameDuration = std::chrono::nanoseconds(1'000'000'000 / m_FPSCap);
 
@@ -239,10 +239,10 @@ public:
 	}
 
 	~DescriptorPool() ;
-	void createDescriptorSets(const std::vector<VkBuffer>& buffers, const std::vector<VkDescriptorImageInfo>& images);
+	void createDescriptorSets(const std::vector<VkBuffer>& buffers, const std::vector<std::vector<VkDescriptorImageInfo>>& images);
 
 	void bindDescriptorSet(VkCommandBuffer buffer, VkPipelineLayout layout, size_t index);
-	VkDescriptorSet getDescriptorSet(size_t index) { return m_DescriptorSets.at(index); }
+
 private:
 	VkDevice m_Device;
 	VkDeviceSize m_Size;
@@ -268,20 +268,38 @@ private:
 #include <memory>
 #include <string>
 #include <Engine/Graphics/Texture.h>
+#include <Engine/Graphics/TextureManager.h> // <-- Include this!
 #include <atomic>
 
 class Material {
 public:
-    Material(const std::string& textureFilename);
+    Material(const std::string& albedoMapFileName = "",
+        const std::string& normalMapFileName = "",
+        const std::string& metalnessMapFileName = "",
+        const std::string& roughnessMapFileName = "",
+        const std::string& heightMapFileName = "");
 
-    std::shared_ptr<Texture> getTexture() const { return m_Texture; }
-    uint32_t getMaterialID() const { return m_MaterialID; }
+    std::shared_ptr<Texture> getAlbedoMapTexture() const { return m_AlbedoMapTexture; }
+    std::shared_ptr<Texture> getNormalMapTexture()  const { return m_NormalMapTexture; }
+    std::shared_ptr<Texture> getMetalnessMapTexture()  const { return m_MetalnessMapTexture; }
+    std::shared_ptr<Texture> getRoughnessMapTexture()  const { return m_RoughnessMapTexture; }
+    std::shared_ptr<Texture> getHeightMapTexture()  const { return m_HeightMapTexture; }
+
+    uint32_t getAlbedoMapID() const { return m_AlbedoMapTexture ? m_AlbedoMapTexture->getID() : UINT32_MAX; }
+    uint32_t getNormalMapID() const { return m_NormalMapTexture ? m_NormalMapTexture->getID() : UINT32_MAX; }
+    uint32_t getMetalnessMapID() const { return m_MetalnessMapTexture ? m_MetalnessMapTexture->getID() : UINT32_MAX; ; }
+    uint32_t getRoughnessMapID() const { return m_RoughnessMapTexture ? m_RoughnessMapTexture->getID() : UINT32_MAX; ; }
+    uint32_t getHeightMapID() const { return m_HeightMapTexture ? m_HeightMapTexture->getID() : UINT32_MAX; ; }
+
+    std::vector<std::shared_ptr<Texture>> getAllTextures() const;
 
 private:
-    std::shared_ptr<Texture> m_Texture;
+    std::shared_ptr<Texture> m_AlbedoMapTexture;
+    std::shared_ptr<Texture> m_NormalMapTexture;
+    std::shared_ptr<Texture> m_MetalnessMapTexture;
+    std::shared_ptr<Texture> m_RoughnessMapTexture;
+    std::shared_ptr<Texture> m_HeightMapTexture;
 
-    uint32_t m_MaterialID;
-    static std::atomic<uint32_t> s_NextID;
 };
 
 ----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\Material.h -----
@@ -329,6 +347,10 @@ public:
 
     // (Optional) Get all cached materials (not just active)
     std::vector<std::shared_ptr<Material>> getAllCachedMaterials() const;
+
+    bool isTextureListDirty() const { return m_textureListDirty; }
+    void clearTextureListDirty() { m_textureListDirty = false; }
+
 private:
     friend class Singleton<MaterialManager>;
     MaterialManager();
@@ -336,9 +358,68 @@ private:
     std::unordered_map<std::string, std::shared_ptr<Material>> m_materialCache;
     std::vector<std::shared_ptr<Material>> m_activeMaterials;
     std::shared_ptr<Material> m_standardMaterial;
+
+    bool m_textureListDirty = true;
 };
 
 ----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\MaterialManager.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\Mesh.h -----
+
+#pragma once
+
+#include <vulkan\vulkan_core.h>
+#include <Engine/Graphics/Vertex.h>
+#include <glm/glm.hpp>
+#include <Engine/Graphics/DataBuffer.h>
+#include <Engine/Graphics/MeshData.h>
+#include <Engine/Graphics/MaterialManager.h>
+#include <memory>
+class Mesh {
+public:
+	Mesh(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices, const std::shared_ptr<Material> mat = {});
+	void initialize(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue);
+	void destroyMesh(const VkDevice& device);
+
+	void setPosition(glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles);
+	glm::vec3 getPostion() { return m_Position; }
+	void addVertex(glm::vec3 pos, glm::vec3 color, glm::vec3 normal);
+	void addTriangle(uint16_t i1, uint16_t i2, uint16_t i3, uint16_t offset = 0);
+
+	void draw(VkPipelineLayout pipelineLayout, VkCommandBuffer commandBuffer);
+private:
+	std::vector<Vertex> m_Vertices;
+	std::vector<uint16_t> m_Indices;
+	std::unique_ptr<DataBuffer> m_VertexBuffer;
+	std::unique_ptr<DataBuffer> m_IndexBuffer;
+
+	MeshData m_VertexConstant;
+
+	glm::vec3 m_Position = {};
+	std::shared_ptr<Material> m_Material;
+	void CreateVertexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue);
+	void CreateIndexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue);
+}; 
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\Mesh.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\MeshData.h -----
+
+#pragma once
+#include <glm/glm.hpp>
+
+struct MeshData {
+    glm::mat4 model;
+    uint32_t AlbedoID;
+    uint32_t NormalMapID;
+    uint32_t MetalnessID;
+    uint32_t RoughnessID;
+    uint32_t HeightMapID;
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\MeshData.h -----
 
 
 ----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\Particle.h -----
@@ -387,7 +468,7 @@ struct Particle {
 #include <Engine/Graphics/DataBuffer.h>
 
 #include <Engine/Graphics/vulkanVars.h>
-#include <Engine/Scene/MeshData.h>
+#include <Engine/Graphics/MeshData.h>
 #include <Engine/Graphics/Particle.h>
 #include <memory>
 #include <array>
@@ -405,7 +486,7 @@ public:
 
 	void destroyParticleGroup(const VkDevice& device);
 
-	void draw(VkPipelineLayout pipelineLayout, VkCommandBuffer commandBuffer, ShaderBase* shaderBase);
+	void draw(VkPipelineLayout pipelineLayout, VkCommandBuffer commandBuffer);
 private:
 
 	std::vector<Particle> m_Particles;
@@ -446,20 +527,19 @@ public:
 	void Record(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene);
 
 	void setUbo(const UniformBufferObject& ubo) { m_Ubo = ubo; }
-	std::shared_ptr<ShaderBase> getShader() { return m_Shader; }
+	void updateDescriptorSets();
 	static VkFormat findDepthFormat(VkPhysicalDevice& vkPhysicalDevice, VkDevice& vkDevice);
 	VkImage getDepthImage() { return m_DepthImage; };
 	VkDeviceMemory getDepthImageMemory() { return m_DepthImageMemory; };
 	VkImageView getDepthImageView() { return m_DepthImageView; };
-	const VkDescriptorSetLayout& getDescriptorSetLayout() const { return m_Shader->getDescriptorSetLayout(); }
+
 private:
 	void drawScene(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene);
 
 	void CreatePipeline(VkDevice device, VkRenderPass renderPass, VkPrimitiveTopology topology);
 
-
 	VkPipeline m_Pipeline3d;
-	std::shared_ptr<ShaderBase> m_Shader;
+	std::unique_ptr<ShaderBase> m_Shader;
 
 	UniformBufferObject m_Ubo{};
 
@@ -529,7 +609,12 @@ const std::vector<const char*> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
-
+struct RenderStage {
+    std::string name; // Optional, for debugging
+    VkRenderPass renderPass;
+    std::vector<VkFramebuffer>* framebuffers;
+    std::vector<Pipeline*> pipelines;
+};
 
 
 struct RenderItem {
@@ -543,7 +628,7 @@ public:
     ~RendererManager();
 
     void Initialize();
-   
+
    
     void RenderFrame(const std::vector<RenderItem>& renderItems, Camera& camera);
 
@@ -552,6 +637,9 @@ public:
 private:
     Pipeline m_Pipeline3d;
     Pipeline m_PipelineParticles;
+    Pipeline m_PipelinePostProcess;
+
+    std::vector<RenderStage> m_RenderStages;
 
     VkSurfaceKHR surface;
     VkInstance instance;
@@ -607,6 +695,8 @@ private:
     VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
     void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
 
+    void setupStages();
+    // Offscreen render target
 };
 
 ----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\RendererManager.h -----
@@ -627,10 +717,10 @@ private:
 #include <Engine/Graphics/DataBuffer.h>
 #include <Engine/Graphics/DescriptorPool.h>
 #include <Engine/Graphics/UniformBufferObject.h>
+
 #include <memory>
 #include <Engine/Graphics/Texture.h>
-#include "Material.h"
-#include <Engine/Graphics/vulkanVars.h>
+
 class ShaderBase {
 public:
     ShaderBase() {};
@@ -639,28 +729,21 @@ public:
 
     void Destroy(const VkDevice& vkDevice);
 
-    void initialize(const VkPhysicalDevice& vkPhysicalDevice, const VkDevice& vkDevice, const VkVertexInputBindingDescription& vkVertexInputBindingDesc, std::vector<VkVertexInputAttributeDescription>& vkVertexInputAttributeDesc, const std::vector<std::shared_ptr<Material>>& materials);
+    void initialize(const VkPhysicalDevice& vkPhysicalDevice, const VkDevice& vkDevice, const VkVertexInputBindingDescription& vkVertexInputBindingDesc, std::vector<VkVertexInputAttributeDescription>& vkVertexInputAttributeDesc);
 
-    void createDescriptorSetLayout(const VkDevice& vkDevice, uint32_t textureCount);
-    VkDescriptorSetLayout& getDescriptorSetLayout()
+    void createDescriptorSetLayout(const VkDevice& vkDevice);
+    const VkDescriptorSetLayout& getDescriptorSetLayout()
     {
         return m_DescriptorSetLayout;
     }
     void bindDescriptorSet(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, size_t index);
 
     void updateUniformBuffer(uint32_t currentImage, UniformBufferObject& ubo);
-    void updateDescriptorSets(uint32_t currentImage, Texture& tex);
+    void updateDescriptorSet();
     VkPipelineShaderStageCreateInfo getVertexShaderStageInfo() ;
     VkPipelineShaderStageCreateInfo getFragmentShaderStageInfo() ;
     VkPipelineVertexInputStateCreateInfo& getVertexInputStateInfo() ;
     VkPipelineInputAssemblyStateCreateInfo& getInputAssemblyStateInfo(VkPrimitiveTopology topology) ;
-    //const std::vector<VkDescriptorSet>& getDescriptorSets() const { return m_DescriptorPool.getDescriptorSets(); }
-    VkDescriptorSet getDescriptorSet(size_t index) { return m_DescriptorPool.getDescriptorSet(index); }
-
-    void setMaterials(const std::vector<std::shared_ptr<Material>>& materials) {
-        m_Materials = materials;
-        updateAllMaterialDescriptors();
-    }
 
 private:
     VkDevice device_{};
@@ -687,18 +770,7 @@ private:
     VkShaderModule createShaderModule(const std::vector<char>& code);
 
     //test
-    std::unique_ptr<Texture> m_Tex;
-
-    std::vector<std::shared_ptr<Material>> m_Materials;
-
-    void updateAllMaterialDescriptors() {
-        // For now: assume 1 material, 1 texture, future: loop for many
-        if (m_Materials.empty()) return;
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-            updateDescriptorSets(i, *m_Materials[0]->getTexture());
-        }
-    }
-
+    std::shared_ptr<Texture> m_Tex;
 };
 
 #endif
@@ -728,17 +800,26 @@ struct SwapChainSupportDetails {
 
 #include <vulkan/vulkan.h>
 #include <string>
+#include <atomic>
+
+namespace {
+    const std::string kErrorTexturePath = "Resources/Textures/errorTexture.jpg";
+}
 
 class Texture {
+    friend class TextureManager;
 public:
-    Texture(const std::string& filename);
+   
     ~Texture();
 
     VkImageView getImageView() const { return m_ImageView; }
     VkSampler getSampler() const { return m_Sampler; }
     VkDescriptorImageInfo getDescriptorInfo() const;
 
+    uint32_t getID();
 private:
+    Texture(const std::string& filename);
+
     void createTextureImage(const std::string& filename);
     void createTextureImageView();
     void createTextureSampler();
@@ -750,9 +831,71 @@ private:
     VkImageView m_ImageView = VK_NULL_HANDLE;
     VkSampler m_Sampler = VK_NULL_HANDLE;
     uint32_t m_Width = 0, m_Height = 0;
+    uint32_t m_ID = -1;
+
+    static std::atomic<uint32_t> s_NextID;
 };
 
 ----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\Texture.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\TextureManager.h -----
+
+#pragma once
+
+#include <unordered_map>
+#include <memory>
+#include <string>
+#include <vector>
+#include <Engine/Graphics/Texture.h>
+#include <Engine/Core/Singleton.h>
+
+class TextureManager : public Singleton<TextureManager> {
+public:
+    // Get or create texture by filepath (uses cache)
+    std::shared_ptr<Texture> getOrCreateTexture(const std::string& filepath);
+
+    // Standard texture getter/setter (e.g. a default white or error texture)
+    void setStandardTexture(const std::shared_ptr<Texture>& texture) { m_standardTexture = texture; }
+    std::shared_ptr<Texture> getStandardTexture() const { return m_standardTexture; }
+
+    // Active textures getters/setters
+    std::vector<std::shared_ptr<Texture>>& getActiveTextures() { return m_activeTextures; }
+    const std::vector<std::shared_ptr<Texture>>& getActiveTextures() const { return m_activeTextures; }
+    void setActiveTextures(const std::vector<std::shared_ptr<Texture>>& textures);
+
+    // Add/remove texture to/from active list (prevents duplicates)
+    void addActiveTexture(const std::shared_ptr<Texture>& texture);
+    void removeActiveTexture(const std::shared_ptr<Texture>& texture);
+
+    // Find by ID or index
+    std::shared_ptr<Texture> getTextureByID(uint32_t textureID) const;
+    std::shared_ptr<Texture> getTextureByIndex(size_t idx) const;
+
+    // Get number of active textures
+    size_t getNumActiveTextures() const { return m_activeTextures.size(); }
+
+    // Clear active texture list
+    void clearActiveTextures();
+
+    // (Optional) Get all cached textures (not just active)
+    std::vector<std::shared_ptr<Texture>> getAllCachedTextures() const;
+
+    bool isTextureListDirty() const { return m_textureListDirty; }
+    void clearTextureListDirty() { m_textureListDirty = false; }
+
+private:
+    friend class Singleton<TextureManager>;
+    TextureManager();
+
+    std::unordered_map<std::string, std::shared_ptr<Texture>> m_textureCache;
+    std::vector<std::shared_ptr<Texture>> m_activeTextures;
+    std::shared_ptr<Texture> m_standardTexture;
+
+    bool m_textureListDirty = true;
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\TextureManager.h -----
 
 
 ----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\UniformBufferObject.h -----
@@ -763,6 +906,7 @@ private:
 struct UniformBufferObject {
 	glm::mat4 proj;
 	glm::mat4 view;
+	glm::vec3 cameraPos;
 };
 
 ----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\UniformBufferObject.h -----
@@ -838,12 +982,11 @@ struct Vertex
 #include <Engine/Core/Singleton.h>
 #include <Engine/Graphics/CommandBuffer.h>
 #include <Engine/Graphics/CommandPool.h>
-#include <Engine/Graphics/Material.h>
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 const int MAX_FRAMES_IN_FLIGHT = 3;
-#include <memory>
+const int MAX_TEXTURES = 32;
 
 class vulkanVars : public Singleton<vulkanVars> {
 public:
@@ -856,7 +999,6 @@ public:
 	VkExtent2D swapChainExtent;
 	std::vector<CommandBuffer> commandBuffers; 
 	size_t currentFrame = 0;
-	std::shared_ptr<Material> standardMaterial;
 };
 
 
@@ -1131,383 +1273,61 @@ private:
 #pragma once
 
 #include <vector>
-#include <memory>
-
 #include <PxPhysicsAPI.h>
 #include <extensions/PxParticleExt.h>
-
-#include <vector>
-
-#include <iostream>
-
-#include "PxPhysicsAPI.h"
-#include "cudamanager/PxCudaContext.h"
-#include "cudamanager/PxCudaContextManager.h"
-#include <Engine/Graphics/DataBuffer.h>
 #include <Engine/Graphics/Particle.h>
 #include <Engine/Core/Singleton.h>
-#define CUDA_SUCCESS 0
-#define SHOW_SOLID_SDF_SLICE 0
-#define IDX(i, j, k, offset) ((i) + dimX * ((j) + dimY * ((k) + dimZ * (offset))))
-#define PVD_HOST "127.0.0.1"
+#include <Engine/Graphics/DataBuffer.h>
+
 
 using namespace physx;
 using namespace ExtGpu;
 
-
-static PxDefaultAllocator				gAllocator;
-static PxDefaultErrorCallback			gErrorCallback;
-static PxFoundation* gFoundation = NULL;
-static PxPhysics* gPhysics = NULL;
-static PxDefaultCpuDispatcher* gDispatcher = NULL;
-static PxScene* gScene = NULL;
-static PxMaterial* gMaterial = NULL;
-static PxPvd* gPvd = NULL;
-static PxPBDParticleSystem* gParticleSystem = NULL;
-static PxParticleAndDiffuseBuffer* gParticleBuffer = NULL;
-static bool								gIsRunning = true;
-static bool								gStep = true;
-static PxCudaContextManager* cudaContextManager = NULL;
-
-static PxRigidDynamic* movingWall = nullptr;
-
-static int								gMaxDiffuseParticles = 0;
-
-
-static void initObstacles()
-{
-	PxShape* shape = gPhysics->createShape(PxCapsuleGeometry(1.0f, 2.5f), *gMaterial);
-	PxRigidDynamic* body = gPhysics->createRigidDynamic(PxTransform(PxVec3(3.5f, 3.5f, 0), PxQuat(PxPi * -0.5f, PxVec3(0, 0, 1))));
-	body->attachShape(*shape);
-	body->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
-	gScene->addActor(*body);
-	shape->release();
-
-	body = gPhysics->createRigidDynamic(PxTransform(PxVec3(3.5f, 0.75f, 0)));
-	body->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
-	gScene->addActor(*body);
-}
-
-static void initScene()
-{
-	
-	if (PxGetSuggestedCudaDeviceOrdinal(gFoundation->getErrorCallback()) >= 0)
-	{
-		PxCudaContextManagerDesc cudaContextManagerDesc;
-		cudaContextManager = PxCreateCudaContextManager(*gFoundation, cudaContextManagerDesc, PxGetProfilerCallback());
-		if (cudaContextManager && !cudaContextManager->contextIsValid())
-		{
-			cudaContextManager->release();
-			cudaContextManager = NULL;
-		}
-	}
-	if (cudaContextManager == NULL)
-	{
-		PxGetFoundation().error(PxErrorCode::eINVALID_OPERATION, PX_FL, "Failed to initialize CUDA!\n");
-	}
-
-	PxSceneDesc sceneDesc(gPhysics->getTolerancesScale());
-	sceneDesc.gravity = PxVec3(0.0f, -9.81f, 0.0f);
-	gDispatcher = PxDefaultCpuDispatcherCreate(2);
-	sceneDesc.cpuDispatcher = gDispatcher;
-	sceneDesc.filterShader = PxDefaultSimulationFilterShader;
-	sceneDesc.cudaContextManager = cudaContextManager;
-	sceneDesc.staticStructure = PxPruningStructureType::eDYNAMIC_AABB_TREE;
-	sceneDesc.flags |= PxSceneFlag::eENABLE_PCM;
-	sceneDesc.flags |= PxSceneFlag::eENABLE_GPU_DYNAMICS;
-	sceneDesc.broadPhaseType = PxBroadPhaseType::eGPU;
-	sceneDesc.solverType = PxSolverType::eTGS;
-	gScene = gPhysics->createScene(sceneDesc);
-}
-
-static int getNumDiffuseParticles()
-{
-	return gMaxDiffuseParticles;
-}
-
-static void initParticles(const PxU32 numX, const PxU32 numY, const PxU32 numZ, const PxVec3& position = PxVec3(0, 0, 0), const PxReal particleSpacing = 0.2f, const PxReal fluidDensity = 1000.f, const PxU32 maxDiffuseParticles = 100000)
-{
-	PxCudaContextManager* cudaContextManager = gScene->getCudaContextManager();
-	if (cudaContextManager == NULL)
-		return;
-
-	const PxU32 maxParticles = numX * numY * numZ;
-
-	const PxReal restOffset = 0.5f * particleSpacing / 0.6f;
-
-	PxPBDMaterial* defaultMat = gPhysics->createPBDMaterial(0.05f, 0.05f, 0.f, 0.001f, 0.5f, 0.005f, 0.01f, 0.f, 0.f);
-
-	defaultMat->setViscosity(0.001f);
-	defaultMat->setSurfaceTension(0.00704f);
-	defaultMat->setCohesion(0.0704f);
-	defaultMat->setVorticityConfinement(10.f);
-
-	PxPBDParticleSystem* particleSystem = gPhysics->createPBDParticleSystem(*cudaContextManager, 96);
-	gParticleSystem = particleSystem;
-
-	const PxReal solidRestOffset = restOffset;
-	const PxReal fluidRestOffset = restOffset * 0.6f;
-	const PxReal particleMass = fluidDensity * 1.333f * 3.14159f * particleSpacing * particleSpacing * particleSpacing;
-	particleSystem->setRestOffset(restOffset);
-	particleSystem->setContactOffset(restOffset + 0.01f);
-	particleSystem->setParticleContactOffset(fluidRestOffset / 0.6f);
-	particleSystem->setSolidRestOffset(solidRestOffset);
-	particleSystem->setFluidRestOffset(fluidRestOffset);
-	particleSystem->enableCCD(false);
-	particleSystem->setMaxVelocity(solidRestOffset * 100.f);
-	
-	gScene->addActor(*particleSystem);
-
-	PxDiffuseParticleParams dpParams;
-	dpParams.threshold = 300.0f;
-	dpParams.bubbleDrag = 0.9f;
-	dpParams.buoyancy = 0.9f;
-	dpParams.airDrag = 0.0f;
-	dpParams.kineticEnergyWeight = 0.01f;
-	dpParams.pressureWeight = 1.0f;
-	dpParams.divergenceWeight = 10.f;
-	dpParams.lifetime = 1.0f;
-	dpParams.useAccurateVelocity = false;
-
-	gMaxDiffuseParticles = maxDiffuseParticles;
-
-	const PxU32 particlePhase = particleSystem->createPhase(defaultMat, PxParticlePhaseFlags(PxParticlePhaseFlag::eParticlePhaseFluid | PxParticlePhaseFlag::eParticlePhaseSelfCollide));
-
-	PxU32* phase = cudaContextManager->allocPinnedHostBuffer<PxU32>(maxParticles);
-	PxVec4* positionInvMass = cudaContextManager->allocPinnedHostBuffer<PxVec4>(maxParticles);
-	PxVec4* velocity = cudaContextManager->allocPinnedHostBuffer<PxVec4>(maxParticles);
-
-	PxReal x = position.x;
-	PxReal y = position.y;
-	PxReal z = position.z;
-
-	for (PxU32 i = 0; i < numX; ++i)
-	{
-		for (PxU32 j = 0; j < numY; ++j)
-		{
-			for (PxU32 k = 0; k < numZ; ++k)
-			{
-				const PxU32 index = i * (numY * numZ) + j * numZ + k;
-
-				PxVec4 pos(x, y, z, 1.0f / particleMass);
-				phase[index] = particlePhase;
-				positionInvMass[index] = pos;
-				velocity[index] = PxVec4(0.0f);
-
-				z += particleSpacing;
-			}
-			z = position.z;
-			y += particleSpacing;
-		}
-		y = position.y;
-		x += particleSpacing;
-	}
-
-
-	ExtGpu::PxParticleAndDiffuseBufferDesc bufferDesc;
-	bufferDesc.maxParticles = maxParticles;
-	bufferDesc.numActiveParticles = maxParticles;
-	bufferDesc.maxDiffuseParticles = maxDiffuseParticles;
-	bufferDesc.maxActiveDiffuseParticles = maxDiffuseParticles;
-	bufferDesc.diffuseParams = dpParams;
-
-	bufferDesc.positions = positionInvMass;
-	bufferDesc.velocities = velocity;
-	bufferDesc.phases = phase;
-
-	gParticleBuffer = physx::ExtGpu::PxCreateAndPopulateParticleAndDiffuseBuffer(bufferDesc, cudaContextManager);
-	gParticleSystem->addParticleBuffer(gParticleBuffer);
-
-	cudaContextManager->freePinnedHostBuffer(positionInvMass);
-	cudaContextManager->freePinnedHostBuffer(velocity);
-	cudaContextManager->freePinnedHostBuffer(phase);
-}
-
-
+// Forward declarations
+class PxCudaContextManager;
 
 class PhysxBase : public Singleton<PhysxBase>
 {
-	
+public:
+    PhysxBase();
+    ~PhysxBase();
 
-	public:
-		PxPBDParticleSystem* getParticleSystem()
-		{
-			return gParticleSystem;
-		}
+    void initPhysics(bool useLargeFluid);
+    void stepPhysics(bool interactive, float deltaTime);
+    void cleanupPhysics(bool interactive);
+    float getRightWallLocation();
+    std::vector<Particle>& getParticles();
 
-		PxParticleAndDiffuseBuffer* getParticleBuffer()
-		{
-			return gParticleBuffer;
-		}
+    PxPBDParticleSystem* getParticleSystem();
+    PxParticleAndDiffuseBuffer* getParticleBuffer();
 
-		~PhysxBase() {
-			cleanupPhysics(false);
-		}
+    // Wall movement controls
+    bool wallMoveLeft = false;
+    bool wallMoveRight = false;
 
-		void initPhysics(bool useLargeFluid)
-		{
-			gFoundation = PxCreateFoundation(PX_PHYSICS_VERSION, gAllocator, gErrorCallback);
+private:
+    void initObstacles();
+    void initScene();
+    void initParticles(PxU32 numX, PxU32 numY, PxU32 numZ, const PxVec3& position, PxReal particleSpacing, PxReal fluidDensity, PxU32 maxDiffuseParticles);
+    void getParticlesInternal();
 
-			gPvd = PxCreatePvd(*gFoundation);
-			PxPvdTransport* transport = PxDefaultPvdSocketTransportCreate(PVD_HOST, 5425, 10);
-			gPvd->connect(*transport, PxPvdInstrumentationFlag::eALL);
+    // PhysX SDK objects
+    physx::PxFoundation* mFoundation = nullptr;
+    physx::PxPhysics* mPhysics = nullptr;
+    physx::PxDefaultCpuDispatcher* mDispatcher = nullptr;
+    physx::PxScene* mScene = nullptr;
+    physx::PxMaterial* mMaterial = nullptr;
+    physx::PxPvd* mPvd = nullptr;
+    physx::PxCudaContextManager* mCudaContextManager = nullptr; // <-- FULLY QUALIFIED
+    physx::PxPBDParticleSystem* mParticleSystem = nullptr;
+    physx::PxParticleAndDiffuseBuffer* mParticleBuffer = nullptr;
+    physx::PxRigidDynamic* mMovingWall = nullptr;
 
-			gPhysics = PxCreatePhysics(PX_PHYSICS_VERSION, *gFoundation, PxTolerancesScale(), true, gPvd);
+    int mMaxDiffuseParticles = 0;
+    bool mIsRunning = true;
+    bool mStep = true;
 
-			initScene();
-
-			PxPvdSceneClient* pvdClient = gScene->getScenePvdClient();
-			if (pvdClient)
-			{
-				pvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_CONSTRAINTS, true);
-				pvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_CONTACTS, true);
-				pvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES, true);
-			}
-			gMaterial = gPhysics->createMaterial(0.5f, 0.5f, 0.6f);
-
-			bool useMovingWall = true;
-
-			const PxReal fluidDensity = 1000.0f;
-
-			const PxU32 maxDiffuseParticles = useLargeFluid ? 2000000 : 100000;
-			initParticles(50, 120 * (useLargeFluid ? 5 : 1), 30, PxVec3(-2.5f, 3.f, 0.5f), 0.1f, fluidDensity, maxDiffuseParticles);
-
-			gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(0.f, 1.f, 0.f, 0.0f), *gMaterial));
-			gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(-1.f, 0.f, 0.f, 3.f), *gMaterial));
-			gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(0.f, 0.f, 1.f, 3.f), *gMaterial));
-			gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(0.f, 0.f, -1.f, 3.f), *gMaterial));
-
-			if (!useMovingWall)
-			{
-				gScene->addActor(*PxCreatePlane(*gPhysics, PxPlane(1.f, 0.f, 0.f, 3.f), *gMaterial));
-				movingWall = NULL;
-			}
-			else
-			{
-				PxTransform trans = PxTransformFromPlaneEquation(PxPlane(1.f, 0.f, 0.f, 5.f));
-				movingWall = gPhysics->createRigidDynamic(trans);
-				movingWall->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
-				PxRigidActorExt::createExclusiveShape(*movingWall, PxPlaneGeometry(), *gMaterial);
-				gScene->addActor(*movingWall);
-			}
-
-			const PxReal dynamicsDensity = fluidDensity * 0.5f;
-			const PxReal boxSize = 1.0f;
-			const PxReal boxMass = boxSize * boxSize * boxSize * dynamicsDensity;
-			PxShape* shape = gPhysics->createShape(PxBoxGeometry(0.5f * boxSize, 0.5f * boxSize, 0.5f * boxSize), *gMaterial);
-			for (int i = 0; i < 5; ++i)
-			{
-				PxRigidDynamic* body = gPhysics->createRigidDynamic(PxTransform(PxVec3(i - 3.0f, 10, 7.5f)));
-				body->attachShape(*shape);
-				PxRigidBodyExt::updateMassAndInertia(*body, boxMass);
-				gScene->addActor(*body);
-			}
-			shape->release();
-		}
-		bool wallMoveLeft = false;
-		bool wallMoveRight = false;
-
-		float getRightWallLocation() {
-			return movingWall->getGlobalPose().p.x;
-		}
-
-		void stepPhysics(bool interactive,float deltaTime)
-		{
-			if (gIsRunning || gStep)
-			{
-				gStep = false;
-
-				if (movingWall)
-				{
-					PxReal speed = 3.f;
-
-
-					PxTransform pose = movingWall->getGlobalPose();
-					if (wallMoveRight)
-					{
-						
-
-						if (pose.p.x - deltaTime * speed > -9.f) {
-							pose.p.x -= deltaTime * speed;
-						}
-					}
-					if (wallMoveLeft)
-					{
-						if (pose.p.x + deltaTime * speed < -3.f)
-						{
-							pose.p.x += deltaTime * speed;
-						}
-
-
-					}
-					wallMoveLeft = false;
-					wallMoveRight = false;
-
-					movingWall->setKinematicTarget(pose);
-				}
-
-				gScene->simulate(deltaTime);
-				gScene->fetchResults(true);
-				gScene->fetchResultsParticleSystem();
-				getParticles();
-			}
-		}
-
-		void cleanupPhysics(bool /*interactive*/)
-		{
-			PX_RELEASE(gScene);
-			PX_RELEASE(gDispatcher);
-			PX_RELEASE(gPhysics);
-			if (gPvd)
-			{
-				PxPvdTransport* transport = gPvd->getTransport();
-				gPvd->release();	gPvd = NULL;
-				PX_RELEASE(transport);
-			}
-			PX_RELEASE(gFoundation);
-
-			printf("SnippetPBFFluid done.\n");
-		}	
-
-		void getParticles() {
-			auto pr = getParticleBuffer();
-
-			if (pr == nullptr)return;
-
-			size_t bufferSize = pr->getNbActiveParticles() * sizeof(PxVec4);
-
-			void* bufferLocation = malloc(bufferSize);
-			if (bufferLocation == nullptr) {
-				std::cerr << "Failed to allocate host memory" << std::endl;
-				return;
-			}
-
-			PxVec4* bufferPos = pr->getPositionInvMasses();
-
-			CUdeviceptr ptr = reinterpret_cast<CUdeviceptr>(bufferPos);
-
-			auto cudaContextManager = gScene->getCudaContextManager();
-			auto cudaContext = cudaContextManager->getCudaContext();
-
-			cudaContext->memcpyDtoH(bufferLocation, ptr, bufferSize);
-			
-			PxVec4* positions = static_cast<PxVec4*>(bufferLocation);
-
-			m_Particles.clear();
-			m_Particles.resize(pr->getNbActiveParticles());
-
-			// Copy the positions into the vector
-			for (size_t i = 0; i < pr->getNbActiveParticles(); ++i) {
-				m_Particles[i].pos.x = positions[i].x;
-				m_Particles[i].pos.y = positions[i].y;
-				m_Particles[i].pos.z = positions[i].z;
-				m_Particles[i].pos.w = positions[i].w;
-			}
-
-			free(bufferLocation);
-		};
-
-		std::vector<Particle> m_Particles = { {} };
+    std::vector<Particle> m_Particles;
 };
 
 ----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Physics\PhysxBase.h -----
@@ -1695,71 +1515,6 @@ private:
 ----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Scene\GameSceneManager.h -----
 
 
------ Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Scene\Mesh.h -----
-
-#pragma once
-
-#include <vulkan\vulkan_core.h>
-#include <Engine/Graphics/Vertex.h>
-#include <glm/glm.hpp>
-#include <Engine/Graphics/DataBuffer.h>
-#include <Engine/Scene/MeshData.h>
-#include <Engine/Graphics/Material.h>
-#include <Engine/Graphics/ShaderBase.h>
-#include <memory>
-
-class Mesh {
-public:
-	Mesh(const std::vector<Vertex>& vertices, const std::vector<uint16_t>& indices, const std::vector<std::string>& textureFilepaths = {});
-	Mesh(const std::vector<Vertex>& vertices, const std::vector<uint16_t>& indices, const std::string& textureFilename)
-		: Mesh(vertices, indices, std::vector<std::string>{textureFilename}) {
-	}
-	void initialize(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue);
-	void destroyMesh(const VkDevice& device);
-
-	void setPosition(glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles);
-	glm::vec3 getPostion() { return m_Position; }
-	void addVertex(glm::vec3 pos, glm::vec3 color, glm::vec3 normal);
-	void addTriangle(uint16_t i1, uint16_t i2, uint16_t i3, uint16_t offset = 0);
-
-	void draw(VkPipelineLayout pipelineLayout, VkCommandBuffer commandBuffer, ShaderBase* shader);
-	
-	void createDescriptorSet(VkDevice device, VkDescriptorSetLayout layout, std::shared_ptr<Texture> texture);
-	VkDescriptorSet getDescriptorSet() const { return m_DescriptorSet; }
-private:
-	std::vector<Vertex> m_Vertices;
-	std::vector<uint16_t> m_Indices;
-	std::unique_ptr<DataBuffer> m_VertexBuffer;
-	std::unique_ptr<DataBuffer> m_IndexBuffer;
-
-	MeshData m_VertexConstant;
-
-	std::vector<std::shared_ptr<Material>> m_Materials;
-	std::vector<std::string> m_MaterialFilepaths;
-
-	glm::vec3 m_Position = {};
-	VkDescriptorSet m_DescriptorSet;
-	void CreateVertexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue);
-	void CreateIndexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue);
-
-	void initializeMaterials();
-}; 
-
------ End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Scene\Mesh.h -----
-
-
------ Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Scene\MeshData.h -----
-
-#pragma once
-#include <glm/glm.hpp>
-
-struct MeshData {
-	glm::mat4 model;
-};
-
------ End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Scene\MeshData.h -----
-
-
 ----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Scene\MeshScene.h -----
 
 #pragma once
@@ -1768,7 +1523,7 @@ struct MeshData {
 
 #include <vulkan\vulkan_core.h>
 #include <glm/glm.hpp>
-#include <Engine/Scene/Mesh.h>
+#include <Engine/Graphics/Mesh.h>
 #include <Engine/Scene/GameObjects/BaseObject.h>
 #include <Engine/Scene/Scene.h>
 #include <glm\gtx\quaternion.hpp>
@@ -1783,9 +1538,9 @@ enum class ObjType {
 class MeshScene : public Scene{
 public:
 
-    unsigned int addModel(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles, const std::string& TexturePath = {})
+    unsigned int addModel(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles, const std::shared_ptr<Material> mat = {})
     {
-        BaseObject* object = new BaseObject{ Vertexes, indices ,TexturePath };
+        BaseObject* object = new BaseObject{ Vertexes, indices ,mat };
 
         object->setPosition(position, scale, rotationAngles);
         m_BaseObjects.push_back(object);
@@ -1805,7 +1560,7 @@ public:
     unsigned int addRectangle(const glm::vec3& normal,
         const glm::vec3& color,
         float width,
-        float height, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles, const std::string& TexturePath = {})
+        float height, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles, const std::shared_ptr<Material> mat = {})
     {
         float halfWidth = width / 2.0f;
         float halfHeight = height / 2.0f;
@@ -1847,7 +1602,7 @@ public:
         indices.push_back(baseIndex + 2); // top right
         indices.push_back(baseIndex + 3); // top left
 
-        BaseObject* object = new BaseObject{ vertices, indices,TexturePath};
+        BaseObject* object = new BaseObject{ vertices, indices,mat};
         object->setPosition(position, scale, rotationAngles);
 
         m_BaseObjects.push_back(object);
@@ -1860,9 +1615,9 @@ public:
         }
     }
 
-    void drawScene(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer, ShaderBase* shader) {
+    void drawScene(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer) {
         for (auto& object : m_BaseObjects) {
-            object->draw(pipelineLayout, buffer, shader);
+            object->draw(pipelineLayout, buffer);
         }
     }
 
@@ -1898,7 +1653,7 @@ private:
 
 #include <vulkan\vulkan_core.h>
 #include <glm/glm.hpp>
-#include <Engine/Scene/Mesh.h>
+#include <Engine/Graphics/Mesh.h>
 #include <Engine/Scene/GameObjects/BaseObject.h>
 #include <Engine/Scene/Scene.h>
 #include <Engine/Graphics/ParticleGroup.h>
@@ -1921,9 +1676,9 @@ public:
         m_ParticleGroups.push_back(object);
     }
 
-    void drawScene(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer, ShaderBase* shader) {
+    void drawScene(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer) {
         for (auto& object : m_ParticleGroups) {
-            object->draw(pipelineLayout, buffer, shader);
+            object->draw(pipelineLayout, buffer);
         }
     }
 
@@ -1958,7 +1713,7 @@ private:
 class Scene {
 public:
 
-    virtual void drawScene(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer, ShaderBase* shader) = 0;
+    virtual void drawScene(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer) = 0;
     virtual  void deleteScene(VkDevice device) = 0;
     
 };
@@ -2004,9 +1759,9 @@ public:
 
     BaseObject* addMeshModel(const std::vector<Vertex>& vertices,
         const std::vector<uint16_t>& indices,
-        glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles, const std::string& filePath = "")
+        glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles, const std::shared_ptr<Material> mat = {})
     {
-        unsigned int index = m_meshScene->addModel(vertices, indices, position, scale, rotationAngles, filePath);
+        unsigned int index = m_meshScene->addModel(vertices, indices, position, scale, rotationAngles, mat);
         BaseObject* obj = m_meshScene->getBaseObject(index); 
         m_sceneObjects.push_back({ SceneModelType::Mesh, obj });
         return obj;
@@ -2015,9 +1770,9 @@ public:
     BaseObject* addMeshRectangle(const glm::vec3& normal,
         const glm::vec3& color,
         float width, float height,
-        glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles, const std::string& filePath = "")
+        glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles, const std::shared_ptr<Material> mat = {})
     {
-        unsigned int index = m_meshScene->addRectangle(normal, color, width, height, position, scale, rotationAngles, filePath);
+        unsigned int index = m_meshScene->addRectangle(normal, color, width, height, position, scale, rotationAngles, mat);
         BaseObject* obj = m_meshScene->getBaseObject(index); 
         m_sceneObjects.push_back({ SceneModelType::Mesh, obj });
         return obj;
@@ -2084,17 +1839,17 @@ private:
 #pragma once
 
 #include <glm/glm.hpp>
-#include <Engine/Scene/Mesh.h>
+#include <Engine/Graphics/Mesh.h>
 #include <memory>
 
 class BaseObject {
 public:
-    BaseObject(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices, const std::string& textureFilename = "") {
-        mesh = std::make_unique<Mesh>(Vertexes, indices, textureFilename);
+    BaseObject(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices, const std::shared_ptr<Material> mat = {}) {
+        mesh = std::make_unique<Mesh>(Vertexes, indices, mat);
     }
    
-    void draw(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer, ShaderBase* shader) {
-        mesh->draw(pipelineLayout, buffer, shader);
+    void draw(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer) {
+        mesh->draw(pipelineLayout, buffer);
     }
 
     void setPosition(glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles) {
@@ -2257,9 +2012,9 @@ enum class PrimitiveType {
 
 class PrimitiveMeshComponent : public Component {
 public:
-    PrimitiveMeshComponent(GameObject* parent, PrimitiveType type, float width = 1.f, float height = 1.f, float depth = 1.f, const std::string& filePath = "") {
+    PrimitiveMeshComponent(GameObject* parent, PrimitiveType type, float width = 1.f, float height = 1.f, float depth = 1.f, const std::shared_ptr<Material> mat = {}) {
         setParent(parent);
-        addPrimitiveToScene(type, width, height, depth,filePath);
+        addPrimitiveToScene(type, width, height, depth, mat);
     }
 
     void initialize() override {
@@ -2274,7 +2029,7 @@ public:
 
 private:
     // Updated to accept dimensions.
-    void addPrimitiveToScene(PrimitiveType type, float width, float height, float depth, const std::string& filePath = "");
+    void addPrimitiveToScene(PrimitiveType type, float width, float height, float depth, const std::shared_ptr<Material> mat = {});
 };
 
 ----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Scene\GameObjects\PrimitiveMeshComponent.h -----

@@ -15,7 +15,13 @@ Pipeline::Pipeline()
 	m_Ubo = {};
 	m_Ubo.view = glm::mat4{ {1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1} };
 	m_Ubo.proj = glm::mat4{ {1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1} };
-	m_Ubo.proj[1][1] *= -1;
+	//m_Ubo.proj[1][1] *= -1;
+
+	m_DepthImage = VK_NULL_HANDLE;
+	m_DepthImageMemory = VK_NULL_HANDLE;
+	m_DepthImageView = VK_NULL_HANDLE;
+	m_Pipeline3d = VK_NULL_HANDLE;
+	m_PipelineLayout = VK_NULL_HANDLE;
 
 }
 
@@ -37,17 +43,74 @@ void Pipeline::Destroy(const VkDevice& vkDevice)
 	vkDestroyImageView(vkDevice, m_DepthImageView, nullptr);
 }
 
-void Pipeline::Initialize(const std::string& vertexShaderPath, const std::string& fragmentShaderPath, const VkVertexInputBindingDescription vkVertexInputBindingDesc, std::vector<VkVertexInputAttributeDescription> vkVertexInputAttributeDesc, VkPrimitiveTopology topology)
+void Pipeline::Initialize(const std::string& vertexShaderPath,
+	const std::string& fragmentShaderPath,
+	const VkVertexInputBindingDescription vkVertexInputBindingDesc,
+	std::vector<VkVertexInputAttributeDescription> vkVertexInputAttributeDesc,
+	const PipelineConfig& config)
 {
 	auto& vulkan_vars = vulkanVars::GetInstance();
+	m_Config = config;
+	m_UseExternalDescriptors = (m_Config.externalSetLayout != VK_NULL_HANDLE &&
+		m_Config.externalSets != nullptr);
 
+	// Shader setup (unchanged)
 	m_Shader = std::make_unique<ShaderBase>(vertexShaderPath, fragmentShaderPath);
-	m_Shader->initialize(vulkan_vars.physicalDevice, vulkan_vars.device, vkVertexInputBindingDesc, vkVertexInputAttributeDesc);
-	m_Shader->createDescriptorSetLayout(vulkan_vars.device);
+	// You can still pass the mesh vertex layout even if we end up not using it (safe):
+	m_Shader->initialize(vulkan_vars.physicalDevice, vulkan_vars.device,
+		vkVertexInputBindingDesc, vkVertexInputAttributeDesc);
 
-	createDepthResources(vulkan_vars.physicalDevice, vulkan_vars.device, vulkan_vars.swapChainExtent);
+	// Only create the default descriptor set layout when we’re NOT using external sets
+	if (!m_UseExternalDescriptors) {
+		m_Shader->createDescriptorSetLayout(vulkan_vars.device);
+	}
 
-	CreatePipeline(vulkan_vars.device, vulkan_vars.renderPass, topology);
+	// Depth resources are only needed when depth is enabled (offscreen 3D)
+	if (m_Config.enableDepthTest || m_Config.enableDepthWrite) {
+		createDepthResources(vulkan_vars.physicalDevice, vulkan_vars.device, vulkan_vars.swapChainExtent);
+	}
+
+	// Build the pipeline using the target render pass from the config
+	CreatePipeline(vulkan_vars.device,
+		m_Config.renderPass != VK_NULL_HANDLE ? m_Config.renderPass
+		: vulkan_vars.renderPass,
+		m_Config.topology);
+}
+
+void Pipeline::Initialize(const std::string& vertexShaderPath,
+	const std::string& fragmentShaderPath,
+	const VkVertexInputBindingDescription vkVertexInputBindingDesc,
+	std::vector<VkVertexInputAttributeDescription> vkVertexInputAttributeDesc,
+	VkPrimitiveTopology topology)
+{
+	PipelineConfig def; // defaults replicate old behavior
+	def.renderPass = vulkanVars::GetInstance().renderPass;
+	def.topology = topology;
+	def.enableDepthTest = true;
+	def.enableDepthWrite = true;
+	def.useVertexInput = true;
+	def.usePushConstants = true;
+	def.fullscreenTriangle = false;
+
+	Initialize(vertexShaderPath, fragmentShaderPath, vkVertexInputBindingDesc,
+		std::move(vkVertexInputAttributeDesc), def);
+}
+
+const VkPipelineVertexInputStateCreateInfo* Pipeline::pickVI()
+{
+	if (m_Config.useVertexInput) {
+		return &m_Shader->getVertexInputStateInfo();
+	}
+	else {
+		// static empty VI (legal for fullscreen triangle)
+		const_cast<Pipeline*>(this)->m_EmptyVI = {};
+		m_EmptyVI.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+		m_EmptyVI.vertexBindingDescriptionCount = 0;
+		m_EmptyVI.pVertexBindingDescriptions = nullptr;
+		m_EmptyVI.vertexAttributeDescriptionCount = 0;
+		m_EmptyVI.pVertexAttributeDescriptions = nullptr;
+		return &m_EmptyVI;
+	}
 }
 
 void Pipeline::Record(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene)
@@ -56,7 +119,7 @@ void Pipeline::Record(uint32_t imageIndex, VkRenderPass renderPass, const std::v
 	drawScene(imageIndex, renderPass, swapChainFramebuffers, swapChainExtent, scene);
 
 
-	updateUniformBuffer(imageIndex, swapChainExtent);
+	//updateUniformBuffer(imageIndex, swapChainExtent);
 }
 
 void Pipeline::drawScene(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene)
@@ -79,14 +142,29 @@ void Pipeline::drawScene(uint32_t imageIndex, VkRenderPass renderPass, const std
 	scissor.extent = swapChainExtent;
 	vkCmdSetScissor(vulkan_vars.commandBuffers[currentSlice].m_VkCommandBuffer, 0, 1, &scissor);
 
-	m_Shader->bindDescriptorSet(vulkan_vars.commandBuffers[currentSlice].m_VkCommandBuffer, m_PipelineLayout, imageIndex);
+	if (m_UseExternalDescriptors) {
+		const auto& sets = *m_Config.externalSets;
+		if (imageIndex < sets.size()) {
+			vkCmdBindDescriptorSets(vulkan_vars.commandBuffers[currentSlice].m_VkCommandBuffer,
+				VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout,
+				0, 1, &sets[imageIndex], 0, nullptr);
+		}
+	}
+	else {
+		m_Shader->bindDescriptorSet(vulkan_vars.commandBuffers[currentSlice].m_VkCommandBuffer,
+			m_PipelineLayout, imageIndex);
+	}
 
-	assert(m_Shader);
-	assert(m_Shader->getVertexShaderStageInfo().module != VK_NULL_HANDLE);
-	auto& vertexInput = m_Shader->getVertexInputStateInfo();
-
-	scene.drawScene(m_PipelineLayout, vulkan_vars.commandBuffers[currentSlice].m_VkCommandBuffer);
-
+	if (m_Config.fullscreenTriangle) {
+		// Post-process: no meshes, just a fullscreen tri
+		vkCmdDraw(vulkan_vars.commandBuffers[currentSlice].m_VkCommandBuffer, 3, 1, 0, 0);
+	}
+	else {
+		// Normal path: draw your scene (unchanged)
+		scene.drawScene(m_PipelineLayout, vulkan_vars.commandBuffers[currentSlice].m_VkCommandBuffer);
+		// Only update UBOs for the normal path
+		updateUniformBuffer(imageIndex, swapChainExtent);
+	}
 
 }
 
@@ -102,8 +180,14 @@ void Pipeline::CreatePipeline(VkDevice device, VkRenderPass renderPass, VkPrimit
 	rasterizer.rasterizerDiscardEnable = VK_FALSE;
 	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 	rasterizer.lineWidth = 1.0f;
-	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-	rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+	if (m_Config.fullscreenTriangle) {
+		rasterizer.cullMode = VK_CULL_MODE_NONE;   // no culling for post
+	}
+	else {
+		rasterizer.cullMode = VK_CULL_MODE_FRONT_BIT;
+		rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+	}
+
 	rasterizer.depthBiasEnable = VK_FALSE;
 
 	VkPipelineMultisampleStateCreateInfo multisampling{};
@@ -135,74 +219,73 @@ void Pipeline::CreatePipeline(VkDevice device, VkRenderPass renderPass, VkPrimit
 	dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
 	dynamicState.pDynamicStates = dynamicStates.data();
 
+
+	VkDescriptorSetLayout setLayout = m_UseExternalDescriptors ? m_Config.externalSetLayout : m_Shader->getDescriptorSetLayout();
+
+
+	// Push constants on/off
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.setLayoutCount = 1;
-	pipelineLayoutInfo.pSetLayouts = &m_Shader->getDescriptorSetLayout();
+	pipelineLayoutInfo.pSetLayouts = &setLayout;
 
-	pipelineLayoutInfo.pushConstantRangeCount = 1;
-	VkPushConstantRange pushConstantRange = createPushConstantRange();
-	pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
+	VkPushConstantRange pushConstantRange{};
+	if (m_Config.usePushConstants) {
+		pushConstantRange = createPushConstantRange();
+		pipelineLayoutInfo.pushConstantRangeCount = 1;
+		pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
+	}
+	else {
+		pipelineLayoutInfo.pushConstantRangeCount = 0;
+		pipelineLayoutInfo.pPushConstantRanges = nullptr;
+	}
 
 	if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &m_PipelineLayout) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create pipeline layout!");
 	}
 
-	VkGraphicsPipelineCreateInfo pipelineInfo{};
+	// Shader stages from ShaderBase (same as before)
+	auto vertShaderStageInfo = m_Shader->getVertexShaderStageInfo();
+	auto fragShaderStageInfo = m_Shader->getFragmentShaderStageInfo();
+	VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
-	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	// Vertex Input: select empty or mesh VI
+	const VkPipelineVertexInputStateCreateInfo* viPtr = pickVI();
+
+	// Depth state: dynamic per config
+	VkPipelineDepthStencilStateCreateInfo depthStencil{};
+	depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	depthStencil.depthTestEnable = m_Config.enableDepthTest ? VK_TRUE : VK_FALSE;
+	depthStencil.depthWriteEnable = m_Config.enableDepthWrite ? VK_TRUE : VK_FALSE;
+	depthStencil.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+	depthStencil.depthBoundsTestEnable = VK_FALSE;
+	depthStencil.stencilTestEnable = VK_FALSE;
+
+	// Input Assembly still comes from ShaderBase (ok), but use the chosen topology
+	auto ia = m_Shader->getInputAssemblyStateInfo(m_Config.topology);
 
 
-	VkPipelineShaderStageCreateInfo vertShaderStageInfo = m_Shader->getVertexShaderStageInfo();
-	VkPipelineShaderStageCreateInfo fragShaderStageInfo = m_Shader->getFragmentShaderStageInfo();
-
-	VkPipelineShaderStageCreateInfo shaderStages[] = {
-		vertShaderStageInfo,
-		fragShaderStageInfo
-	};
-
+	VkGraphicsPipelineCreateInfo pipelineInfo{ VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
 	pipelineInfo.stageCount = 2;
 	pipelineInfo.pStages = shaderStages;
-
-
+	pipelineInfo.pVertexInputState = viPtr;
+	pipelineInfo.pInputAssemblyState = &ia;
 	pipelineInfo.pViewportState = &viewportState;
 	pipelineInfo.pRasterizationState = &rasterizer;
 	pipelineInfo.pMultisampleState = &multisampling;
+	pipelineInfo.pDepthStencilState = &depthStencil; // <-- now dynamic
 	pipelineInfo.pColorBlendState = &colorBlending;
 	pipelineInfo.pDynamicState = &dynamicState;
 	pipelineInfo.layout = m_PipelineLayout;
 	pipelineInfo.renderPass = renderPass;
 	pipelineInfo.subpass = 0;
-	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
-
-	pipelineInfo.pVertexInputState = &m_Shader->getVertexInputStateInfo();
-	pipelineInfo.pInputAssemblyState = &m_Shader->getInputAssemblyStateInfo(topology);
-
-
-
-	VkPipelineDepthStencilStateCreateInfo depthStencil{};
-	depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-	depthStencil.depthTestEnable = VK_TRUE;
-	depthStencil.depthWriteEnable = VK_TRUE;
-
-	depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
-	depthStencil.depthBoundsTestEnable = VK_FALSE;
-	depthStencil.minDepthBounds = 0.0f; // Optional
-	depthStencil.maxDepthBounds = 1.0f; // Optional
-
-	depthStencil.stencilTestEnable = VK_FALSE;
-	depthStencil.front = {}; // Optional
-	depthStencil.back = {}; // Optional
-
-
-	pipelineInfo.pDepthStencilState = &depthStencil;
 
 
 	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_Pipeline3d) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create graphics pipeline!");
 	}
 
-	auto& vertexInput = m_Shader->getVertexInputStateInfo();
+	//auto& vertexInput = m_Shader->getVertexInputStateInfo();
 
 	vkDestroyShaderModule(device, vertShaderStageInfo.module, nullptr);
 	vkDestroyShaderModule(device, fragShaderStageInfo.module, nullptr);
@@ -212,7 +295,7 @@ void Pipeline::CreatePipeline(VkDevice device, VkRenderPass renderPass, VkPrimit
 
 void Pipeline::updateUniformBuffer(uint32_t currentImage, VkExtent2D swapChainExtent)
 {
-	m_Ubo.proj[1][1] *= -1;
+	//m_Ubo.proj[1][1] *= -1;
 	m_Shader->updateUniformBuffer(currentImage, m_Ubo);
 }
 
@@ -265,27 +348,22 @@ void Pipeline::createImage(VkPhysicalDevice& vkPhysicalDevice, VkDevice& vkDevic
 
 VkFormat Pipeline::findSupportedFormat(VkPhysicalDevice& vkPhysicalDevice, VkDevice& vkDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
 {
-	for (VkFormat format : candidates) {
+	for (VkFormat fmt : candidates) {
 		VkFormatProperties props{};
-		vkGetPhysicalDeviceFormatProperties(vkPhysicalDevice, format, &props);
-
-		if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
-			return format;
-		}
-		else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
-			return format;
-		}
+		vkGetPhysicalDeviceFormatProperties(vkPhysicalDevice, fmt, &props);
+		const auto need = VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT |
+			VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT;
+		if ((props.optimalTilingFeatures & need) == need)
+			return fmt;
 	}
-
-	throw std::runtime_error("failed to find supported format!");
-	return VkFormat();
+	throw std::runtime_error("No sampleable depth format found");
 }
 
 void Pipeline::createDepthResources(VkPhysicalDevice& vkPhysicalDevice, VkDevice& vkDevice, VkExtent2D swapChainExtent)
 {
 	VkFormat depthFormat = findDepthFormat(vkPhysicalDevice, vkDevice);
 
-	createImage(vkPhysicalDevice, vkDevice, swapChainExtent.width, swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_DepthImage, m_DepthImageMemory);
+	createImage(vkPhysicalDevice, vkDevice, swapChainExtent.width, swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_DepthImage, m_DepthImageMemory);
 
 	m_DepthImageView = createImageView(vkDevice, m_DepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 }
@@ -298,9 +376,11 @@ void Pipeline::updateDescriptorSets()
 VkFormat Pipeline::findDepthFormat(VkPhysicalDevice& vkPhysicalDevice, VkDevice& vkDevice)
 {
 	return findSupportedFormat(vkPhysicalDevice, vkDevice,
-		{ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
+		{ VK_FORMAT_D32_SFLOAT,
+		VK_FORMAT_X8_D24_UNORM_PACK32, // often sampleable, but less universal than D32
+		VK_FORMAT_D16_UNORM },
 		VK_IMAGE_TILING_OPTIMAL,
-		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT
 	);
 }
 

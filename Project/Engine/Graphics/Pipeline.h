@@ -9,13 +9,40 @@
 #include <Engine/Scene/Scene.h>
 #include <Engine/Graphics/UniformBufferObject.h>
 
+
+struct PipelineConfig {
+	VkRenderPass renderPass = VK_NULL_HANDLE;           // which render pass to build for
+	VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+	// Depth state
+	bool enableDepthTest = true;
+	bool enableDepthWrite = true;
+
+	// Vertex input: if false -> fullscreen/no-VB style
+	bool useVertexInput = true;
+
+	// Push constants: keep off for post
+	bool usePushConstants = true;
+
+	// If provided, Pipeline will use these instead of ShaderBase’s layout & sets.
+	VkDescriptorSetLayout externalSetLayout = VK_NULL_HANDLE;
+	const std::vector<VkDescriptorSet>* externalSets = nullptr;
+
+	// If true, Record() draws a fullscreen triangle (3 verts) instead of Scene.
+	bool fullscreenTriangle = false;
+};
+
 class Pipeline
 {
 public:
 	Pipeline();
 	~Pipeline();
 	void Destroy(const VkDevice& vkDevice);
-
+	void Initialize(const std::string& vertexShaderPath,
+		const std::string& fragmentShaderPath,
+		const VkVertexInputBindingDescription vkVertexInputBindingDesc,
+		std::vector<VkVertexInputAttributeDescription> vkVertexInputAttributeDesc,
+		const PipelineConfig& config);
 	void Initialize(const std::string& vertexShaderPath, const std::string& fragmentShaderPath, const VkVertexInputBindingDescription vkVertexInputBindingDesc, std::vector<VkVertexInputAttributeDescription> vkVertexInputAttributeDesc, VkPrimitiveTopology topology);
 	void Record(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene);
 
@@ -33,7 +60,10 @@ private:
 
 	VkPipeline m_Pipeline3d;
 	std::unique_ptr<ShaderBase> m_Shader;
-
+	PipelineConfig m_Config{};                  // NEW
+	bool m_UseExternalDescriptors = false;      // NEW
+	VkPipelineVertexInputStateCreateInfo m_EmptyVI{}; // NEW
+	const VkPipelineVertexInputStateCreateInfo* pickVI(); // NEW
 	UniformBufferObject m_Ubo{};
 
 	VkPipelineLayout m_PipelineLayout;

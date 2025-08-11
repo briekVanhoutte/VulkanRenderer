@@ -28,8 +28,20 @@ struct RenderStage {
     VkRenderPass renderPass;
     std::vector<VkFramebuffer>* framebuffers;
     std::vector<Pipeline*> pipelines;
+    bool hasDepth = false; // NEW
 };
 
+struct OffscreenTarget {
+    VkImage image = VK_NULL_HANDLE;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+    VkImageView view = VK_NULL_HANDLE;
+};
+
+struct DepthTarget {
+    VkImage image = VK_NULL_HANDLE;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+    VkImageView view = VK_NULL_HANDLE;
+};
 
 struct RenderItem {
     Scene* scene;
@@ -54,6 +66,27 @@ private:
     Pipeline m_PipelinePostProcess;
 
     std::vector<RenderStage> m_RenderStages;
+
+    VkRenderPass m_RenderPassOffscreen = VK_NULL_HANDLE; // scene (color+depth), final = COLOR_ATTACHMENT_OPTIMAL
+    VkRenderPass m_RenderPassPresent = VK_NULL_HANDLE;  // post (color only), final = PRESENT_SRC_KHR
+    std::vector<OffscreenTarget> m_OffscreenTargets;
+    std::vector<VkFramebuffer>   m_OffscreenFramebuffers;
+    VkDescriptorSetLayout m_PostSetLayout = VK_NULL_HANDLE;
+    VkDescriptorPool      m_PostDescPool = VK_NULL_HANDLE;
+    std::vector<VkDescriptorSet> m_PostDescSets;
+    VkSampler             m_PostSampler = VK_NULL_HANDLE;
+    VkSampler m_PostDepthSampler; // add a member
+    std::vector<DepthTarget> m_OffscreenDepthTargets;
+
+    void createRenderPasses();
+    void createOffscreenTargets();
+    void createFramebuffersOffscreen();
+    void createFramebuffersPresent();
+    void createPostDescriptors();
+
+    void writePostDescriptors();
+
+    void createOffscreenDepthTargets();
 
     VkSurfaceKHR surface;
     VkInstance instance;
