@@ -24,25 +24,35 @@ layout(location = 1) in vec3 fragColor;
 layout(location = 2) in vec2 fragTexCoord;
 layout(location = 0) out vec4 outColor;
 
-// Parallax mapping function
+const float ROTATE_DEG = 0.0;    // e.g. 0, 90, 180, 270
+const int   FLIP_X     = 0;      // 1 = mirror horizontally
+const int   FLIP_Y     = 0;      // 1 = mirror vertically
+
 vec2 parallaxUV(vec2 uv, vec3 viewDir, sampler2D heightMap, float scale) {
-    float height = texture(heightMap, uv).r; // sample height
-    // Move UV in the opposite direction of the view vector (in tangent space!)
+    float height = texture(heightMap, uv).r;
     return uv + viewDir.xy * (height * scale);
 }
 
-void main() {
-    // 1. Prepare for parallax mapping
-    vec2 uv = fragTexCoord;
-    float parallaxScale = 0.04; // tweak as needed
+vec2 transformUV(vec2 uv) {
+    uv.x = (FLIP_X == 1) ? 1.0 - uv.x : uv.x;
+    uv.y = (FLIP_Y == 1) ? 1.0 - uv.y : uv.y;
+    float a = radians(ROTATE_DEG);
+    float s = sin(a), c = cos(a);
+    uv -= 0.5;
+    uv = 1.0 - uv;
+    uv += 0.5;
+    return uv;
+}
 
+void main() {
+    vec2 uv = transformUV(fragTexCoord);
+
+    float parallaxScale = 0.04;
     if (mesh.HeightMapID < MAX_TEXTURES) {
-        // Fake tangent-space view vector (assume V points to camera)
         vec3 viewDir = normalize(ubo.cameraPos);
         uv = parallaxUV(uv, viewDir, texSampler[mesh.HeightMapID], parallaxScale);
     }
 
-    // 2. Sample all maps (now with possible parallax UVs)
     vec3 albedo = (mesh.AlbedoID < MAX_TEXTURES)
         ? texture(texSampler[mesh.AlbedoID], uv).rgb
         : fragColor;
@@ -59,8 +69,7 @@ void main() {
         ? texture(texSampler[mesh.RoughnessID], uv).r
         : 1.0;
 
-    // 3. Lighting setup (as before)
-    vec3 L = normalize(vec3(-0.3, -0.6, 0.6)); // Sun high in sky, shining down
+    vec3 L = normalize(vec3(-0.3, -0.6, 0.6));
     vec3 V = normalize(ubo.cameraPos);
     vec3 H = normalize(L + V);
 
@@ -71,14 +80,13 @@ void main() {
 
     float NdotH = max(dot(N, H), 0.0);
     float HdotV = max(dot(H, V), 0.0);
-
-    // Schlick's fresnel
     vec3 F = F0 + (1.0 - F0) * pow(1.0 - HdotV, 5.0);
     float spec = pow(NdotH, 1.0 / max(roughness * roughness, 0.01));
     vec3 specular = F * spec * NdotL;
 
     const float lightIntensity = 3.0;
+    const float AMBIENT = 0.2;
 
-    vec3 color = lightIntensity * (diffuse + specular);
+    vec3 color = AMBIENT * albedo + lightIntensity * (diffuse + specular);
     outColor = vec4(color, 1.0);
 }

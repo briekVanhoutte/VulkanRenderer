@@ -24,27 +24,16 @@ void Camera::Initialize(float _fovAngle, glm::vec3 _origin, float _aspectRatio)
 
 void Camera::CalculateViewMatrix()
 {
-
-	right = glm::normalize( glm::cross({ 0.f,1.f,0.f }, forward));
-	up = glm::cross(forward, right);
-
-	glm::mat4 OBN = { {right,0.f}, { up ,0.f},{ forward ,0.f},{ origin ,0.f} };
-
-	viewMatrix = glm::inverse(OBN);
-	invViewMatrix = OBN;
+	viewMatrix = glm::lookAt(origin, origin + forward, up);
+	invViewMatrix = glm::inverse(viewMatrix);
 }
 
 void Camera::CalculateProjectionMatrix()
 {
-	float yScale = 1.0f / tan(fov / 2.0f);
-	float xScale = yScale / aspectRatio;
-	
-	projectionMatrix[0] = glm::vec4(xScale, 0.0f, 0.0f, 0.0f);
-	projectionMatrix[1] = glm::vec4(0.0f, yScale, 0.0f, 0.0f);
-	projectionMatrix[2] = glm::vec4(0.0f, 0.0f, farPlane / (farPlane - nearPlane), 1.0f);
-	projectionMatrix[3] = glm::vec4(0.0f, 0.0f, -nearPlane * farPlane / (farPlane - nearPlane), 0.0f);
+	// fov is already in radians here
+	projectionMatrix = glm::perspective(fov, aspectRatio, nearPlane, farPlane);
+	projectionMatrix[1][1] *= -1.0f;   // Vulkan clip space flip
 }
-
 glm::mat4 Camera::CalculateCameraToWorld()
 {
 	// rightx,   righty,   rightz,   0
@@ -84,23 +73,29 @@ void Camera::update()
 	forward = glm::vec3(finalRotation * glm::vec4(0.0f, 0.0f, 1.0f, 0.0f));
 }
 
-void Camera::rotate(glm::vec2 offset)
-{
-	glm::vec2 offsetRadians = glm::radians(offset);
+void Camera::rotate(glm::vec2 delta) {
+	const float sens = 0.0018f;
+	const float limit = glm::radians(89.0f);
 
-	 totalYaw += offset.x;
-	 totalPitch += offset.y;
+	totalYaw += delta.x * sens;
+	totalPitch = glm::clamp(totalPitch + (-delta.y * sens), -limit, limit);
+
+	// Forward from yaw/pitch (right-handed, +Z forward)
+	glm::vec3 dir;
+	dir.x = cosf(totalPitch) * sinf(totalYaw);
+	dir.y = sinf(totalPitch);
+	dir.z = cosf(totalPitch) * cosf(totalYaw);
+	forward = glm::normalize(dir);
+
+	// IMPORTANT: use this cross order to keep +X right when forward=+Z
+	const glm::vec3 worldUp(0, 1, 0);
+	right = glm::normalize(glm::cross(worldUp, forward));
+	up = glm::normalize(glm::cross(forward, right));
 }
 
-void Camera::translateForward(float posChange)
-{
-	origin = origin + forward * posChange;
-}
 
-void Camera::translateRight(float posChange)
-{
-	origin = origin + right * posChange;
-}
+void Camera::translateForward(float d) { origin += forward * d; }
+void Camera::translateRight(float d) { origin += right * d; }
 
 
 

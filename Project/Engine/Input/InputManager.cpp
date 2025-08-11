@@ -42,7 +42,7 @@ void InputManager::Update() {
 void InputManager::HandleCameraInputs(Camera* camera, float deltaTime)
 {
     const float moveSpeed = 10.f; // Units per second (tweak as needed)
-    const float rotationSpeed = 0.005f; // Radians per pixel (tweak as needed)
+    const float rotationSpeed = 1.f; // Radians per pixel (tweak as needed)
 
     // Movement
     if (IsKeyDown(GLFW_KEY_W)) {

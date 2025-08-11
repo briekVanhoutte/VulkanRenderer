@@ -28,7 +28,7 @@ struct Camera
 	glm::vec3 up{ 0.f,1.f,0.f };
 	glm::vec3 right{ 1.f,0.f,0.f };
 
-	float totalPitch{ 3.14f};
+	float totalPitch{ 0.f};
 	float totalYaw{};
 
 	glm::mat4 invViewMatrix{};
