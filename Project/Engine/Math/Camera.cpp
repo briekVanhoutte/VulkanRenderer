@@ -65,16 +65,11 @@ void Camera::printValuesCamera() {
 
 void Camera::update()
 {
-	glm::mat4 rotationX = CreateRotationX(totalPitch);
-	glm::mat4 rotationY = CreateRotationY(totalYaw);
 
-	glm::mat4 finalRotation = rotationX * rotationY;
-
-	forward = glm::vec3(finalRotation * glm::vec4(0.0f, 0.0f, 1.0f, 0.0f));
 }
 
 void Camera::rotate(glm::vec2 delta) {
-	const float sens = 0.0018f;
+	const float sens = -0.004f;
 	const float limit = glm::radians(89.0f);
 
 	totalYaw += delta.x * sens;
