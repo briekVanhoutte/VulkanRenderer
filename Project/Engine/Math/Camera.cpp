@@ -36,11 +36,6 @@ void Camera::CalculateProjectionMatrix()
 }
 glm::mat4 Camera::CalculateCameraToWorld()
 {
-	// rightx,   righty,   rightz,   0
-	// upx,      upy,      upz,      0
-	// forwardx, forwardy, forwardz, 0
-	// originx,  originy,  originz,  1
-
 	right = glm::normalize(glm::cross(up, forward));
 	right.y = 0; // force no roll
 	up = glm::normalize(glm::cross(forward, right)); 

@@ -112,7 +112,7 @@ void Game::initScene() {
 
     // --- Tiny randomized stacked cubes ------------------------------------------
     {
-        const int   maxCubes = 100;
+        const int   maxCubes = 1000;
         const int   columns = 1800;
         const float areaR = 20.f;
         const float baseY = camPos.y - 0.5f;
@@ -121,7 +121,7 @@ void Game::initScene() {
         std::uniform_real_distribution<float> posOff(-areaR, areaR);
         std::uniform_real_distribution<float> jitter(-0.03f, 0.03f);
         std::uniform_int_distribution<int>    stackCount(3, 12);
-        std::uniform_real_distribution<float> sizeDist(3.f, 6.f);
+        std::uniform_real_distribution<float> sizeDist(1.f, 5.f);
         std::uniform_int_distribution<int>    rotPick(0, 3);
         std::uniform_int_distribution<size_t> matPick(0, cubeMats.empty() ? 0 : cubeMats.size() - 1);
 
