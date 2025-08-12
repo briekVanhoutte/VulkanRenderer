@@ -96,10 +96,8 @@ void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Ca
 	auto& vk = vulkanVars::GetInstance();
 	const size_t frameIndex = vk.currentFrame % MAX_FRAMES_IN_FLIGHT;
 
-	// 1) Wait previous frame
-	if (vkWaitForFences(vk.device, 1, &inFlightFences[frameIndex], VK_TRUE, UINT64_MAX) != VK_SUCCESS)
-		return;
-	vkResetFences(vk.device, 1, &inFlightFences[frameIndex]);
+	// 1) Wait previous frame fence (do NOT reset yet)
+	(vkWaitForFences(vk.device, 1, &inFlightFences[frameIndex], VK_TRUE, UINT64_MAX));
 
 	// 2) Acquire
 	uint32_t imageIndex = 0;
@@ -108,77 +106,64 @@ void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Ca
 		imageAvailableSemaphores[frameIndex], VK_NULL_HANDLE, &imageIndex);
 
 	if (ar == VK_ERROR_OUT_OF_DATE_KHR) {
-		// TODO: recreateSwapchain();
-		// For now just re-signal fence so the loop continues without deadlock.
-		vkQueueSubmit(vk.graphicsQueue, 0, nullptr, inFlightFences[frameIndex]);
+		// No submit this frame; leave fence signaled from last frame.
+		// Recreate swapchain and return.
+		// recreateSwapchain();
 		return;
 	}
 	if (ar != VK_SUCCESS && ar != VK_SUBOPTIMAL_KHR) {
 		fprintf(stderr, "vkAcquireNextImageKHR failed: %s\n", VkResStr(ar));
-		vkQueueSubmit(vk.graphicsQueue, 0, nullptr, inFlightFences[frameIndex]);
+		// Do NOT submit anything here. Fence is still signaled from last frame, so next loop won’t deadlock.
 		return;
 	}
 
-	// 3) Update camera UBOs
+	// 3) If this image was used before, wait the fence that submitted work for it
+	if (imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
+		(vkWaitForFences(vk.device, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX));
+	}
+	imagesInFlight[imageIndex] = inFlightFences[frameIndex]; // hand off
+
+	// 4) Update UBOs …
 	UniformBufferObject vp{};
-	vp.view = { glm::inverse(camera.CalculateCameraToWorld()) };
-	vp.proj = glm::perspectiveRH_ZO(glm::radians(camera.fovAngle),
-		camera.aspectRatio,
-		camera.nearPlane, camera.farPlane);
+	vp.view = glm::inverse(camera.CalculateCameraToWorld());
+	vp.proj = glm::perspectiveRH_ZO(glm::radians(camera.fovAngle), camera.aspectRatio, camera.nearPlane, camera.farPlane);
 	vp.proj[1][1] *= -1.0f;
 	vp.cameraPos = camera.origin;
-
 	m_Pipeline3d.setUbo(vp);
 	m_PipelineParticles.setUbo(vp);
 
-	auto& matMgr = TextureManager::GetInstance();
-	if (matMgr.isTextureListDirty()) {
-		m_Pipeline3d.updateDescriptorSets();
-		matMgr.clearTextureListDirty();
-	}
+	auto& texMgr = TextureManager::GetInstance();
+	if (texMgr.isTextureListDirty()) { m_Pipeline3d.updateDescriptorSets(); texMgr.clearTextureListDirty(); }
 
-	// 4) Record commands
+	// 5) Record (frameIndex CB, imageIndex FB)
 	vk.commandBuffers[frameIndex].reset();
 	vk.commandBuffers[frameIndex].beginRecording();
 
-	for (size_t si = 0; si < m_RenderStages.size(); ++si) {
-		const RenderStage& stage = m_RenderStages[si];
-
+	for (const RenderStage& stage : m_RenderStages) {
 		VkRenderPassBeginInfo begin{ VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
 		begin.renderPass = stage.renderPass;
 		begin.framebuffer = stage.framebuffers->at(imageIndex);
-		begin.renderArea.offset = { 0, 0 };
-		begin.renderArea.extent = vk.swapChainExtent;
+		begin.renderArea = { {0,0}, vk.swapChainExtent };
 
 		VkClearValue clear[2];
-		uint32_t clearCount = 0;
-		clear[clearCount++].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
-		if (stage.hasDepth) {
-			clear[clearCount].depthStencil = { 1.0f, 0 };
-			++clearCount;
-		}
-		begin.clearValueCount = clearCount;
-		begin.pClearValues = clear;
+		uint32_t cc = 0;
+		clear[cc++].color = { {0.f,0.f,0.f,1.f} };
+		if (stage.hasDepth) { clear[cc].depthStencil = { 1.f, 0 }; ++cc; }
+		begin.clearValueCount = cc; begin.pClearValues = clear;
 
 		vkCmdBeginRenderPass(vk.commandBuffers[frameIndex].m_VkCommandBuffer, &begin, VK_SUBPASS_CONTENTS_INLINE);
 
-		// Draw normal pipelines
-		for (Pipeline* pipeline : stage.pipelines) {
-			if (pipeline == &m_PipelinePostProcess) continue;
+		for (Pipeline* p : stage.pipelines) {
+			if (p == &m_PipelinePostProcess) continue;
 			for (const RenderItem& item : renderItems) {
-				if (pipeline == &m_Pipeline3d && item.pipelineIndex == 0) {
-					pipeline->Record(imageIndex, stage.renderPass, *(stage.framebuffers), vk.swapChainExtent, *item.scene);
-				}
-				else if (pipeline == &m_PipelineParticles && item.pipelineIndex == 1) {
-					pipeline->Record(imageIndex, stage.renderPass, *(stage.framebuffers), vk.swapChainExtent, *item.scene);
-				}
+				if (p == &m_Pipeline3d && item.pipelineIndex == 0) p->Record(imageIndex, stage.renderPass, *stage.framebuffers, vk.swapChainExtent, *item.scene);
+				else if (p == &m_PipelineParticles && item.pipelineIndex == 1) p->Record(imageIndex, stage.renderPass, *stage.framebuffers, vk.swapChainExtent, *item.scene);
 			}
 		}
 
-		// Post once
 		if (std::find(stage.pipelines.begin(), stage.pipelines.end(), &m_PipelinePostProcess) != stage.pipelines.end()) {
 			static MeshScene dummy;
-			m_PipelinePostProcess.Record(imageIndex, stage.renderPass, *(stage.framebuffers), vk.swapChainExtent, dummy);
+			m_PipelinePostProcess.Record(imageIndex, stage.renderPass, *stage.framebuffers, vk.swapChainExtent, dummy);
 		}
 
 		vkCmdEndRenderPass(vk.commandBuffers[frameIndex].m_VkCommandBuffer);
@@ -186,37 +171,43 @@ void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Ca
 
 	vk.commandBuffers[frameIndex].endRecording();
 
-	// 5) Submit
+	// 6) Submit: RESET fence NOW (right before the one real submit)
+	(vkResetFences(vk.device, 1, &inFlightFences[frameIndex]));
+
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+	VkSemaphore waitSems[] = { imageAvailableSemaphores[frameIndex] };
+	VkSemaphore signalSems[] = { renderFinishedPerImage[imageIndex] };
+	VkCommandBuffer cb = vk.commandBuffers[frameIndex].m_VkCommandBuffer;
+
 	VkSubmitInfo submit{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
 	submit.waitSemaphoreCount = 1;
-	submit.pWaitSemaphores = &imageAvailableSemaphores[frameIndex];
+	submit.pWaitSemaphores = waitSems;
 	submit.pWaitDstStageMask = waitStages;
-	VkCommandBuffer cb = vk.commandBuffers[frameIndex].m_VkCommandBuffer;
 	submit.commandBufferCount = 1;
 	submit.pCommandBuffers = &cb;
 	submit.signalSemaphoreCount = 1;
-	submit.pSignalSemaphores = &renderFinishedSemaphores[frameIndex];
+	submit.pSignalSemaphores = signalSems;
 
 	VkResult sr = vkQueueSubmit(vk.graphicsQueue, 1, &submit, inFlightFences[frameIndex]);
 	if (sr != VK_SUCCESS) {
 		fprintf(stderr, "vkQueueSubmit failed: %s\n", VkResStr(sr));
-		// Fence was NOT signaled; signal it so the loop doesn't deadlock, then bail.
-		vkQueueSubmit(vk.graphicsQueue, 0, nullptr, inFlightFences[frameIndex]);
+		// Fence is currently UNSIGNALED (we just reset it). To avoid a hang on next frame’s wait,
+		// legally signal it via zero-submit:
+		(vkQueueSubmit(vk.graphicsQueue, 0, nullptr, inFlightFences[frameIndex]));
 		return;
 	}
 
-	// 6) Present
+	// 7) Present: wait on per-image present semaphore
 	VkPresentInfoKHR present{ VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
 	present.waitSemaphoreCount = 1;
-	present.pWaitSemaphores = &renderFinishedSemaphores[frameIndex];
+	present.pWaitSemaphores = signalSems;
 	present.swapchainCount = 1;
 	present.pSwapchains = &swapChain;
 	present.pImageIndices = &imageIndex;
 
 	VkResult pr = vkQueuePresentKHR(presentQueue, &present);
 	if (pr == VK_ERROR_OUT_OF_DATE_KHR || pr == VK_SUBOPTIMAL_KHR) {
-		// TODO: recreateSwapchain();
+		// recreateSwapchain();
 		return;
 	}
 	if (pr != VK_SUCCESS) {
@@ -224,10 +215,8 @@ void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Ca
 		return;
 	}
 
-	// advance frame if you have a frame counter
 	vk.currentFrame++;
-}
-void RendererManager::Cleanup() {
+}void RendererManager::Cleanup() {
 
 }
 
@@ -750,26 +739,26 @@ void RendererManager::createFrameBuffers()
 		}
 	}
 }
-void RendererManager::createSyncObjects(size_t currentFrame)
-{
-	auto& vulkan_vars = vulkanVars::GetInstance();
-	VkSemaphoreCreateInfo semaphoreInfo{};
-	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+void RendererManager::createSyncObjects(size_t /*currentFrame*/) {
+	auto& vkvars = vulkanVars::GetInstance();
 
-	VkFenceCreateInfo fenceInfo{};
-	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	imagesInFlight.assign(swapChainImages.size(), VK_NULL_HANDLE);
+
+	VkSemaphoreCreateInfo semInfo{ VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+	VkFenceCreateInfo     fenceInfo{ VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
 	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-	imagesInFlight.resize(swapChainImages.size(), VK_NULL_HANDLE);
-
-	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		vkCreateSemaphore(vulkan_vars.device, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]);
-		vkCreateSemaphore(vulkan_vars.device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]);
-
-		fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-		vkCreateFence(vulkan_vars.device, &fenceInfo, nullptr, &inFlightFences[i]);
+	// Per-frame acquire semaphores + per-frame fences
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+		(vkCreateSemaphore(vkvars.device, &semInfo, nullptr, &imageAvailableSemaphores[i]));
+		(vkCreateFence(vkvars.device, &fenceInfo, nullptr, &inFlightFences[i]));
 	}
 
+	// Per-image present semaphores
+	renderFinishedPerImage.resize(swapChainImages.size());
+	for (size_t i = 0; i < renderFinishedPerImage.size(); ++i) {
+		(vkCreateSemaphore(vkvars.device, &semInfo, nullptr, &renderFinishedPerImage[i]));
+	}
 }
 
 QueueFamilyIndices RendererManager::findQueueFamilies(VkPhysicalDevice device)

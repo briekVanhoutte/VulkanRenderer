@@ -98,7 +98,7 @@ private:
 
     std::vector<VkFramebuffer> swapChainFramebuffers;
     std::array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> imageAvailableSemaphores;
-    std::array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> renderFinishedSemaphores;
+    std::vector<VkSemaphore> renderFinishedPerImage;
     std::array<VkFence, MAX_FRAMES_IN_FLIGHT> inFlightFences;
 
     std::vector<VkFence> imagesInFlight;
