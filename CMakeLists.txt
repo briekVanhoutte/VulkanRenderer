@@ -28,6 +28,25 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(stb)
 
+# --- fast_obj (MIT) ---------------------------------------------------------
+include(FetchContent)
+FetchContent_Declare(
+    fast_obj
+    GIT_REPOSITORY https://github.com/thisistherk/fast_obj.git
+    GIT_TAG        v1.3         # or a commit hash
+)
+
+# Some repos already provide a CMake target; to be robust, just compile the .c ourselves:
+FetchContent_GetProperties(fast_obj)
+if(NOT fast_obj_POPULATED)
+  FetchContent_Populate(fast_obj)
+  add_library(fast_obj STATIC
+      ${fast_obj_SOURCE_DIR}/fast_obj.c
+  )
+  target_include_directories(fast_obj PUBLIC ${fast_obj_SOURCE_DIR})
+endif()
+
+
 find_package(Vulkan REQUIRED)
 
 include_directories(${Vulkan_INCLUDE_DIRS})

@@ -19,6 +19,7 @@ struct Vertex
 		pos = {};
 		normal = {};
 		color = {};
+		texCoord = {};
 	}
 
 	static VkVertexInputBindingDescription getBindingDescription() {

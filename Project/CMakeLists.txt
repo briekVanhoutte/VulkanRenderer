@@ -46,7 +46,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC ${stb_SOURCE_DIR})
 target_link_libraries(${PROJECT_NAME} PRIVATE ${PhysX} ${PhysX_Common} ${PhysX_FOUNDATION} ${PhysX_COOKER} ${PhysX_EXTENSIONS} ${PhysX_PVD})
 target_link_libraries(${PROJECT_NAME} PRIVATE ${Vulkan_LIBRARIES} glfw)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${Vulkan_LIBRARIES} glm)
-
+target_link_libraries(${PROJECT_NAME} PRIVATE fast_obj)
 # This assumes vcpkg is in ${CMAKE_SOURCE_DIR}/vcpkg
 set(PHYSX_BIN_DIR "${CMAKE_SOURCE_DIR}/vcpkg/installed/x64-windows/bin")
 set(PHYSX_DEBUG_BIN_DIR "${CMAKE_SOURCE_DIR}/vcpkg/installed/x64-windows/debug/bin")

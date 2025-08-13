@@ -4,24 +4,35 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <memory>
+#include <Engine/Graphics/Material.h>
 
 class ModelMeshComponent : public Component {
 public:
-    ModelMeshComponent(GameObject* parent, const std::string& modelFile) {
+    // NEW: take an optional material (default null like your primitives)
+    ModelMeshComponent(GameObject* parent,
+        const std::string& modelFile,
+        const std::shared_ptr<Material> mat = {},
+        bool makeGlobal = false,
+        bool groupByFile = true)
+        : m_modelFile(modelFile)
+        , m_material(mat)
+        , m_makeGlobal(makeGlobal)
+        , m_groupByFile(groupByFile)
+    {
         setParent(parent);
         addModelToScene(modelFile);
     }
 
-    void initialize() override {
-        std::cout << "ModelMeshComponent initialized." << std::endl;
-    }
-    void update() override {
-        std::cout << "ModelMeshComponent updated." << std::endl;
-    }
-    void render() override {
-        std::cout << "ModelMeshComponent rendered." << std::endl;
-    }
+    void initialize() override { }
+    void update() override {  }
+    void render() override {  }
 
 private:
-    void addModelToScene(const std::string& modelFile); 
+    void addModelToScene(const std::string& modelFile);
+
+    std::string m_modelFile;
+    std::shared_ptr<Material> m_material;   // NEW
+    bool m_makeGlobal = false;
+    bool m_groupByFile = true;
 };

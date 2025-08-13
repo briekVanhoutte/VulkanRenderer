@@ -1,106 +1,240 @@
+// ObjUtils.h
 #pragma once
 
-#include <Engine/Graphics/Vertex.h>
-#include <Engine/Graphics/Particle.h>
-#include <cstddef>
-#include <vector>
-#include <fstream>
-#include <optional>
-#include <array>
+// Include your Vertex definition first:
 #include <glm/glm.hpp>
+#include "fast_obj.h"
+#include <Engine/Graphics/Vertex.h>
+#include <cstdint>
+#include <vector>
+#include <unordered_map>
+#include <iostream>
+#include <algorithm>
+#include <iomanip>
 
-static bool ParseOBJ(const std::string& filename, std::vector<Vertex>& vertices, std::vector<uint16_t>& indices,glm::vec3 color ,bool flipAxisAndWinding = true)
-{
-	std::ifstream file(filename);
-	if (!file)
-		return false;
+namespace ObjUtils {
 
-	std::vector<glm::vec3> positions{};
-	std::vector<glm::vec3> normals{};
-	std::vector<glm::vec2> UVs{};
+    // ---------------- Key types ----------------
+    struct Triplet {
+        uint32_t p, t, n; // 1-based indices from fast_obj (0 means missing)
+        bool operator==(const Triplet& o) const { return p == o.p && t == o.t && n == o.n; }
+    };
+    struct TripletHash {
+        size_t operator()(const Triplet& k) const noexcept {
+            size_t h = 1469598103934665603ull;
+            auto mix = [&](uint64_t x) { h ^= x + 0x9e3779b97f4a7c15ull + (h << 6) + (h >> 2); };
+            mix(k.p); mix(k.t); mix(k.n); return h;
+        }
+    };
 
-	vertices.clear();
-	indices.clear();
+    struct DebugTrip { uint32_t p, t, n; };
 
-	std::string sCommand;
-	while (!file.eof())
-	{
-		file >> sCommand;
+    // --------------- OBJ loader ----------------
+    // flipV: set true if you need v = 1 - v.
+    // flipWinding: swap i1<->i2 per triangle.
+    // debug: runtime logging on/off.
+    // dropDegenerate: drop zero-area triangles if true.
+    inline bool ParseOBJ(const char* path,
+        std::vector<Vertex>& outVertices,
+        std::vector<uint32_t>& outIndices,
+        bool flipV = false,
+        bool flipWinding = false,
+        bool debug = false,
+        bool dropDegenerate = true)
+    {
+        fastObjMesh* m = fast_obj_read(path);
+        if (!m) return false;
 
-		if (sCommand == "#")
-		{
-			// Ignore Comment
-		}
-		else if (sCommand == "v")
-		{
+        if (debug) {
+            std::cout.setf(std::ios::fixed);
+            std::cout << std::setprecision(2)
+                << "\n--- ParseOBJ: \"" << path << "\" ---\n";
+        }
 
-			float x, y, z;
-			file >> x >> y >> z;
+        // Pre-pass stats
+        {
+            size_t triTotal = 0, idxTotal = 0, nTri = 0, nQuad = 0, nNgon = 0;
+            for (unsigned f = 0; f < m->face_count; ++f) {
+                unsigned fv = m->face_vertices[f];
+                if (fv >= 3) {
+                    triTotal += (fv - 2);
+                    idxTotal += 3 * (fv - 2);
+                    if (fv == 3) ++nTri; else if (fv == 4) ++nQuad; else if (fv > 4) ++nNgon;
+                }
+            }
+            if (debug) {
+                std::cout << "faces=" << m->face_count
+                    << "  tris=" << triTotal
+                    << "  indices=" << idxTotal
+                    << "  (tri=" << nTri
+                    << ", quad=" << nQuad
+                    << ", ngon=" << nNgon << ")\n";
+            }
+        }
 
-			positions.emplace_back(x, y, z);
-		}
-		else if (sCommand == "vt")
-		{
-			// Vertex TexCoord
-			float u, v;
-			file >> u >> v;
-			UVs.emplace_back(u, 1 - v);
-		}
-		else if (sCommand == "vn")
-		{
-			// Vertex Normal
-			float x, y, z;
-			file >> x >> y >> z;
+        outVertices.clear();
+        outIndices.clear();
+        outVertices.reserve(m->index_count); // upper bound
 
-			normals.emplace_back(x, y, z);
-		}
-		else if (sCommand == "f")
-		{
-			Vertex vertex{};
-			size_t iPosition, iTexCoord, iNormal;
+        std::unordered_map<Triplet, uint32_t, TripletHash> cache;
+        cache.reserve(m->index_count);
 
-			uint16_t tempIndices[3];
-			for (size_t iFace = 0; iFace < 3; iFace++)
-			{
-				file >> iPosition;
-	
-				vertex.pos = positions[iPosition - 1];
+        std::vector<DebugTrip> dbgTrip;
+        if (debug) dbgTrip.reserve(m->index_count);
 
-				if ('/' == file.peek())
-				{
-					file.ignore();
+        // Emit vertex or reuse from cache
+        auto emitVertex = [&](const fastObjIndex& ix) -> uint32_t {
+            Triplet key{ ix.p, ix.t, ix.n };
+            auto it = cache.find(key);
+            if (it != cache.end()) return it->second;
 
-					if ('/' != file.peek())
-					{
-						file >> iTexCoord;
-					}
+            Vertex v{};              // your Vertex default-ctor
+            v.color = glm::vec3(1);  // default white
 
-					if ('/' == file.peek())
-					{
-						file.ignore();
+            // Position
+            if (ix.p) {
+                const float* P = &m->positions[3 * ix.p];
+                v.pos = glm::vec3(P[0], P[1], P[2]);
+            }
+            else {
+                v.pos = glm::vec3(0);
+            }
 
-						file >> iNormal;
-						vertex.normal = normals[iNormal - 1];
-					}
-				}
+            // UV
+            if (ix.t) {
+                const float* T = &m->texcoords[2 * ix.t];
+                v.texCoord = glm::vec2(T[0], flipV ? (1.0f - T[1]) : T[1]);
+            }
+            else {
+                v.texCoord = glm::vec2(0);
+            }
 
-				vertex.color = color;
-				vertices.push_back(vertex);
-				tempIndices[iFace] = uint16_t(vertices.size()) - 1;
-			}
+            // Normal
+            if (ix.n) {
+                const float* N = &m->normals[3 * ix.n];
+                v.normal = glm::vec3(N[0], N[1], N[2]);
+            }
+            else {
+                v.normal = glm::vec3(0, 1, 0);
+            }
 
-			indices.push_back(tempIndices[0]);
-			if (flipAxisAndWinding)
-			{
-				indices.push_back(tempIndices[2]);
-				indices.push_back(tempIndices[1]);
-			}
-			else
-			{
-				indices.push_back(tempIndices[1]);
-				indices.push_back(tempIndices[2]);
-			}
-		}
-		file.ignore(1000, '\n');
-	}
-}
+            uint32_t newIndex = static_cast<uint32_t>(outVertices.size());
+            outVertices.push_back(v);
+            cache.emplace(key, newIndex);
+
+            if (debug) {
+                dbgTrip.push_back({ ix.p, ix.t, ix.n });
+                std::cout << "  [emit] i=" << newIndex
+                    << "  p/t/n=" << ix.p << "/" << ix.t << "/" << ix.n
+                    << "  pos=(" << v.pos.x << "," << v.pos.y << "," << v.pos.z << ")"
+                    << "  uv=(" << v.texCoord.x << "," << v.texCoord.y << ")"
+                    << "  n=(" << v.normal.x << "," << v.normal.y << "," << v.normal.z << ")\n";
+            }
+            return newIndex;
+            };
+
+        // Push triangle with degeneracy check
+        auto pushTri = [&](uint32_t ia, uint32_t ib, uint32_t ic) {
+            if (ia == ib || ib == ic || ia == ic) {
+                if (debug) std::cerr << "[degenerate] duplicate indices: "
+                    << ia << "," << ib << "," << ic << "\n";
+                if (dropDegenerate) return;
+            }
+
+            glm::vec3 A = outVertices[ia].pos;
+            glm::vec3 B = outVertices[ib].pos;
+            glm::vec3 C = outVertices[ic].pos;
+            float area2 = glm::length(glm::cross(B - A, C - A));
+
+            if (area2 < 1e-8f) {
+                if (debug) std::cerr << "[degenerate] zero-area tri: "
+                    << ia << "," << ib << "," << ic
+                    << "  A=(" << A.x << "," << A.y << "," << A.z << ")"
+                    << "  B=(" << B.x << "," << B.y << "," << B.z << ")"
+                    << "  C=(" << C.x << "," << C.y << "," << C.z << ")\n";
+                if (dropDegenerate) return;
+            }
+
+            outIndices.push_back(ia);
+            outIndices.push_back(ib);
+            outIndices.push_back(ic);
+            };
+
+        // Faces
+        size_t idxCursor = 0;
+        for (unsigned f = 0; f < m->face_count; ++f) {
+            unsigned fv = m->face_vertices[f];
+            if (debug) {
+                std::cout << "Face " << f << " (fv=" << fv << "): ";
+                for (unsigned k = 0; k < fv; ++k) {
+                    const fastObjIndex ix = m->indices[idxCursor + k];
+                    std::cout << "(" << ix.p << "/" << ix.t << "/" << ix.n << ") ";
+                }
+                std::cout << "\n";
+            }
+
+            std::vector<uint32_t> cornerIdx;
+            cornerIdx.reserve(fv);
+            for (unsigned k = 0; k < fv; ++k) {
+                const fastObjIndex ix = m->indices[idxCursor + k];
+                cornerIdx.push_back(emitVertex(ix));
+            }
+
+            // Fan triangulation
+            for (unsigned i = 1; i + 1 < fv; ++i) {
+                uint32_t i0 = cornerIdx[0];
+                uint32_t i1 = cornerIdx[i];
+                uint32_t i2 = cornerIdx[i + 1];
+                if (flipWinding) std::swap(i1, i2);
+                pushTri(i0, i1, i2);
+            }
+
+            idxCursor += fv;
+        }
+
+        fast_obj_destroy(m);
+
+        if (debug) {
+            std::cout << "Vertices: " << outVertices.size()
+                << "  Indices: " << outIndices.size() << "\n";
+
+            // last few vertices
+            if (!outVertices.empty()) {
+                std::cout << "Last vertices:\n";
+                size_t start = outVertices.size() > 8 ? outVertices.size() - 8 : 0;
+                for (size_t i = start; i < outVertices.size(); ++i) {
+                    const auto& v = outVertices[i];
+                    const auto& t = dbgTrip[i];
+                    std::cout << "  VTX " << i
+                        << "  p/t/n=" << t.p << "/" << t.t << "/" << t.n
+                        << "  pos=(" << v.pos.x << "," << v.pos.y << "," << v.pos.z << ")"
+                        << "  uv=(" << v.texCoord.x << "," << v.texCoord.y << ")"
+                        << "  n=(" << v.normal.x << "," << v.normal.y << "," << v.normal.z << ")\n";
+                }
+            }
+
+            // last few triangles
+            if (!outIndices.empty()) {
+                std::cout << "Last triangles (by indices):\n";
+                uint32_t triCount = static_cast<uint32_t>(outIndices.size() / 3);
+                uint32_t show = std::min<uint32_t>(6, triCount);
+                for (uint32_t t = triCount - show; t < triCount; ++t) {
+                    uint32_t ia = outIndices[3 * t + 0];
+                    uint32_t ib = outIndices[3 * t + 1];
+                    uint32_t ic = outIndices[3 * t + 2];
+                    glm::vec3 A = outVertices[ia].pos;
+                    glm::vec3 B = outVertices[ib].pos;
+                    glm::vec3 C = outVertices[ic].pos;
+                    std::cout << "  tri " << t << ": "
+                        << ia << "," << ib << "," << ic
+                        << "  A=(" << A.x << "," << A.y << "," << A.z << ")"
+                        << "  B=(" << B.x << "," << B.y << "," << B.z << ")"
+                        << "  C=(" << C.x << "," << C.y << "," << C.z << ")\n";
+                }
+            }
+        }
+
+        return true;
+    }
+
+} // namespace ObjUtils

@@ -179,7 +179,7 @@ void DataBuffer::bindAsVertexBuffer(VkCommandBuffer commandBuffer) {
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, bufs, offs);
 }
 void DataBuffer::bindAsIndexBuffer(VkCommandBuffer commandBuffer) {
-    vkCmdBindIndexBuffer(commandBuffer, m_VkBuffer, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdBindIndexBuffer(commandBuffer, m_VkBuffer, 0, VK_INDEX_TYPE_UINT32);
 }
 
 VkBuffer DataBuffer::getVkBuffer() { return m_VkBuffer; }

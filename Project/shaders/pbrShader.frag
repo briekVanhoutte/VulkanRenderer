@@ -89,4 +89,5 @@ void main() {
 
     vec3 color = AMBIENT * albedo + lightIntensity * (diffuse + specular);
     outColor = vec4(color, 1.0);
+
 }

@@ -7,6 +7,7 @@
 #include <Engine/Platform/Windows/VulkanSurface_Windows.h>
 #include <Engine/Graphics/MaterialManager.h>
 #include <Engine/Scene/MeshScene.h>
+#include <Engine/Scene/SceneModelManager.h>
 
 RendererManager::RendererManager() {
 }
@@ -132,6 +133,9 @@ void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Ca
 	m_Pipeline3d.setUbo(vp);
 	m_PipelineParticles.setUbo(vp);
 
+	float renderDistance = m_RenderDistance; // add a member, e.g. default 200.0f
+	SceneModelManager::getInstance().setFrameView(vp.cameraPos, renderDistance);
+
 	auto& texMgr = TextureManager::GetInstance();
 	if (texMgr.isTextureListDirty()) { m_Pipeline3d.updateDescriptorSets(); texMgr.clearTextureListDirty(); }
 
@@ -156,8 +160,18 @@ void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Ca
 		for (Pipeline* p : stage.pipelines) {
 			if (p == &m_PipelinePostProcess) continue;
 			for (const RenderItem& item : renderItems) {
-				if (p == &m_Pipeline3d && item.pipelineIndex == 0) p->Record(imageIndex, stage.renderPass, *stage.framebuffers, vk.swapChainExtent, *item.scene);
-				else if (p == &m_PipelineParticles && item.pipelineIndex == 1) p->Record(imageIndex, stage.renderPass, *stage.framebuffers, vk.swapChainExtent, *item.scene);
+
+				if (p == &m_Pipeline3d && item.pipelineIndex == 0)
+				{
+					p->Record(imageIndex, stage.renderPass, *stage.framebuffers, vk.swapChainExtent, *item.scene);
+
+				}
+				if (m_EnableNormals && p == &m_PipelineNormals && item.pipelineIndex == 0)
+				{
+					p->Record(imageIndex, stage.renderPass, *stage.framebuffers, vk.swapChainExtent, *item.scene);
+				}
+
+				if (p == &m_PipelineParticles && item.pipelineIndex == 1) p->Record(imageIndex, stage.renderPass, *stage.framebuffers, vk.swapChainExtent, *item.scene);
 			}
 		}
 
@@ -216,7 +230,9 @@ void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Ca
 	}
 
 	vk.currentFrame++;
-}void RendererManager::Cleanup() {
+}
+
+void RendererManager::Cleanup() {
 
 }
 
@@ -692,6 +708,16 @@ void RendererManager::initPipeLines() {
 	m_Pipeline3d.Initialize("shaders/pbrShader.vert.spv", "shaders/pbrShader.frag.spv",
 		Vertex::getBindingDescription(), Vertex::getAttributeDescriptions(),
 		VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+
+	PipelineConfig ncfg{};
+	ncfg.renderPass = m_RenderPassOffscreen;
+	ncfg.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	ncfg.enableDepthTest = true;
+	ncfg.enableDepthWrite = false;
+	ncfg.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL; // or EQUAL
+	m_PipelineNormals.Initialize("shaders/normals.vert.spv", "shaders/normals.frag.spv",
+		Vertex::getBindingDescription(), Vertex::getAttributeDescriptions(), ncfg);
+
 	m_PipelineParticles.Initialize("shaders/particleShader.vert.spv", "shaders/particleShader.frag.spv",
 		Particle::getBindingDescription(), Particle::getAttributeDescriptions(),
 		VK_PRIMITIVE_TOPOLOGY_POINT_LIST);
@@ -816,7 +842,7 @@ void RendererManager::setupStages() {
 	gbufferStage.name = "GBuffer";
 	gbufferStage.renderPass = m_RenderPassOffscreen;
 	gbufferStage.framebuffers = &m_OffscreenFramebuffers;
-	gbufferStage.pipelines = { &m_Pipeline3d, &m_PipelineParticles };
+	gbufferStage.pipelines = { &m_Pipeline3d, &m_PipelineParticles, &m_PipelineNormals };
 	gbufferStage.hasDepth = true;
 
 	RenderStage postStage;

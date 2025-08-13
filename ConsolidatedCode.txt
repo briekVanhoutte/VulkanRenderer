@@ -392,19 +392,38 @@ private:
 #include <memory>
 class Mesh {
 public:
-	Mesh(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices, const std::shared_ptr<Material> mat = {});
+	Mesh(const std::vector<Vertex>& Vertexes, const std::vector<uint32_t>& indices, const std::shared_ptr<Material> mat = {});
 	void initialize(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue);
 	void destroyMesh(const VkDevice& device);
 
 	void setPosition(glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles);
 	glm::vec3 getPostion() { return m_Position; }
 	void addVertex(glm::vec3 pos, glm::vec3 color, glm::vec3 normal);
-	void addTriangle(uint16_t i1, uint16_t i2, uint16_t i3, uint16_t offset = 0);
+	void addTriangle(uint32_t i1, uint32_t i2, uint32_t i3, uint32_t offset = 0);
 
+	VkBuffer getVertexBuffer() const {
+		// Replace getBuffer() with your DataBuffer accessor name if different
+		return m_VertexBuffer ? m_VertexBuffer->getVkBuffer() : VK_NULL_HANDLE;
+	}
+	VkBuffer getIndexBuffer() const {
+		return m_IndexBuffer ? m_IndexBuffer->getVkBuffer() : VK_NULL_HANDLE;
+	}
+	VkDeviceSize getVBOffset() const { return 0; } // if DataBuffer tracks offsets, return it here
+	VkDeviceSize getIBOffset() const { return 0; }
+
+	uint32_t getIndexCount() const { return static_cast<uint32_t>(m_Indices.size()); }
+
+	const std::shared_ptr<Material>& getMaterial() const { return m_Material; }
+
+	bool isInitialized() const { return m_VertexBuffer && m_IndexBuffer; }
+
+	// Optional (handy later):
+	const std::vector<Vertex>& cpuVertices() const { return m_Vertices; }
+	const std::vector<uint32_t>& cpuIndices() const { return m_Indices; }
 	void draw(VkPipelineLayout pipelineLayout, VkCommandBuffer commandBuffer);
 private:
 	std::vector<Vertex> m_Vertices;
-	std::vector<uint16_t> m_Indices;
+	std::vector<uint32_t> m_Indices;
 	std::unique_ptr<DataBuffer> m_VertexBuffer;
 	std::unique_ptr<DataBuffer> m_IndexBuffer;
 
@@ -694,7 +713,7 @@ private:
     Pipeline m_Pipeline3d;
     Pipeline m_PipelineParticles;
     Pipeline m_PipelinePostProcess;
-
+    float m_RenderDistance{ 20.f };
     std::vector<RenderStage> m_RenderStages;
 
     VkRenderPass m_RenderPassOffscreen = VK_NULL_HANDLE; // scene (color+depth), final = COLOR_ATTACHMENT_OPTIMAL
@@ -728,7 +747,7 @@ private:
 
     std::vector<VkFramebuffer> swapChainFramebuffers;
     std::array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> imageAvailableSemaphores;
-    std::array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> renderFinishedSemaphores;
+    std::vector<VkSemaphore> renderFinishedPerImage;
     std::array<VkFence, MAX_FRAMES_IN_FLIGHT> inFlightFences;
 
     std::vector<VkFence> imagesInFlight;
@@ -1204,111 +1223,131 @@ struct Camera
 
 ----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\ObjUtils\ObjUtils.h -----
 
-#pragma once
+#include "fast_obj.h"
+#include <unordered_map>
+#include <tuple>
 
-#include <Engine/Graphics/Vertex.h>
-#include <Engine/Graphics/Particle.h>
-#include <cstddef>
-#include <vector>
-#include <fstream>
-#include <optional>
-#include <array>
-#include <glm/glm.hpp>
+// Key = (p,t,n) triplet into fast_obj buffers
+struct Triplet {
+    uint32_t p, t, n;
+    bool operator==(const Triplet& o) const { return p == o.p && t == o.t && n == o.n; }
+};
+struct TripletHash {
+    size_t operator()(const Triplet& k) const noexcept {
+        size_t h = 1469598103934665603ull;
+        auto mix = [&](uint64_t x) { h ^= x + 0x9e3779b97f4a7c15ull + (h << 6) + (h >> 2); };
+        mix(k.p); mix(k.t); mix(k.n); return h;
+    }
+};
 
-static bool ParseOBJ(const std::string& filename, std::vector<Vertex>& vertices, std::vector<uint16_t>& indices,glm::vec3 color ,bool flipAxisAndWinding = true)
+// Fill your vertex/index arrays from a .obj
+// flipV : keep false if your textures are already “V up”; true if you need v = 1 - v.
+// flipWinding : swap i1<->i2 per triangle if your pipeline expects opposite winding.
+bool ParseOBJ(const char* path,
+    std::vector<Vertex>& outVertices,
+    std::vector<uint32_t>& outIndices,
+    bool flipV = false,
+    bool flipWinding = false)
 {
-	std::ifstream file(filename);
-	if (!file)
-		return false;
+    fastObjMesh* m = fast_obj_read(path);
+    if (!m) return false;
 
-	std::vector<glm::vec3> positions{};
-	std::vector<glm::vec3> normals{};
-	std::vector<glm::vec2> UVs{};
+    // --- Pre-pass stats (before you touch outVertices/outIndices) ---
+    {
+        size_t triTotal = 0, idxTotal = 0, nTri = 0, nQuad = 0, nNgon = 0;
+        for (unsigned f = 0; f < m->face_count; ++f) {
+            unsigned fv = m->face_vertices[f];
+            if (fv >= 3) {
+                triTotal += (fv - 2);
+                idxTotal += 3 * (fv - 2);
+                if (fv == 3) ++nTri;
+                else if (fv == 4) ++nQuad;
+                else if (fv > 4) ++nNgon;
+            }
+        }
+        std::cout << "faces=" << m->face_count
+            << "  tris=" << triTotal
+            << "  indices=" << idxTotal
+            << "  (tri=" << nTri
+            << ", quad=" << nQuad
+            << ", ngon=" << nNgon << ")\n";
+    }
 
-	vertices.clear();
-	indices.clear();
+    outVertices.clear();
+    outIndices.clear();
+    outVertices.reserve(m->index_count); // upper bound
 
-	std::string sCommand;
-	while (!file.eof())
-	{
-		file >> sCommand;
+    std::unordered_map<Triplet, uint32_t, TripletHash> cache;
+    cache.reserve(m->index_count);
 
-		if (sCommand == "#")
-		{
-			// Ignore Comment
-		}
-		else if (sCommand == "v")
-		{
+    // Iterate faces; m->face_vertices[i] = polygon size of face i
+    size_t idxCursor = 0;
+    for (unsigned f = 0; f < m->face_count; ++f) {
+        unsigned fv = m->face_vertices[f]; // 3 for tri, 4 for quad, etc.
 
-			float x, y, z;
-			file >> x >> y >> z;
+        // Grab all corners (Triplet list)
+        std::vector<uint32_t> cornerIdx; cornerIdx.reserve(fv);
+        auto emitVertex = [&](const fastObjIndex& ix) -> uint32_t {
+            Triplet key{ ix.p, ix.t, ix.n }; // note: 1-based or 0 if missing
+            auto it = cache.find(key);
+            if (it != cache.end()) return it->second;
 
-			positions.emplace_back(x, y, z);
-		}
-		else if (sCommand == "vt")
-		{
-			// Vertex TexCoord
-			float u, v;
-			file >> u >> v;
-			UVs.emplace_back(u, 1 - v);
-		}
-		else if (sCommand == "vn")
-		{
-			// Vertex Normal
-			float x, y, z;
-			file >> x >> y >> z;
+            Vertex v{};
+            v.color = glm::vec3(1.0f);
+            // Position
+            if (ix.p) {
+                const float* P = &m->positions[3 * (ix.p - 1)];
+                v.pos = glm::vec3(P[0], P[1], P[2]);
+            }
+            else {
+                v.pos = glm::vec3(0);
+            }
+            // UV
+            if (ix.t) {
+                const float* T = &m->texcoords[2 * (ix.t - 1)];
+                v.texCoord = glm::vec2(T[0], flipV ? (1.0f - T[1]) : T[1]);
+            }
+            else {
+                v.texCoord = glm::vec2(0);
+            }
+            // Normal
+            if (ix.n) {
+                const float* N = &m->normals[3 * (ix.n - 1)];
+                v.normal = glm::vec3(N[0], N[1], N[2]);
+            }
+            else {
+                v.normal = glm::vec3(0, 1, 0);
+            }
 
-			normals.emplace_back(x, y, z);
-		}
-		else if (sCommand == "f")
-		{
-			Vertex vertex{};
-			size_t iPosition, iTexCoord, iNormal;
+            uint32_t newIndex = static_cast<uint32_t>(outVertices.size());
 
-			uint16_t tempIndices[3];
-			for (size_t iFace = 0; iFace < 3; iFace++)
-			{
-				file >> iPosition;
-	
-				vertex.pos = positions[iPosition - 1];
+            outVertices.push_back(v);
+            cache.emplace(key, newIndex);
+            return newIndex;
+            };
 
-				if ('/' == file.peek())
-				{
-					file.ignore();
+        // Build corner list
+        for (unsigned k = 0; k < fv; ++k) {
+            const fastObjIndex ix = m->indices[idxCursor + k];
+            cornerIdx.push_back(emitVertex(ix));
+        }
 
-					if ('/' != file.peek())
-					{
-						file >> iTexCoord;
-					}
+        // Triangulate as fan: (0, i, i+1)
+        for (unsigned i = 1; i + 1 < fv; ++i) {
+            uint32_t i0 = cornerIdx[0];
+            uint32_t i1 = cornerIdx[i];
+            uint32_t i2 = cornerIdx[i + 1];
+            if (flipWinding) std::swap(i1, i2);
+            outIndices.push_back(i0);
+            outIndices.push_back(i1);
+            outIndices.push_back(i2);
+        }
 
-					if ('/' == file.peek())
-					{
-						file.ignore();
+        idxCursor += fv;
+    }
 
-						file >> iNormal;
-						vertex.normal = normals[iNormal - 1];
-					}
-				}
-
-				vertex.color = color;
-				vertices.push_back(vertex);
-				tempIndices[iFace] = uint16_t(vertices.size()) - 1;
-			}
-
-			indices.push_back(tempIndices[0]);
-			if (flipAxisAndWinding)
-			{
-				indices.push_back(tempIndices[2]);
-				indices.push_back(tempIndices[1]);
-			}
-			else
-			{
-				indices.push_back(tempIndices[1]);
-				indices.push_back(tempIndices[2]);
-			}
-		}
-		file.ignore(1000, '\n');
-	}
+    fast_obj_destroy(m);
+    return true;
 }
 
 ----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\ObjUtils\ObjUtils.h -----
@@ -1546,6 +1585,288 @@ public:
 ----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Platform\Windows\VulkanSurface_Windows.h -----
 
 
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Scene\ChunkGrid.h -----
+
+#pragma once
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+#include <glm/glm.hpp>
+#include "MeshKeyUtil.h"
+
+
+struct ChunkCoord { int x, y, z; };
+inline bool operator==(const ChunkCoord& a, const ChunkCoord& b) {
+    return a.x == b.x && a.y == b.y && a.z == b.z;
+}
+struct ChunkCoordHash {
+    size_t operator()(const ChunkCoord& c) const noexcept {
+        size_t h = 1469598103934665603ull;
+        auto mix = [&](int v) { h ^= (size_t)v + 0x9e3779b97f4a7c15ull + (h << 6) + (h >> 2); };
+        mix(c.x); mix(c.y); mix(c.z); return h;
+    }
+};
+
+//class BaseObject;
+
+
+struct Chunk {
+    std::unordered_map<MeshKey, std::vector<BaseObject*>, MeshKeyHash> batches;
+};
+
+enum class SpatialTag : uint8_t { SingleChunk, MultiChunk, Global };
+
+struct SpatialInfo {
+    SpatialTag tag = SpatialTag::SingleChunk;
+    glm::vec3  halfExtents{ 0.0f }; // for MultiChunk, AABB half-extents in world space
+
+    bool       overrideEnabled = false;
+    glm::vec3  overrideCenter{ 0.0f };
+    glm::vec3  overrideHalfExtents{ 0.0f };
+};
+
+struct BatchRef {
+    ChunkCoord chunk{};
+    size_t     indexInBatch{};
+};
+
+// NOTE: This is the ONLY ObjectHandle definition
+struct ObjectHandle {
+    MeshKey key{};
+    bool    isGlobal = false;
+    std::vector<BatchRef> perChunkRefs; // empty for global
+    size_t  globalIndex = SIZE_MAX;     // valid only if isGlobal==true
+};
+
+
+
+class ChunkGrid {
+public:
+    explicit ChunkGrid(float chunkSize = 32.f) : m_chunkSize(chunkSize) {}
+
+    void setCulling(const glm::vec3& camPos, float renderDistance) {
+        m_camPos = camPos; m_renderDistance = renderDistance;
+        m_chunkRadius = (int)glm::ceil(renderDistance / m_chunkSize);
+    }
+
+    void add(BaseObject* obj, const MeshKey& key) {
+        // If spatial info not set yet, default SingleChunk
+        (void)m_spatial[obj];
+        insertAccordingToSpatial(obj, key);
+    }
+
+    void remove(BaseObject* obj) {
+        auto it = m_handles.find(obj);
+        if (it == m_handles.end()) return;
+
+        ObjectHandle h = it->second;
+        if (h.isGlobal) {
+            auto gIt = m_globalBatches.find(h.key);
+            if (gIt != m_globalBatches.end()) {
+                auto& vec = gIt->second;
+                size_t last = vec.size() - 1;
+                std::swap(vec[h.globalIndex], vec[last]);
+                BaseObject* moved = vec[h.globalIndex];
+                if (moved) m_handles[moved].globalIndex = h.globalIndex;
+                vec.pop_back();
+                if (vec.empty()) m_globalBatches.erase(gIt);
+            }
+        }
+        else {
+            // Remove from every chunk batch we’re in
+            for (const BatchRef& ref : h.perChunkRefs) {
+                auto chIt = m_chunks.find(ref.chunk);
+                if (chIt == m_chunks.end()) continue;
+                auto bIt = chIt->second.batches.find(h.key);
+                if (bIt == chIt->second.batches.end()) continue;
+                auto& vec = bIt->second;
+                size_t last = vec.size() - 1;
+                std::swap(vec[ref.indexInBatch], vec[last]);
+                BaseObject* moved = vec[ref.indexInBatch];
+                if (moved) {
+                    // Fix moved element’s BatchRef pointing to this same chunk/key
+                    auto& mh = m_handles[moved];
+                    for (auto& mref : mh.perChunkRefs) {
+                        if (mref.chunk.x == ref.chunk.x && mref.chunk.y == ref.chunk.y && mref.chunk.z == ref.chunk.z) {
+                            mref.indexInBatch = ref.indexInBatch;
+                            break;
+                        }
+                    }
+                }
+                vec.pop_back();
+                if (vec.empty()) chIt->second.batches.erase(h.key);
+                if (chIt->second.batches.empty()) m_chunks.erase(chIt);
+            }
+        }
+        m_handles.erase(it);
+    }
+
+    // call when obj moved or changed material/mesh
+    void update(BaseObject* obj, const MeshKey& newKey) {
+        auto it = m_handles.find(obj);
+        if (it == m_handles.end()) { add(obj, newKey); return; }
+        // Simple + safe: remove + reinsert (keeps logic centralized)
+        remove(obj);
+        insertAccordingToSpatial(obj, newKey);
+    }
+
+    void setCoverageOverride(BaseObject* obj, const glm::vec3& center, const glm::vec3& halfExtents) {
+        SpatialInfo& s = m_spatial[obj];
+        s.overrideEnabled = true;
+        s.overrideCenter = center;
+        s.overrideHalfExtents = halfExtents;
+        auto it = m_handles.find(obj);
+        if (it != m_handles.end()) update(obj, it->second.key); // reinsert with new coverage
+    }
+
+    // Remove coverage override (falls back to Single/Multi behavior)
+    void clearCoverageOverride(BaseObject* obj) {
+        SpatialInfo& s = m_spatial[obj];
+        if (!s.overrideEnabled) return;
+        s.overrideEnabled = false;
+        auto it = m_handles.find(obj);
+        if (it != m_handles.end()) update(obj, it->second.key);
+    }
+
+    template<typename Fn>
+    void forVisibleBatches(Fn&& fn) {
+        std::unordered_set<BaseObject*> visited;
+
+        // visible chunks
+        ChunkCoord cc = toChunk(m_camPos);
+        for (int z = -m_chunkRadius; z <= m_chunkRadius; ++z)
+            for (int y = -m_chunkRadius; y <= m_chunkRadius; ++y)
+                for (int x = -m_chunkRadius; x <= m_chunkRadius; ++x) {
+                    ChunkCoord c{ cc.x + x, cc.y + y, cc.z + z };
+                    auto it = m_chunks.find(c);
+                    if (it == m_chunks.end()) continue;
+
+                    // sphere-ish cutoff
+                    glm::vec3 center = fromChunk(c);
+                    if (glm::distance(center, m_camPos) > (m_chunkRadius + 0.5f) * m_chunkSize) continue;
+
+                    for (auto& kv : it->second.batches) {
+                        const MeshKey& key = kv.first;
+                        const auto& vec = kv.second;
+                        if (vec.empty()) continue;
+
+                        // filter out duplicates (multi-chunk objects may appear in several chunks)
+                        std::vector<BaseObject*> unique;
+                        unique.reserve(vec.size());
+                        for (BaseObject* o : vec) {
+                            if (visited.insert(o).second) unique.push_back(o);
+                        }
+                        if (!unique.empty()) fn(key, unique);
+                    }
+                }
+
+        // always-visible globals (no need to dedup: they are not in chunks)
+        for (auto& kv : m_globalBatches) {
+            if (!kv.second.empty()) fn(kv.first, kv.second);
+        }
+    }
+
+    float chunkSize() const { return m_chunkSize; }
+
+    void setGlobal(BaseObject* obj, bool enable) {
+        SpatialInfo& s = m_spatial[obj];
+        s.tag = enable ? SpatialTag::Global : SpatialTag::SingleChunk;
+        // If already registered, reinsert with new behavior
+        auto it = m_handles.find(obj);
+        if (it != m_handles.end()) {
+            MeshKey k = it->second.key;
+            update(obj, k);
+        }
+    }
+
+    // Mark as multi-chunk with world half-extents (axis-aligned); set (0,0,0) to revert to single-chunk
+    void setMultiChunk(BaseObject* obj, const glm::vec3& halfExtents) {
+        SpatialInfo& s = m_spatial[obj];
+        s.halfExtents = halfExtents;
+        s.tag = (glm::any(glm::greaterThan(halfExtents, glm::vec3(0.0f))))
+            ? SpatialTag::MultiChunk
+            : SpatialTag::SingleChunk;
+        auto it = m_handles.find(obj);
+        if (it != m_handles.end()) {
+            MeshKey k = it->second.key;
+            update(obj, k);
+        }
+    }
+
+private:
+    // You already have BaseObject::getPosition()
+    static glm::vec3 getPos(const BaseObject* obj);
+
+    // Insert based on SpatialInfo tag (used by add/update)
+    void insertAccordingToSpatial(BaseObject* obj, const MeshKey& key) {
+        const SpatialInfo& s = m_spatial[obj];
+        ObjectHandle handle;
+        handle.key = key;
+
+        if (s.tag == SpatialTag::Global) {
+            auto& vec = m_globalBatches[key];
+            vec.push_back(obj);
+            handle.isGlobal = true;
+            handle.globalIndex = vec.size() - 1;
+            m_handles[obj] = std::move(handle);
+            return;
+        }
+
+        // Single or Multi: compute chunk list
+        glm::vec3 C;
+        glm::vec3 he;
+
+        if (s.overrideEnabled) {
+            C = s.overrideCenter;
+            he = s.overrideHalfExtents;
+        }
+        else {
+            C = getPos(obj);
+            he = (s.tag == SpatialTag::MultiChunk) ? s.halfExtents : glm::vec3(0.0f);
+        }
+        glm::vec3 minP = C - he;
+        glm::vec3 maxP = C + he;
+        ChunkCoord minC = toChunk(minP);
+        ChunkCoord maxC = toChunk(maxP);
+
+        // clamp to reasonable range if needed; here we trust data
+        for (int z = minC.z; z <= maxC.z; ++z)
+            for (int y = minC.y; y <= maxC.y; ++y)
+                for (int x = minC.x; x <= maxC.x; ++x) {
+                    ChunkCoord c{ x,y,z };
+                    auto& vec = m_chunks[c].batches[key];
+                    vec.push_back(obj);
+                    handle.perChunkRefs.push_back(BatchRef{ c, vec.size() - 1 });
+                }
+
+        handle.isGlobal = false;
+        m_handles[obj] = std::move(handle);
+    }
+
+    ChunkCoord toChunk(const glm::vec3& p) const {
+        return ChunkCoord{ (int)glm::floor(p.x / m_chunkSize),
+                           (int)glm::floor(p.y / m_chunkSize),
+                           (int)glm::floor(p.z / m_chunkSize) };
+    }
+    glm::vec3 fromChunk(const ChunkCoord& c) const {
+        return { (c.x + 0.5f) * m_chunkSize, (c.y + 0.5f) * m_chunkSize, (c.z + 0.5f) * m_chunkSize };
+    }
+
+
+    float m_chunkSize{ 32.f };
+    glm::vec3 m_camPos{ 0 };
+    float m_renderDistance{ 128.f };
+    int m_chunkRadius{ 4 };
+
+    std::unordered_map<ChunkCoord, Chunk, ChunkCoordHash> m_chunks;
+    std::unordered_map<MeshKey, std::vector<BaseObject*>, MeshKeyHash> m_globalBatches;
+    std::unordered_map<BaseObject*, ObjectHandle> m_handles;
+    std::unordered_map<BaseObject*, SpatialInfo>  m_spatial;
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Scene\ChunkGrid.h -----
+
+
 ----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Scene\GameSceneManager.h -----
 
 #pragma once
@@ -1592,6 +1913,68 @@ private:
 ----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Scene\GameSceneManager.h -----
 
 
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Scene\MeshKeyUtil.h -----
+
+#pragma once
+#include <vulkan/vulkan_core.h>
+#include <cstdint>
+#include <functional>
+
+// Forward declare to avoid heavy includes first
+class BaseObject;
+
+struct MeshKey {
+    VkBuffer vertexBuffer{};
+    VkDeviceSize vbOffset{};
+    VkBuffer indexBuffer{};
+    VkDeviceSize ibOffset{};
+    uint32_t indexCount{};
+    const void* materialPtr{};
+    uint32_t pipelineIndex{};
+
+    uint64_t logicalId{ 0 };
+
+    bool operator==(const MeshKey& o) const {
+        return vertexBuffer == o.vertexBuffer && vbOffset == o.vbOffset &&
+            indexBuffer == o.indexBuffer && ibOffset == o.ibOffset &&
+            indexCount == o.indexCount && materialPtr == o.materialPtr &&
+            pipelineIndex == o.pipelineIndex;
+    }
+};
+
+struct MeshKeyHash {
+    size_t operator()(const MeshKey& k) const noexcept {
+        auto h = std::hash<uint64_t>{}(reinterpret_cast<uint64_t>(k.vertexBuffer));
+        h ^= std::hash<uint64_t>{}(reinterpret_cast<uint64_t>(k.indexBuffer)) + 0x9e3779b9 + (h << 6) + (h >> 2);
+        h ^= std::hash<uint64_t>{}(k.vbOffset) + 0x85ebca6b + (h << 6) + (h >> 2);
+        h ^= std::hash<uint64_t>{}(k.ibOffset) + 0xc2b2ae35 + (h << 6) + (h >> 2);
+        h ^= std::hash<uint32_t>{}(k.indexCount) + (h << 6) + (h >> 2);
+        h ^= std::hash<uint64_t>{}(reinterpret_cast<uint64_t>(k.materialPtr)) + (h << 6) + (h >> 2);
+        h ^= std::hash<uint32_t>{}(k.pipelineIndex);
+        h ^= std::hash<uint64_t>{}(k.logicalId);
+        return h;
+    }
+};
+
+
+#include <Engine/Scene/GameObjects/BaseObject.h>
+
+inline MeshKey MakeMeshKey(const BaseObject* obj, uint32_t pipelineIndex) {
+    return MeshKey{
+        obj->getVertexBuffer(),
+        obj->getVBOffset(),
+        obj->getIndexBuffer(),
+        obj->getIBOffset(),
+        obj->getIndexCount(),
+        obj->getMaterial().get(),
+        pipelineIndex,
+        obj->getLogicalGroupId()   // << NEW
+    };
+}
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Scene\MeshKeyUtil.h -----
+
+
 ----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Scene\MeshScene.h -----
 
 #pragma once
@@ -1604,6 +1987,8 @@ private:
 #include <Engine/Scene/GameObjects/BaseObject.h>
 #include <Engine/Scene/Scene.h>
 #include <glm\gtx\quaternion.hpp>
+#include "MeshKeyUtil.h"
+#include "ChunkGrid.h"
 
 static inline void basisFromNormal(const glm::vec3& nIn,
     glm::vec3& t, glm::vec3& b, glm::vec3& n)
@@ -1623,15 +2008,33 @@ enum class ObjType {
 
 class MeshScene : public Scene{
 public:
+    explicit MeshScene(float chunkSize = 32.f) : m_chunks(chunkSize) {}
 
-    unsigned int addModel(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles, const std::shared_ptr<Material> mat = {})
+
+    void setObjectCoverageOverride(BaseObject* obj, glm::vec3 center, glm::vec3 halfExtents) {
+        m_chunks.setCoverageOverride(obj, center, halfExtents);
+    }
+    void clearObjectCoverageOverride(BaseObject* obj) {
+        m_chunks.clearCoverageOverride(obj);
+    }
+
+    unsigned int addModel(const std::vector<Vertex>& Vertexes, const std::vector<uint32_t>& indices, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles, const std::shared_ptr<Material> mat = {})
     {
-        BaseObject* object = new BaseObject{ Vertexes, indices ,mat };
-
+        BaseObject* object = new BaseObject{ Vertexes, indices, mat };
         object->setPosition(position, scale, rotationAngles);
         m_BaseObjects.push_back(object);
+        m_pendingToRegister.push_back(object);
+        return static_cast<unsigned int>(m_BaseObjects.size() - 1);
+    }
 
-        return m_BaseObjects.size() - 1;
+    void setObjectGlobal(BaseObject* obj, bool enable) { m_chunks.setGlobal(obj, enable); }
+    void setObjectMultiChunk(BaseObject* obj, glm::vec3 halfExtents) { m_chunks.setMultiChunk(obj, halfExtents); }
+
+    void setObjectGlobal(unsigned int idx, bool enable) {
+        if (idx < m_BaseObjects.size()) m_chunks.setGlobal(m_BaseObjects[idx], enable);
+    }
+    void setObjectMultiChunk(unsigned int idx, glm::vec3 halfExtents) {
+        if (idx < m_BaseObjects.size()) m_chunks.setMultiChunk(m_BaseObjects[idx], halfExtents);
     }
 
     BaseObject* getBaseObject(unsigned int modelId)
@@ -1668,14 +2071,14 @@ public:
         glm::vec2 uv3(0.0f, 1.0f);
 
         std::vector<Vertex> vertices;
-        std::vector<uint16_t> indices;
+        std::vector<uint32_t> indices;
 
         vertices.push_back({ p0, N, color, uv0 });
         vertices.push_back({ p1, N, color, uv1 });
         vertices.push_back({ p2, N, color, uv2 });
         vertices.push_back({ p3, N, color, uv3 });
 
-        uint16_t base = 0;
+        uint32_t base = 0;
         indices.push_back(base + 0);
         indices.push_back(base + 1);
         indices.push_back(base + 2);
@@ -1684,8 +2087,9 @@ public:
         indices.push_back(base + 3);
 
         BaseObject* object = new BaseObject{ vertices, indices, mat };
-        object->setPosition(position, scale, rotationAngles); // world transform
+        object->setPosition(position, scale, rotationAngles);
         m_BaseObjects.push_back(object);
+        m_pendingToRegister.push_back(object);
         return static_cast<unsigned int>(m_BaseObjects.size() - 1);
     }
 
@@ -1693,34 +2097,56 @@ public:
         for (auto& object : m_BaseObjects) {
             object->init(physicalDevice, device, commandPool, graphicsQueue);
         }
+        // Now buffers exist ? register into chunks with MeshKey (pipelineIndex=0 for 3D)
+        for (BaseObject* o : m_pendingToRegister) {
+            if (o->isInitialized())
+                m_chunks.add(o, MakeMeshKey(o, 0));
+        }
+        m_pendingToRegister.clear();
     }
 
-    void drawScene(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer) {
-        for (auto& object : m_BaseObjects) {
-            object->draw(pipelineLayout, buffer);
-        }
+    void setFrameView(const glm::vec3& cameraPos, float renderDistance) {
+        m_chunks.setCulling(cameraPos, renderDistance);
+    }
+
+    void drawScene(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer) override {
+        m_chunks.forVisibleBatches([&](const MeshKey& key, const std::vector<BaseObject*>& batch) {
+            for (BaseObject* obj : batch) {
+                obj->draw(pipelineLayout, buffer);
+            }
+            });
     }
 
     void updateLocationObject(unsigned int pos, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles) {
-        if (pos < m_BaseObjects.size()) {
-            m_BaseObjects[pos]->setPosition(position, scale, rotationAngles);
-        }
+        if (pos >= m_BaseObjects.size()) return;
+        BaseObject* obj = m_BaseObjects[pos];
+        obj->setPosition(position, scale, rotationAngles);
+        m_chunks.update(obj, MakeMeshKey(obj, 0));
+    }
+
+    void notifyMoved(BaseObject* obj) {
+        if (!obj) return;
+        m_chunks.update(obj, MakeMeshKey(obj, 0));
     }
 
     glm::vec3 getLocation(unsigned int pos) {
-        if (pos < m_BaseObjects.size()) {
-            return m_BaseObjects[pos]->getPosition();
-        }
+        if (pos < m_BaseObjects.size()) return m_BaseObjects[pos]->getPosition();
+        return glm::vec3(0);
     }
 
-    void deleteScene(VkDevice device) {
+    void deleteScene(VkDevice device) override {
         for (auto& object : m_BaseObjects) {
+            m_chunks.remove(object);
             object->destroy(device);
+            delete object;
         }
+        m_BaseObjects.clear();
     }
 
 private:
     std::vector<BaseObject*> m_BaseObjects{};
+    std::vector<BaseObject*> m_pendingToRegister{};
+    ChunkGrid m_chunks;
 };
 
 
@@ -1838,7 +2264,7 @@ public:
     }
 
     BaseObject* addMeshModel(const std::vector<Vertex>& vertices,
-        const std::vector<uint16_t>& indices,
+        const std::vector<uint32_t>& indices,
         glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles, const std::shared_ptr<Material> mat = {})
     {
         unsigned int index = m_meshScene->addModel(vertices, indices, position, scale, rotationAngles, mat);
@@ -1870,20 +2296,24 @@ public:
         return m_sceneObjects;
     }
 
+    void setFrameView(const glm::vec3& cameraPos, float renderDistance) {
+        if (m_meshScene) m_meshScene->setFrameView(cameraPos, renderDistance);
+        // ParticleScene can stay as-is for now.
+    }
+
     void updateObjectTransform(size_t index, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles) {
-        if (index >= m_sceneObjects.size()) {
-            return;
+        if (index >= m_sceneObjects.size()) return;
+        const SceneObject& so = m_sceneObjects[index];
+        if (so.type == SceneModelType::Mesh) {
+            auto* obj = std::get<BaseObject*>(so.object);
+            if (!obj) return;
+            obj->setPosition(position, scale, rotationAngles);
+            // NEW: make chunk membership consistent
+            if (m_meshScene) m_meshScene->notifyMoved(obj);
         }
-        const SceneObject& sceneObj = m_sceneObjects[index];
-        if (sceneObj.type == SceneModelType::Mesh) {
-            BaseObject* obj = std::get<BaseObject*>(sceneObj.object);
-            if (obj)
-                obj->setPosition(position, scale, rotationAngles);
-        }
-        else if (sceneObj.type == SceneModelType::Particle) {
-            ParticleGroup* obj = std::get<ParticleGroup*>(sceneObj.object);
-            if (obj)
-                obj->setPosition(position, scale, rotationAngles);
+        else if (so.type == SceneModelType::Particle) {
+            auto* obj = std::get<ParticleGroup*>(so.object);
+            if (obj) obj->setPosition(position, scale, rotationAngles);
         }
     }
 
@@ -1924,7 +2354,7 @@ private:
 
 class BaseObject {
 public:
-    BaseObject(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices, const std::shared_ptr<Material> mat = {}) {
+    BaseObject(const std::vector<Vertex>& Vertexes, const std::vector<uint32_t>& indices, const std::shared_ptr<Material> mat = {}) {
         mesh = std::make_unique<Mesh>(Vertexes, indices, mat);
     }
    
@@ -1947,8 +2377,26 @@ public:
     void destroy(VkDevice device) {
         mesh->destroyMesh(device);
     }
+
+    // --- NEW: pass-through getters for batching ---
+    VkBuffer getVertexBuffer() const { return mesh->getVertexBuffer(); }
+    VkBuffer getIndexBuffer()  const { return mesh->getIndexBuffer(); }
+    VkDeviceSize getVBOffset() const { return mesh->getVBOffset(); }
+    VkDeviceSize getIBOffset() const { return mesh->getIBOffset(); }
+    uint32_t getIndexCount()   const { return mesh->getIndexCount(); }
+    const std::shared_ptr<Material>& getMaterial() const { return mesh->getMaterial(); }
+    bool isInitialized() const { return mesh->isInitialized(); }
+
+    // Optional:
+    Mesh* rawMesh() { return mesh.get(); }
+    const Mesh* rawMesh() const { return mesh.get(); }
+
+    void setLogicalGroupId(uint64_t id) { m_logicalGroupId = id; }
+    uint64_t getLogicalGroupId() const { return m_logicalGroupId; }
+
 protected:
     std::unique_ptr<Mesh> mesh;
+    uint64_t m_logicalGroupId = 0;   // 0 = not grouped
 };
 
 ----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Scene\GameObjects\BaseObject.h -----
@@ -2051,26 +2499,37 @@ private:
 #include <vector>
 #include <string>
 #include <iostream>
+#include <memory>
+#include <Engine/Graphics/Material.h>
 
 class ModelMeshComponent : public Component {
 public:
-    ModelMeshComponent(GameObject* parent, const std::string& modelFile) {
+    // NEW: take an optional material (default null like your primitives)
+    ModelMeshComponent(GameObject* parent,
+        const std::string& modelFile,
+        const std::shared_ptr<Material> mat = {},
+        bool makeGlobal = false,
+        bool groupByFile = true)
+        : m_modelFile(modelFile)
+        , m_material(mat)
+        , m_makeGlobal(makeGlobal)
+        , m_groupByFile(groupByFile)
+    {
         setParent(parent);
         addModelToScene(modelFile);
     }
 
-    void initialize() override {
-        std::cout << "ModelMeshComponent initialized." << std::endl;
-    }
-    void update() override {
-        std::cout << "ModelMeshComponent updated." << std::endl;
-    }
-    void render() override {
-        std::cout << "ModelMeshComponent rendered." << std::endl;
-    }
+    void initialize() override { std::cout << "ModelMeshComponent initialized.\n"; }
+    void update() override { std::cout << "ModelMeshComponent updated.\n"; }
+    void render() override { std::cout << "ModelMeshComponent rendered.\n"; }
 
 private:
-    void addModelToScene(const std::string& modelFile); 
+    void addModelToScene(const std::string& modelFile);
+
+    std::string m_modelFile;
+    std::shared_ptr<Material> m_material;   // NEW
+    bool m_makeGlobal = false;
+    bool m_groupByFile = true;
 };
 
 ----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Scene\GameObjects\ModelMeshComponent.h -----
@@ -2092,7 +2551,9 @@ enum class PrimitiveType {
 
 class PrimitiveMeshComponent : public Component {
 public:
-    PrimitiveMeshComponent(GameObject* parent, PrimitiveType type, float width = 1.f, float height = 1.f, float depth = 1.f, const std::shared_ptr<Material> mat = {}) {
+    PrimitiveMeshComponent(GameObject* parent, PrimitiveType type, float width = 1.f, float height = 1.f, float depth = 1.f, const std::shared_ptr<Material> mat = {}, bool makeGlobal = false)
+        :m_makeGlobal(makeGlobal)
+    {
         setParent(parent);
         addPrimitiveToScene(type, width, height, depth, mat);
     }
@@ -2110,6 +2571,7 @@ public:
 private:
     // Updated to accept dimensions.
     void addPrimitiveToScene(PrimitiveType type, float width, float height, float depth, const std::shared_ptr<Material> mat = {});
+    bool m_makeGlobal = false;
 };
 
 ----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Scene\GameObjects\PrimitiveMeshComponent.h -----

@@ -257,7 +257,7 @@ void Pipeline::CreatePipeline(VkDevice device, VkRenderPass renderPass, VkPrimit
 	depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 	depthStencil.depthTestEnable = m_Config.enableDepthTest ? VK_TRUE : VK_FALSE;
 	depthStencil.depthWriteEnable = m_Config.enableDepthWrite ? VK_TRUE : VK_FALSE;
-	depthStencil.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+	depthStencil.depthCompareOp = m_Config.depthCompareOp;
 	depthStencil.depthBoundsTestEnable = VK_FALSE;
 	depthStencil.stencilTestEnable = VK_FALSE;
 

@@ -27,7 +27,7 @@ struct PipelineConfig {
 	// If provided, Pipeline will use these instead of ShaderBase’s layout & sets.
 	VkDescriptorSetLayout externalSetLayout = VK_NULL_HANDLE;
 	const std::vector<VkDescriptorSet>* externalSets = nullptr;
-
+	VkCompareOp depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 	// If true, Record() draws a fullscreen triangle (3 verts) instead of Scene.
 	bool fullscreenTriangle = false;
 };

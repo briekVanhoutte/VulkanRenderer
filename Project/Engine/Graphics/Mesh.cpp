@@ -10,7 +10,7 @@
 #include "MeshData.h"
 
 
-Mesh::Mesh(const std::vector<Vertex>& Vertexes, const std::vector<uint16_t>& indices, const std::shared_ptr<Material> mat)
+Mesh::Mesh(const std::vector<Vertex>& Vertexes, const std::vector<uint32_t>& indices, const std::shared_ptr<Material> mat)
 	:m_Vertices(Vertexes), m_Indices(indices)
 {
 	m_VertexConstant = {};
@@ -113,16 +113,17 @@ void Mesh::draw(VkPipelineLayout pipelineLayout, VkCommandBuffer commandBuffer) 
 	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(m_Indices.size()), 1, 0, 0, 0);
 }
 
-void Mesh::addVertex(glm::vec3 pos, glm::vec3 color, glm::vec3 normal) {
+void Mesh::addVertex(glm::vec3 pos, glm::vec3 color, glm::vec3 normal, glm::vec2 uv) {
 	Vertex newVertex{};
 	newVertex.pos = pos;
 	newVertex.color = color;
 	newVertex.normal = normal;
+	newVertex.texCoord = uv;
 
 	m_Vertices.push_back(newVertex);
 }
 
-void Mesh::addTriangle(uint16_t i1, uint16_t i2, uint16_t i3, uint16_t offset)
+void Mesh::addTriangle(uint32_t i1, uint32_t i2, uint32_t i3, uint32_t offset)
 {
 	m_Indices.push_back(i1 + offset * 3);
 	m_Indices.push_back(i2 + offset * 3);

@@ -89,6 +89,7 @@ void Game::initScene() {
         "Resources/Textures/Rocks/rocks_displacement.jpg");
     std::shared_ptr<Material> bronzeMat = std::make_shared<Material>("Resources/Textures/errorTexture.jpg");
     std::shared_ptr<Material> testMat = std::make_shared<Material>("Resources/Textures/testTexture.jpg");
+    std::shared_ptr<Material> catMat = std::make_shared<Material>("Resources/Textures/Cat/Cat_diffuse.jpg");
     std::shared_ptr<Material> kdhMat = std::make_shared<Material>("Resources/Textures/kdh.jpg");
     std::shared_ptr<Material> errorMat = std::make_shared<Material>();
 
@@ -103,16 +104,50 @@ void Game::initScene() {
     // --- 3) Big ground plane centered under the camera -------------------------
     {
         GameObject* ground = m_GameScene.addGameObject();
-        ground->getTransform()->position = glm::vec3(camPos.x, camPos.y - 1.0f, camPos.z);
+        ground->getTransform()->position = glm::vec3(camPos.x,0.f, camPos.z);
         ground->getTransform()->scale = glm::vec3(1.f);
         ground->getTransform()->rotation = glm::vec3(0.f, 0.f, 0.f);
         ground->addComponent<PrimitiveMeshComponent>(
-            ground, PrimitiveType::Plane, 200.f, 200.f, 1.f, stoneMat);
+            ground, PrimitiveType::Plane, 200.f, 200.f, 1.f, stoneMat,true);
+    }
+
+    // --- Sprinkle some cats ------------------------------------------------------
+    {
+        // Tunables
+        const int   maxCats = 30;      // <= max amount
+        const float areaR = 10.f;    // place cats in [-areaR, +areaR] on X/Z
+        const float baseY = 0.f;     // height to place them at
+        const glm::vec3 baseRot = glm::vec3(270, 90.f, 180.f); // your original pitch
+
+        // "scaling var const"
+        const float catScaleMin = 0.01f;
+        const float catScaleMax = 0.1f;
+
+        // RNG bits (uses your existing rng; if you don't have one, make: std::mt19937 rng{std::random_device{}()};)
+        std::uniform_real_distribution<float> posOff(-areaR, areaR);
+        std::uniform_real_distribution<float> jitter(-0.10f, 0.10f);
+        std::uniform_real_distribution<float> scaleDist(catScaleMin, catScaleMax);
+
+        int placed = 0;
+        while (placed < maxCats) {
+            const float x = posOff(rng);
+            const float z = posOff(rng);
+            const float s = scaleDist(rng);
+            const float yaw = -90;
+
+            GameObject* cat = m_GameScene.addGameObject();
+            cat->getTransform()->position = glm::vec3(x + jitter(rng), baseY, z + jitter(rng));
+            cat->getTransform()->scale = glm::vec3(s);                    // uniform scale
+            cat->getTransform()->rotation = baseRot + glm::vec3(0.f, yaw, 0.f); // keep -90° pitch, random yaw
+
+            cat->addComponent<ModelMeshComponent>(cat, "Resources/Models/cat.obj", catMat, false);
+            ++placed;
+        }
     }
 
     // --- Tiny randomized stacked cubes ------------------------------------------
     {
-        const int   maxCubes = 1000;
+        const int   maxCubes = 10;
         const int   columns = 1800;
         const float areaR = 20.f;
         const float baseY = camPos.y - 0.5f;

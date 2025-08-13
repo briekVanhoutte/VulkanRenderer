@@ -12,22 +12,25 @@ enum class PrimitiveType {
 
 class PrimitiveMeshComponent : public Component {
 public:
-    PrimitiveMeshComponent(GameObject* parent, PrimitiveType type, float width = 1.f, float height = 1.f, float depth = 1.f, const std::shared_ptr<Material> mat = {}) {
+    PrimitiveMeshComponent(GameObject* parent, PrimitiveType type, float width = 1.f, float height = 1.f, float depth = 1.f, const std::shared_ptr<Material> mat = {}, bool makeGlobal = false)
+        :m_makeGlobal(makeGlobal)
+    {
         setParent(parent);
         addPrimitiveToScene(type, width, height, depth, mat);
     }
 
     void initialize() override {
-        std::cout << "PrimitiveMeshComponent initialized." << std::endl;
+        
     }
     void update() override {
-        std::cout << "PrimitiveMeshComponent updated." << std::endl;
+        
     }
     void render() override {
-        std::cout << "PrimitiveMeshComponent rendered." << std::endl;
+        
     }
 
 private:
     // Updated to accept dimensions.
     void addPrimitiveToScene(PrimitiveType type, float width, float height, float depth, const std::shared_ptr<Material> mat = {});
+    bool m_makeGlobal = false;
 };

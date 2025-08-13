@@ -32,7 +32,7 @@ public:
     }
 
     BaseObject* addMeshModel(const std::vector<Vertex>& vertices,
-        const std::vector<uint16_t>& indices,
+        const std::vector<uint32_t>& indices,
         glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles, const std::shared_ptr<Material> mat = {})
     {
         unsigned int index = m_meshScene->addModel(vertices, indices, position, scale, rotationAngles, mat);
@@ -64,20 +64,24 @@ public:
         return m_sceneObjects;
     }
 
+    void setFrameView(const glm::vec3& cameraPos, float renderDistance) {
+        if (m_meshScene) m_meshScene->setFrameView(cameraPos, renderDistance);
+        // ParticleScene can stay as-is for now.
+    }
+
     void updateObjectTransform(size_t index, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles) {
-        if (index >= m_sceneObjects.size()) {
-            return;
+        if (index >= m_sceneObjects.size()) return;
+        const SceneObject& so = m_sceneObjects[index];
+        if (so.type == SceneModelType::Mesh) {
+            auto* obj = std::get<BaseObject*>(so.object);
+            if (!obj) return;
+            obj->setPosition(position, scale, rotationAngles);
+            // NEW: make chunk membership consistent
+            if (m_meshScene) m_meshScene->notifyMoved(obj);
         }
-        const SceneObject& sceneObj = m_sceneObjects[index];
-        if (sceneObj.type == SceneModelType::Mesh) {
-            BaseObject* obj = std::get<BaseObject*>(sceneObj.object);
-            if (obj)
-                obj->setPosition(position, scale, rotationAngles);
-        }
-        else if (sceneObj.type == SceneModelType::Particle) {
-            ParticleGroup* obj = std::get<ParticleGroup*>(sceneObj.object);
-            if (obj)
-                obj->setPosition(position, scale, rotationAngles);
+        else if (so.type == SceneModelType::Particle) {
+            auto* obj = std::get<ParticleGroup*>(so.object);
+            if (obj) obj->setPosition(position, scale, rotationAngles);
         }
     }
 

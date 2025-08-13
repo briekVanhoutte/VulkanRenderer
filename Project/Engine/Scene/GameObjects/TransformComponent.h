@@ -15,14 +15,14 @@ public:
     glm::vec3 rotation;
 
     void initialize() override {
-        std::cout << "TransformComponent initialized." << std::endl;
+        
     }
 
     void update() override {
-        std::cout << "TransformComponent updated." << std::endl;
+        
     }
 
     void render() override {
-        std::cout << "TransformComponent rendered." << std::endl;
+        
     }
 };
