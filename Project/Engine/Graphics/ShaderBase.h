@@ -19,6 +19,10 @@ class ShaderBase {
 public:
     ShaderBase() {};
     ShaderBase( const std::string& vertexShaderPath, const std::string& fragmentShaderPath);
+    void initialize(const VkPhysicalDevice& vkPhysicalDevice,
+        const VkDevice& vkDevice,
+        const std::vector<VkVertexInputBindingDescription>& bindings,
+        std::vector<VkVertexInputAttributeDescription> attributes);
     ~ShaderBase();
 
     void Destroy(const VkDevice& vkDevice);
@@ -65,6 +69,8 @@ private:
 
     //test
     std::shared_ptr<Texture> m_Tex;
+
+    std::vector<VkVertexInputBindingDescription>  m_VkVertexInputBindingDescs; // keep alive
 };
 
 #endif

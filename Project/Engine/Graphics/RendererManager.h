@@ -66,7 +66,7 @@ private:
     Pipeline m_PipelinePostProcess;
     Pipeline m_PipelineNormals;
     bool m_EnableNormals = false;
-    float m_RenderDistance{ 20.f };
+    float m_RenderDistance{ 200.f };
     std::vector<RenderStage> m_RenderStages;
 
     VkRenderPass m_RenderPassOffscreen = VK_NULL_HANDLE; // scene (color+depth), final = COLOR_ATTACHMENT_OPTIMAL

@@ -89,7 +89,7 @@ void Game::initScene() {
         "Resources/Textures/Rocks/rocks_displacement.jpg");
     std::shared_ptr<Material> bronzeMat = std::make_shared<Material>("Resources/Textures/errorTexture.jpg");
     std::shared_ptr<Material> testMat = std::make_shared<Material>("Resources/Textures/testTexture.jpg");
-    std::shared_ptr<Material> catMat = std::make_shared<Material>("Resources/Textures/Cat/Cat_diffuse.jpg");
+    std::shared_ptr<Material> catMat = std::make_shared<Material>("Resources/Textures/Cat/Cat_diffuse.jpg", "", "", "");
     std::shared_ptr<Material> kdhMat = std::make_shared<Material>("Resources/Textures/kdh.jpg");
     std::shared_ptr<Material> errorMat = std::make_shared<Material>();
 
@@ -114,13 +114,13 @@ void Game::initScene() {
     // --- Sprinkle some cats ------------------------------------------------------
     {
         // Tunables
-        const int   maxCats = 30;      // <= max amount
+        const int   maxCats = 20;      // <= max amount
         const float areaR = 10.f;    // place cats in [-areaR, +areaR] on X/Z
         const float baseY = 0.f;     // height to place them at
-        const glm::vec3 baseRot = glm::vec3(270, 90.f, 180.f); // your original pitch
+        const glm::vec3 baseRot = glm::vec3(90, 90.f, 180.f); // your original pitch
 
         // "scaling var const"
-        const float catScaleMin = 0.01f;
+        const float catScaleMin = 0.1f;
         const float catScaleMax = 0.1f;
 
         // RNG bits (uses your existing rng; if you don't have one, make: std::mt19937 rng{std::random_device{}()};)
@@ -147,16 +147,16 @@ void Game::initScene() {
 
     // --- Tiny randomized stacked cubes ------------------------------------------
     {
-        const int   maxCubes = 10;
+        const int   maxCubes = 100;
         const int   columns = 1800;
-        const float areaR = 20.f;
-        const float baseY = camPos.y - 0.5f;
+        const float areaR = 10.f;
+        const float baseY = 0.f;
         const glm::vec3 center(0, baseY, 0);
 
         std::uniform_real_distribution<float> posOff(-areaR, areaR);
         std::uniform_real_distribution<float> jitter(-0.03f, 0.03f);
         std::uniform_int_distribution<int>    stackCount(3, 12);
-        std::uniform_real_distribution<float> sizeDist(1.f, 5.f);
+        std::uniform_real_distribution<float> sizeDist(1.f, 1.f);
         std::uniform_int_distribution<int>    rotPick(0, 3);
         std::uniform_int_distribution<size_t> matPick(0, cubeMats.empty() ? 0 : cubeMats.size() - 1);
 
@@ -208,6 +208,11 @@ void Game::initScene() {
         vulkan_vars.device,
         vulkan_vars.commandPoolModelPipeline.m_CommandPool,
         vulkan_vars.graphicsQueue);
+
+    auto& sm = SceneModelManager::getInstance();
+    sm.getMeshScene()->debugPrintVisibleBatches(std::cout);   // what will be drawn this frame
+    //sm.getMeshScene()->getChunkGrid().debugPrintStorage(std::cout); // if you expose getChunkGrid()
+    //sm.getMeshScene()->getChunkGrid().debugPrintObjectPlacement(std::cout);
 }
 
 void Game::run() {

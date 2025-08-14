@@ -122,6 +122,20 @@ void Pipeline::Record(uint32_t imageIndex, VkRenderPass renderPass, const std::v
 	//updateUniformBuffer(imageIndex, swapChainExtent);
 }
 
+void Pipeline::Initialize(const std::string& vs, const std::string& fs, const std::vector<VkVertexInputBindingDescription>& bindings, std::vector<VkVertexInputAttributeDescription> attributes, const PipelineConfig& cfg)
+{
+	auto& vk = vulkanVars::GetInstance();
+	m_Config = cfg;
+	m_UseExternalDescriptors = (m_Config.externalSetLayout != VK_NULL_HANDLE && m_Config.externalSets != nullptr);
+
+	m_Shader = std::make_unique<ShaderBase>(vs, fs);
+	m_Shader->initialize(vk.physicalDevice, vk.device, bindings, attributes);
+	if (!m_UseExternalDescriptors) m_Shader->createDescriptorSetLayout(vk.device);
+	if (m_Config.enableDepthTest || m_Config.enableDepthWrite)
+		createDepthResources(vk.physicalDevice, vk.device, vk.swapChainExtent);
+	CreatePipeline(vk.device, (m_Config.renderPass ? m_Config.renderPass : vk.renderPass), m_Config.topology);
+}
+
 void Pipeline::drawScene(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene)
 {
 	auto& vulkan_vars = vulkanVars::GetInstance();
@@ -281,9 +295,9 @@ void Pipeline::CreatePipeline(VkDevice device, VkRenderPass renderPass, VkPrimit
 	pipelineInfo.subpass = 0;
 
 
-	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_Pipeline3d) != VK_SUCCESS) {
-		throw std::runtime_error("failed to create graphics pipeline!");
-	}
+	VkResult r = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_Pipeline3d);
+	fprintf(stderr, "vkCreateGraphicsPipelines => %d, handle=%p\n", r, (void*)m_Pipeline3d);
+	if (r != VK_SUCCESS) throw std::runtime_error("failed to create graphics pipeline!");
 
 	//auto& vertexInput = m_Shader->getVertexInputStateInfo();
 

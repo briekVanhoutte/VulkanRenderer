@@ -20,6 +20,7 @@ Mesh::Mesh(const std::vector<Vertex>& Vertexes, const std::vector<uint32_t>& ind
 }
 
 void Mesh::initialize(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue) {
+	if (isInitialized()) return;
 	CreateVertexBuffer(physicalDevice, device, commandPool, graphicsQueue);
 
 	CreateIndexBuffer(physicalDevice, device, commandPool, graphicsQueue);

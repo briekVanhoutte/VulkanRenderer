@@ -10,6 +10,10 @@
 #include <glm\gtx\quaternion.hpp>
 #include "MeshKeyUtil.h"
 #include "ChunkGrid.h"
+#include <unordered_map>
+#include <Engine/Graphics/InstanceData.h>
+#include <Engine/Graphics/VulkanVars.h>
+#include <Engine/Graphics/MeshManager.h>
 
 static inline void basisFromNormal(const glm::vec3& nIn,
     glm::vec3& t, glm::vec3& b, glm::vec3& n)
@@ -67,48 +71,27 @@ public:
         return nullptr;
     }
 
+    const ChunkGrid& getChunkGrid() const { return m_chunks; }
+    ChunkGrid& getChunkGrid() { return m_chunks; }
+
     unsigned int addRectangle(const glm::vec3& normal,
         const glm::vec3& color,
         float width, float height,
         glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles,
         const std::shared_ptr<Material> mat = {})
     {
-        float halfW = width * 0.5f;
-        float halfH = height * 0.5f;
+        auto quad = MeshManager::GetInstance().GetUnitQuad();
+        auto* object = new BaseObject{ quad, mat };
 
-        // Build a stable local frame from the normal
-        glm::vec3 T, B, N;
-        basisFromNormal(normal, T, B, N);
+        // align +Z to 'normal'
+        glm::vec3 n = glm::normalize(normal);
+        glm::quat qAlign = glm::rotation(glm::vec3(0, 0, 1), n);
+        glm::quat qUser = glm::quat(glm::radians(rotationAngles));
+        glm::quat qFinal = qUser * qAlign;
 
-        // Positions in that frame: X→T (width), Y→B (height), Z along N
-        glm::vec3 p0 = (-halfW) * T + (-halfH) * B; // bottom-left
-        glm::vec3 p1 = (+halfW) * T + (-halfH) * B; // bottom-right
-        glm::vec3 p2 = (+halfW) * T + (+halfH) * B; // top-right
-        glm::vec3 p3 = (-halfW) * T + (+halfH) * B; // top-left
+        glm::vec3 finalScale = scale * glm::vec3(width, height, 1.0f);
+        object->setPosition(position, finalScale, glm::degrees(glm::eulerAngles(qFinal)));
 
-        glm::vec2 uv0(0.0f, 0.0f);
-        glm::vec2 uv1(1.0f, 0.0f);
-        glm::vec2 uv2(1.0f, 1.0f);
-        glm::vec2 uv3(0.0f, 1.0f);
-
-        std::vector<Vertex> vertices;
-        std::vector<uint32_t> indices;
-
-        vertices.push_back({ p0, N, color, uv0 });
-        vertices.push_back({ p1, N, color, uv1 });
-        vertices.push_back({ p2, N, color, uv2 });
-        vertices.push_back({ p3, N, color, uv3 });
-
-        uint32_t base = 0;
-        indices.push_back(base + 0);
-        indices.push_back(base + 1);
-        indices.push_back(base + 2);
-        indices.push_back(base + 0);
-        indices.push_back(base + 2);
-        indices.push_back(base + 3);
-
-        BaseObject* object = new BaseObject{ vertices, indices, mat };
-        object->setPosition(position, scale, rotationAngles);
         m_BaseObjects.push_back(object);
         m_pendingToRegister.push_back(object);
         return static_cast<unsigned int>(m_BaseObjects.size() - 1);
@@ -126,16 +109,20 @@ public:
         m_pendingToRegister.clear();
     }
 
-    void setFrameView(const glm::vec3& cameraPos, float renderDistance) {
-        m_chunks.setCulling(cameraPos, renderDistance);
-    }
-
-    void drawScene(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer) override {
-        m_chunks.forVisibleBatches([&](const MeshKey& key, const std::vector<BaseObject*>& batch) {
-            for (BaseObject* obj : batch) {
-                obj->draw(pipelineLayout, buffer);
-            }
-            });
+    void setFrameView(const glm::vec3& camPos, float renderDistance,
+        const glm::vec3& camForward,
+        bool use2D,
+        float frontConeDegrees,
+        bool useCenterTest) 
+    {
+        m_chunks.setCulling(
+            camPos,
+            renderDistance,
+            camForward,   // your view dir
+            use2D,            // use2D (ignore Y)
+            frontConeDegrees,          // front-cone degrees; -1 disables
+            useCenterTest             // use center-distance test
+        );;
     }
 
     void updateLocationObject(unsigned int pos, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles) {
@@ -164,9 +151,19 @@ public:
         m_BaseObjects.clear();
     }
 
+    void drawScene(VkPipelineLayout& pipelineLayout, VkCommandBuffer& cmd);
+    void debugPrintVisibleBatches(std::ostream& os);
+
+    void setChunksEnabled(bool enabled) { m_chunksEnabled = enabled; }
+    bool chunksEnabled() const { return m_chunksEnabled; }
+
 private:
     std::vector<BaseObject*> m_BaseObjects{};
     std::vector<BaseObject*> m_pendingToRegister{};
+    std::unordered_map<MeshKey, std::array<std::unique_ptr<DataBuffer>, MAX_FRAMES_IN_FLIGHT>, MeshKeyHash> m_instanceBuffers;
+    DataBuffer* getOrGrowInstanceBuffer(const MeshKey& key, size_t neededCount);
+    
     ChunkGrid m_chunks;
+    bool m_chunksEnabled = true;
 };
 

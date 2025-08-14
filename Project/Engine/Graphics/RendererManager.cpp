@@ -8,6 +8,8 @@
 #include <Engine/Graphics/MaterialManager.h>
 #include <Engine/Scene/MeshScene.h>
 #include <Engine/Scene/SceneModelManager.h>
+#include <Engine/Graphics/InstanceData.h>
+
 
 RendererManager::RendererManager() {
 }
@@ -134,7 +136,12 @@ void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Ca
 	m_PipelineParticles.setUbo(vp);
 
 	float renderDistance = m_RenderDistance; // add a member, e.g. default 200.0f
-	SceneModelManager::getInstance().setFrameView(vp.cameraPos, renderDistance);
+
+	const bool use2d = true;
+	const bool useCenterTest = true;
+	const float frontSideDegrees = 200.f;
+
+	SceneModelManager::getInstance().setFrameView(vp.cameraPos, renderDistance,-camera.forward, use2d, frontSideDegrees, useCenterTest);
 
 	auto& texMgr = TextureManager::GetInstance();
 	if (texMgr.isTextureListDirty()) { m_Pipeline3d.updateDescriptorSets(); texMgr.clearTextureListDirty(); }
@@ -702,33 +709,60 @@ void RendererManager::createRenderPasses() {
 	vk.renderPass = m_RenderPassOffscreen;
 }
 void RendererManager::initPipeLines() {
-	auto& vulkan_vars = vulkanVars::GetInstance();
+	// ---- Instanced PBR pipeline (offscreen pass) ----
+// binding 0: mesh vertices, binding 1: per-instance data
+	std::vector<VkVertexInputBindingDescription> instBindings = {
+		Vertex::getBindingDescription(),               // binding 0 (per-vertex)
+		InstanceData::getBindingDescription(1)         // binding 1 (per-instance)
+	};
 
-	// Normal pipelines (offscreen pass)
-	m_Pipeline3d.Initialize("shaders/pbrShader.vert.spv", "shaders/pbrShader.frag.spv",
-		Vertex::getBindingDescription(), Vertex::getAttributeDescriptions(),
-		VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+	// attributes: mesh 0..3 + instance 4..9
+	auto meshAttribs = Vertex::getAttributeDescriptions();           // loc 0..3
+	auto instAttribs = InstanceData::getAttributeDescriptions(1, 4); // loc 4..9
+	meshAttribs.insert(meshAttribs.end(), instAttribs.begin(), instAttribs.end());
 
+	PipelineConfig pbr{};
+	pbr.renderPass = m_RenderPassOffscreen;
+	pbr.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	pbr.enableDepthTest = true;
+	pbr.enableDepthWrite = true;                 // write depth for main pass
+	pbr.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+	pbr.useVertexInput = true;
+	pbr.usePushConstants = false;                 // still fine; Mesh pushes pc
+
+	// IMPORTANT: do NOT call the single-binding Initialize first — call only this:
+	m_Pipeline3d.Initialize("shaders/pbrShader.vert.spv",
+		"shaders/pbrShader.frag.spv",
+		instBindings, std::move(meshAttribs),
+		pbr);
+
+	// ---- Normals (optional debug) ----
 	PipelineConfig ncfg{};
 	ncfg.renderPass = m_RenderPassOffscreen;
 	ncfg.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	ncfg.enableDepthTest = true;
 	ncfg.enableDepthWrite = false;
-	ncfg.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL; // or EQUAL
-	m_PipelineNormals.Initialize("shaders/normals.vert.spv", "shaders/normals.frag.spv",
-		Vertex::getBindingDescription(), Vertex::getAttributeDescriptions(), ncfg);
+	ncfg.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+	m_PipelineNormals.Initialize("shaders/normals.vert.spv",
+		"shaders/normals.frag.spv",
+		Vertex::getBindingDescription(),
+		Vertex::getAttributeDescriptions(),
+		ncfg);
 
-	m_PipelineParticles.Initialize("shaders/particleShader.vert.spv", "shaders/particleShader.frag.spv",
-		Particle::getBindingDescription(), Particle::getAttributeDescriptions(),
+	// ---- Particles (point list) ----
+	m_PipelineParticles.Initialize("shaders/particleShader.vert.spv",
+		"shaders/particleShader.frag.spv",
+		Particle::getBindingDescription(),
+		Particle::getAttributeDescriptions(),
 		VK_PRIMITIVE_TOPOLOGY_POINT_LIST);
 
-	// Post pipeline (present pass)
+	// ---- Post-process (present pass, fullscreen triangle) ----
 	PipelineConfig postCfg{};
 	postCfg.renderPass = m_RenderPassPresent;
 	postCfg.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	postCfg.enableDepthTest = false;
 	postCfg.enableDepthWrite = false;
-	postCfg.useVertexInput = false;   // fullscreen tri
+	postCfg.useVertexInput = false;   // fullscreen tri, no VB
 	postCfg.usePushConstants = false;
 	postCfg.fullscreenTriangle = true;
 	postCfg.externalSetLayout = m_PostSetLayout;

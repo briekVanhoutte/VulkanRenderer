@@ -38,6 +38,10 @@ public:
 	const std::vector<Vertex>& cpuVertices() const { return m_Vertices; }
 	const std::vector<uint32_t>& cpuIndices() const { return m_Indices; }
 	void draw(VkPipelineLayout pipelineLayout, VkCommandBuffer commandBuffer);
+
+	const glm::mat4& getModelMatrix() const { return m_VertexConstant.model; }
+
+	void setMaterial(std::shared_ptr<Material> mat) { m_Material = mat; }
 private:
 	std::vector<Vertex> m_Vertices;
 	std::vector<uint32_t> m_Indices;

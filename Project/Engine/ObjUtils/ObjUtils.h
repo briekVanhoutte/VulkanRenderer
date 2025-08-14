@@ -1,4 +1,4 @@
-// ObjUtils.h
+﻿// ObjUtils.h
 #pragma once
 
 // Include your Vertex definition first:
@@ -11,6 +11,8 @@
 #include <iostream>
 #include <algorithm>
 #include <iomanip>
+#include <string>
+#include <mutex>
 
 namespace ObjUtils {
 
@@ -42,13 +44,64 @@ namespace ObjUtils {
         bool debug = false,
         bool dropDegenerate = true)
     {
+        // ---- cache key from normalized path + flags ----
+        auto makeKey = [&](const char* p) -> uint64_t {
+            static constexpr uint64_t FNV_OFFSET = 1469598103934665603ull;
+            static constexpr uint64_t FNV_PRIME = 1099511628211ull;
+
+            // normalize to lower case so paths differing only by case share
+            std::string s = p ? std::string(p) : std::string();
+            std::transform(s.begin(), s.end(), s.begin(),
+                [](unsigned char c) { return (unsigned char)std::tolower(c); });
+
+            uint64_t h = FNV_OFFSET;
+            for (unsigned char c : s) { h ^= (uint64_t)c; h *= FNV_PRIME; }
+
+            // fold flags (debug omitted on purpose: it doesn't change geometry)
+            uint64_t flags = (flipV ? 1ull : 0ull) |
+                (flipWinding ? 2ull : 0ull) |
+                (dropDegenerate ? 4ull : 0ull);
+            // mix flags into hash
+            h ^= flags + 0x9e3779b97f4a7c15ull + (h << 6) + (h >> 2);
+            return h;
+            };
+
+        struct CacheEntry {
+            std::vector<Vertex>   verts;
+            std::vector<uint32_t> inds;
+        };
+
+        // one cache & mutex per process (function-local statics are OK in headers)
+        static std::mutex s_cacheMtx;
+        static std::unordered_map<uint64_t, CacheEntry> s_cache;
+
+        const uint64_t key = makeKey(path);
+
+        // ---- cache hit? ----
+        {
+            std::lock_guard<std::mutex> lock(s_cacheMtx);
+            auto it = s_cache.find(key);
+            if (it != s_cache.end()) {
+                outVertices = it->second.verts;
+                outIndices = it->second.inds;
+                if (debug) {
+                    std::cout << "\n--- ParseOBJ: \"" << (path ? path : "")
+                        << "\" [cache hit] ---\n"
+                        << "Vertices: " << outVertices.size()
+                        << "  Indices: " << outIndices.size() << "\n";
+                }
+                return true;
+            }
+        }
+
+        // ---- cache miss → load and build geometry ----
         fastObjMesh* m = fast_obj_read(path);
         if (!m) return false;
 
         if (debug) {
             std::cout.setf(std::ios::fixed);
             std::cout << std::setprecision(2)
-                << "\n--- ParseOBJ: \"" << path << "\" ---\n";
+                << "\n--- ParseOBJ: \"" << (path ? path : "") << "\" ---\n";
         }
 
         // Pre-pass stats
@@ -88,8 +141,8 @@ namespace ObjUtils {
             auto it = cache.find(key);
             if (it != cache.end()) return it->second;
 
-            Vertex v{};              // your Vertex default-ctor
-            v.color = glm::vec3(1);  // default white
+            Vertex v{};
+            v.color = glm::vec3(1);
 
             // Position
             if (ix.p) {
@@ -198,7 +251,6 @@ namespace ObjUtils {
             std::cout << "Vertices: " << outVertices.size()
                 << "  Indices: " << outIndices.size() << "\n";
 
-            // last few vertices
             if (!outVertices.empty()) {
                 std::cout << "Last vertices:\n";
                 size_t start = outVertices.size() > 8 ? outVertices.size() - 8 : 0;
@@ -213,7 +265,6 @@ namespace ObjUtils {
                 }
             }
 
-            // last few triangles
             if (!outIndices.empty()) {
                 std::cout << "Last triangles (by indices):\n";
                 uint32_t triCount = static_cast<uint32_t>(outIndices.size() / 3);
@@ -232,6 +283,12 @@ namespace ObjUtils {
                         << "  C=(" << C.x << "," << C.y << "," << C.z << ")\n";
                 }
             }
+        }
+
+        // ---- store in cache ----
+        {
+            std::lock_guard<std::mutex> lock(s_cacheMtx);
+            s_cache.emplace(key, CacheEntry{ outVertices, outIndices });
         }
 
         return true;

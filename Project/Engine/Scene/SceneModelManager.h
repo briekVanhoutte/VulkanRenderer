@@ -64,8 +64,12 @@ public:
         return m_sceneObjects;
     }
 
-    void setFrameView(const glm::vec3& cameraPos, float renderDistance) {
-        if (m_meshScene) m_meshScene->setFrameView(cameraPos, renderDistance);
+    void setFrameView(const glm::vec3& camPos, float renderDistance,
+        const glm::vec3& camForward,
+        bool use2D,
+        float frontConeDegrees,
+        bool useCenterTest) {
+        if (m_meshScene) m_meshScene->setFrameView(camPos, renderDistance, camForward,use2D, frontConeDegrees, useCenterTest);
         // ParticleScene can stay as-is for now.
     }
 

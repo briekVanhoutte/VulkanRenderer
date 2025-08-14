@@ -275,6 +275,56 @@ private:
 ----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\ImageDataBuffer.h -----
 
 
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\InstanceData.h -----
+
+// Engine/Graphics/InstanceData.h
+#pragma once
+#include <vulkan/vulkan_core.h>
+#include <glm/glm.hpp>
+#include <vector>
+
+struct InstanceData {
+    glm::mat4 model;     // 64
+    glm::uvec4 texIds0;  // 16
+    uint32_t   heightId; // 4
+    uint32_t   pad[3]{};
+
+    static VkVertexInputBindingDescription getBindingDescription(uint32_t binding = 1) {
+        VkVertexInputBindingDescription d{};
+        d.binding = binding;
+        d.stride = sizeof(InstanceData);
+        d.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
+        return d;
+    }
+
+    static std::vector<VkVertexInputAttributeDescription>
+        getAttributeDescriptions(uint32_t binding = 1, uint32_t startLocation = 4) {
+        std::vector<VkVertexInputAttributeDescription> a(6);
+
+        const uint32_t base = static_cast<uint32_t>(offsetof(InstanceData, model));
+        for (int i = 0; i < 4; ++i) {
+            a[i].binding = binding;
+            a[i].location = startLocation + i;               // 4,5,6,7
+            a[i].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+            a[i].offset = base + sizeof(glm::vec4) * i;    // <-- FIX
+        }
+
+        a[4].binding = binding;
+        a[4].location = startLocation + 4;                   // 8
+        a[4].format = VK_FORMAT_R32G32B32A32_UINT;
+        a[4].offset = static_cast<uint32_t>(offsetof(InstanceData, texIds0));
+
+        a[5].binding = binding;
+        a[5].location = startLocation + 5;                   // 9
+        a[5].format = VK_FORMAT_R32_UINT;
+        a[5].offset = static_cast<uint32_t>(offsetof(InstanceData, heightId));
+        return a;
+    }
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\InstanceData.h -----
+
+
 ----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\Material.h -----
 
 #pragma once
@@ -398,7 +448,7 @@ public:
 
 	void setPosition(glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles);
 	glm::vec3 getPostion() { return m_Position; }
-	void addVertex(glm::vec3 pos, glm::vec3 color, glm::vec3 normal);
+	void addVertex(glm::vec3 pos, glm::vec3 color, glm::vec3 normal, glm::vec2 uv);
 	void addTriangle(uint32_t i1, uint32_t i2, uint32_t i3, uint32_t offset = 0);
 
 	VkBuffer getVertexBuffer() const {
@@ -421,6 +471,10 @@ public:
 	const std::vector<Vertex>& cpuVertices() const { return m_Vertices; }
 	const std::vector<uint32_t>& cpuIndices() const { return m_Indices; }
 	void draw(VkPipelineLayout pipelineLayout, VkCommandBuffer commandBuffer);
+
+	const glm::mat4& getModelMatrix() const { return m_VertexConstant.model; }
+
+	void setMaterial(std::shared_ptr<Material> mat) { m_Material = mat; }
 private:
 	std::vector<Vertex> m_Vertices;
 	std::vector<uint32_t> m_Indices;
@@ -453,6 +507,51 @@ struct MeshData {
 };
 
 ----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\MeshData.h -----
+
+
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\MeshManager.h -----
+
+// MeshManager.h
+#pragma once
+#include <memory>
+#include <mutex>
+#include <unordered_map>
+#include <vector>
+#include <cstdint>
+
+#include <Engine/Graphics/Mesh.h>
+#include <Engine/Graphics/Material.h>
+#include <Engine/Graphics/Vertex.h>  // your Vertex
+#include <Engine/Core/Singleton.h>  // your Singleton<T>
+
+class MeshManager : public Singleton<MeshManager> {
+public:
+    // Deduplicate by CPU geometry content (material is NOT part of the key).
+    std::shared_ptr<Mesh> GetOrCreate(const std::vector<Vertex>& vertices,
+        const std::vector<uint32_t>& indices,
+        const std::shared_ptr<Material>& mat = {});
+
+    // Canonical unit quad (for rectangles/planes)
+    std::shared_ptr<Mesh> GetUnitQuad();
+
+    void Clear();
+
+private:
+    friend class Singleton<MeshManager>;
+    MeshManager() = default;
+
+    // --- hashing helpers (FNV-1a 64) ---
+    static uint64_t HashGeometry(const std::vector<Vertex>& v,
+        const std::vector<uint32_t>& idx);
+    static inline void Fnv1aAppend(uint64_t& h, const void* data, size_t nbytes);
+
+    std::mutex mtx_;
+    // Cache geometry by hash; weak_ptr lets meshes free when unused
+    std::unordered_map<uint64_t, std::weak_ptr<Mesh>> cache_;
+    std::weak_ptr<Mesh> unitQuad_;
+};
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\MeshManager.h -----
 
 
 ----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Graphics\Particle.h -----
@@ -567,7 +666,7 @@ struct PipelineConfig {
 	// If provided, Pipeline will use these instead of ShaderBase’s layout & sets.
 	VkDescriptorSetLayout externalSetLayout = VK_NULL_HANDLE;
 	const std::vector<VkDescriptorSet>* externalSets = nullptr;
-
+	VkCompareOp depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 	// If true, Record() draws a fullscreen triangle (3 verts) instead of Scene.
 	bool fullscreenTriangle = false;
 };
@@ -585,13 +684,18 @@ public:
 		const PipelineConfig& config);
 	void Initialize(const std::string& vertexShaderPath, const std::string& fragmentShaderPath, const VkVertexInputBindingDescription vkVertexInputBindingDesc, std::vector<VkVertexInputAttributeDescription> vkVertexInputAttributeDesc, VkPrimitiveTopology topology);
 	void Record(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene);
-
+	// Pipeline.h (add)
+	void Initialize(const std::string& vs, const std::string& fs,
+		const std::vector<VkVertexInputBindingDescription>& bindings,
+		std::vector<VkVertexInputAttributeDescription> attributes,
+		const PipelineConfig& cfg);
 	void setUbo(const UniformBufferObject& ubo) { m_Ubo = ubo; }
 	void updateDescriptorSets();
 	static VkFormat findDepthFormat(VkPhysicalDevice& vkPhysicalDevice, VkDevice& vkDevice);
 	VkImage getDepthImage() { return m_DepthImage; };
 	VkDeviceMemory getDepthImageMemory() { return m_DepthImageMemory; };
 	VkImageView getDepthImageView() { return m_DepthImageView; };
+	// Pipeline.h (add)
 
 private:
 	void drawScene(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene);
@@ -713,6 +817,8 @@ private:
     Pipeline m_Pipeline3d;
     Pipeline m_PipelineParticles;
     Pipeline m_PipelinePostProcess;
+    Pipeline m_PipelineNormals;
+    bool m_EnableNormals = false;
     float m_RenderDistance{ 20.f };
     std::vector<RenderStage> m_RenderStages;
 
@@ -821,6 +927,10 @@ class ShaderBase {
 public:
     ShaderBase() {};
     ShaderBase( const std::string& vertexShaderPath, const std::string& fragmentShaderPath);
+    void initialize(const VkPhysicalDevice& vkPhysicalDevice,
+        const VkDevice& vkDevice,
+        const std::vector<VkVertexInputBindingDescription>& bindings,
+        std::vector<VkVertexInputAttributeDescription> attributes);
     ~ShaderBase();
 
     void Destroy(const VkDevice& vkDevice);
@@ -867,6 +977,8 @@ private:
 
     //test
     std::shared_ptr<Texture> m_Tex;
+
+    std::vector<VkVertexInputBindingDescription>  m_VkVertexInputBindingDescs; // keep alive
 };
 
 #endif
@@ -1031,6 +1143,7 @@ struct Vertex
 		pos = {};
 		normal = {};
 		color = {};
+		texCoord = {};
 	}
 
 	static VkVertexInputBindingDescription getBindingDescription() {
@@ -1221,98 +1334,139 @@ struct Camera
 ----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Math\Camera.h -----
 
 
+----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\ObjUtils\DebugPrint.h -----
+
+#pragma once
+#include <string>
+#include <sstream>
+#include <iomanip>
+#include <cstdint>
+
+inline std::string ptrStr(const void* p) {
+    std::ostringstream ss;
+    ss << "0x" << std::hex << (uintptr_t)p;
+    return ss.str();
+}
+
+----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\ObjUtils\DebugPrint.h -----
+
+
 ----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\ObjUtils\ObjUtils.h -----
 
+// ObjUtils.h
+#pragma once
+
+// Include your Vertex definition first:
+#include <glm/glm.hpp>
 #include "fast_obj.h"
+#include <Engine/Graphics/Vertex.h>
+#include <cstdint>
+#include <vector>
 #include <unordered_map>
-#include <tuple>
+#include <iostream>
+#include <algorithm>
+#include <iomanip>
 
-// Key = (p,t,n) triplet into fast_obj buffers
-struct Triplet {
-    uint32_t p, t, n;
-    bool operator==(const Triplet& o) const { return p == o.p && t == o.t && n == o.n; }
-};
-struct TripletHash {
-    size_t operator()(const Triplet& k) const noexcept {
-        size_t h = 1469598103934665603ull;
-        auto mix = [&](uint64_t x) { h ^= x + 0x9e3779b97f4a7c15ull + (h << 6) + (h >> 2); };
-        mix(k.p); mix(k.t); mix(k.n); return h;
-    }
-};
+namespace ObjUtils {
 
-// Fill your vertex/index arrays from a .obj
-// flipV : keep false if your textures are already “V up”; true if you need v = 1 - v.
-// flipWinding : swap i1<->i2 per triangle if your pipeline expects opposite winding.
-bool ParseOBJ(const char* path,
-    std::vector<Vertex>& outVertices,
-    std::vector<uint32_t>& outIndices,
-    bool flipV = false,
-    bool flipWinding = false)
-{
-    fastObjMesh* m = fast_obj_read(path);
-    if (!m) return false;
+    // ---------------- Key types ----------------
+    struct Triplet {
+        uint32_t p, t, n; // 1-based indices from fast_obj (0 means missing)
+        bool operator==(const Triplet& o) const { return p == o.p && t == o.t && n == o.n; }
+    };
+    struct TripletHash {
+        size_t operator()(const Triplet& k) const noexcept {
+            size_t h = 1469598103934665603ull;
+            auto mix = [&](uint64_t x) { h ^= x + 0x9e3779b97f4a7c15ull + (h << 6) + (h >> 2); };
+            mix(k.p); mix(k.t); mix(k.n); return h;
+        }
+    };
 
-    // --- Pre-pass stats (before you touch outVertices/outIndices) ---
+    struct DebugTrip { uint32_t p, t, n; };
+
+    // --------------- OBJ loader ----------------
+    // flipV: set true if you need v = 1 - v.
+    // flipWinding: swap i1<->i2 per triangle.
+    // debug: runtime logging on/off.
+    // dropDegenerate: drop zero-area triangles if true.
+    inline bool ParseOBJ(const char* path,
+        std::vector<Vertex>& outVertices,
+        std::vector<uint32_t>& outIndices,
+        bool flipV = false,
+        bool flipWinding = false,
+        bool debug = false,
+        bool dropDegenerate = true)
     {
-        size_t triTotal = 0, idxTotal = 0, nTri = 0, nQuad = 0, nNgon = 0;
-        for (unsigned f = 0; f < m->face_count; ++f) {
-            unsigned fv = m->face_vertices[f];
-            if (fv >= 3) {
-                triTotal += (fv - 2);
-                idxTotal += 3 * (fv - 2);
-                if (fv == 3) ++nTri;
-                else if (fv == 4) ++nQuad;
-                else if (fv > 4) ++nNgon;
+        fastObjMesh* m = fast_obj_read(path);
+        if (!m) return false;
+
+        if (debug) {
+            std::cout.setf(std::ios::fixed);
+            std::cout << std::setprecision(2)
+                << "\n--- ParseOBJ: \"" << path << "\" ---\n";
+        }
+
+        // Pre-pass stats
+        {
+            size_t triTotal = 0, idxTotal = 0, nTri = 0, nQuad = 0, nNgon = 0;
+            for (unsigned f = 0; f < m->face_count; ++f) {
+                unsigned fv = m->face_vertices[f];
+                if (fv >= 3) {
+                    triTotal += (fv - 2);
+                    idxTotal += 3 * (fv - 2);
+                    if (fv == 3) ++nTri; else if (fv == 4) ++nQuad; else if (fv > 4) ++nNgon;
+                }
+            }
+            if (debug) {
+                std::cout << "faces=" << m->face_count
+                    << "  tris=" << triTotal
+                    << "  indices=" << idxTotal
+                    << "  (tri=" << nTri
+                    << ", quad=" << nQuad
+                    << ", ngon=" << nNgon << ")\n";
             }
         }
-        std::cout << "faces=" << m->face_count
-            << "  tris=" << triTotal
-            << "  indices=" << idxTotal
-            << "  (tri=" << nTri
-            << ", quad=" << nQuad
-            << ", ngon=" << nNgon << ")\n";
-    }
 
-    outVertices.clear();
-    outIndices.clear();
-    outVertices.reserve(m->index_count); // upper bound
+        outVertices.clear();
+        outIndices.clear();
+        outVertices.reserve(m->index_count); // upper bound
 
-    std::unordered_map<Triplet, uint32_t, TripletHash> cache;
-    cache.reserve(m->index_count);
+        std::unordered_map<Triplet, uint32_t, TripletHash> cache;
+        cache.reserve(m->index_count);
 
-    // Iterate faces; m->face_vertices[i] = polygon size of face i
-    size_t idxCursor = 0;
-    for (unsigned f = 0; f < m->face_count; ++f) {
-        unsigned fv = m->face_vertices[f]; // 3 for tri, 4 for quad, etc.
+        std::vector<DebugTrip> dbgTrip;
+        if (debug) dbgTrip.reserve(m->index_count);
 
-        // Grab all corners (Triplet list)
-        std::vector<uint32_t> cornerIdx; cornerIdx.reserve(fv);
+        // Emit vertex or reuse from cache
         auto emitVertex = [&](const fastObjIndex& ix) -> uint32_t {
-            Triplet key{ ix.p, ix.t, ix.n }; // note: 1-based or 0 if missing
+            Triplet key{ ix.p, ix.t, ix.n };
             auto it = cache.find(key);
             if (it != cache.end()) return it->second;
 
-            Vertex v{};
-            v.color = glm::vec3(1.0f);
+            Vertex v{};              // your Vertex default-ctor
+            v.color = glm::vec3(1);  // default white
+
             // Position
             if (ix.p) {
-                const float* P = &m->positions[3 * (ix.p - 1)];
+                const float* P = &m->positions[3 * ix.p];
                 v.pos = glm::vec3(P[0], P[1], P[2]);
             }
             else {
                 v.pos = glm::vec3(0);
             }
+
             // UV
             if (ix.t) {
-                const float* T = &m->texcoords[2 * (ix.t - 1)];
+                const float* T = &m->texcoords[2 * ix.t];
                 v.texCoord = glm::vec2(T[0], flipV ? (1.0f - T[1]) : T[1]);
             }
             else {
                 v.texCoord = glm::vec2(0);
             }
+
             // Normal
             if (ix.n) {
-                const float* N = &m->normals[3 * (ix.n - 1)];
+                const float* N = &m->normals[3 * ix.n];
                 v.normal = glm::vec3(N[0], N[1], N[2]);
             }
             else {
@@ -1320,35 +1474,125 @@ bool ParseOBJ(const char* path,
             }
 
             uint32_t newIndex = static_cast<uint32_t>(outVertices.size());
-
             outVertices.push_back(v);
             cache.emplace(key, newIndex);
+
+            if (debug) {
+                dbgTrip.push_back({ ix.p, ix.t, ix.n });
+                std::cout << "  [emit] i=" << newIndex
+                    << "  p/t/n=" << ix.p << "/" << ix.t << "/" << ix.n
+                    << "  pos=(" << v.pos.x << "," << v.pos.y << "," << v.pos.z << ")"
+                    << "  uv=(" << v.texCoord.x << "," << v.texCoord.y << ")"
+                    << "  n=(" << v.normal.x << "," << v.normal.y << "," << v.normal.z << ")\n";
+            }
             return newIndex;
             };
 
-        // Build corner list
-        for (unsigned k = 0; k < fv; ++k) {
-            const fastObjIndex ix = m->indices[idxCursor + k];
-            cornerIdx.push_back(emitVertex(ix));
+        // Push triangle with degeneracy check
+        auto pushTri = [&](uint32_t ia, uint32_t ib, uint32_t ic) {
+            if (ia == ib || ib == ic || ia == ic) {
+                if (debug) std::cerr << "[degenerate] duplicate indices: "
+                    << ia << "," << ib << "," << ic << "\n";
+                if (dropDegenerate) return;
+            }
+
+            glm::vec3 A = outVertices[ia].pos;
+            glm::vec3 B = outVertices[ib].pos;
+            glm::vec3 C = outVertices[ic].pos;
+            float area2 = glm::length(glm::cross(B - A, C - A));
+
+            if (area2 < 1e-8f) {
+                if (debug) std::cerr << "[degenerate] zero-area tri: "
+                    << ia << "," << ib << "," << ic
+                    << "  A=(" << A.x << "," << A.y << "," << A.z << ")"
+                    << "  B=(" << B.x << "," << B.y << "," << B.z << ")"
+                    << "  C=(" << C.x << "," << C.y << "," << C.z << ")\n";
+                if (dropDegenerate) return;
+            }
+
+            outIndices.push_back(ia);
+            outIndices.push_back(ib);
+            outIndices.push_back(ic);
+            };
+
+        // Faces
+        size_t idxCursor = 0;
+        for (unsigned f = 0; f < m->face_count; ++f) {
+            unsigned fv = m->face_vertices[f];
+            if (debug) {
+                std::cout << "Face " << f << " (fv=" << fv << "): ";
+                for (unsigned k = 0; k < fv; ++k) {
+                    const fastObjIndex ix = m->indices[idxCursor + k];
+                    std::cout << "(" << ix.p << "/" << ix.t << "/" << ix.n << ") ";
+                }
+                std::cout << "\n";
+            }
+
+            std::vector<uint32_t> cornerIdx;
+            cornerIdx.reserve(fv);
+            for (unsigned k = 0; k < fv; ++k) {
+                const fastObjIndex ix = m->indices[idxCursor + k];
+                cornerIdx.push_back(emitVertex(ix));
+            }
+
+            // Fan triangulation
+            for (unsigned i = 1; i + 1 < fv; ++i) {
+                uint32_t i0 = cornerIdx[0];
+                uint32_t i1 = cornerIdx[i];
+                uint32_t i2 = cornerIdx[i + 1];
+                if (flipWinding) std::swap(i1, i2);
+                pushTri(i0, i1, i2);
+            }
+
+            idxCursor += fv;
         }
 
-        // Triangulate as fan: (0, i, i+1)
-        for (unsigned i = 1; i + 1 < fv; ++i) {
-            uint32_t i0 = cornerIdx[0];
-            uint32_t i1 = cornerIdx[i];
-            uint32_t i2 = cornerIdx[i + 1];
-            if (flipWinding) std::swap(i1, i2);
-            outIndices.push_back(i0);
-            outIndices.push_back(i1);
-            outIndices.push_back(i2);
+        fast_obj_destroy(m);
+
+        if (debug) {
+            std::cout << "Vertices: " << outVertices.size()
+                << "  Indices: " << outIndices.size() << "\n";
+
+            // last few vertices
+            if (!outVertices.empty()) {
+                std::cout << "Last vertices:\n";
+                size_t start = outVertices.size() > 8 ? outVertices.size() - 8 : 0;
+                for (size_t i = start; i < outVertices.size(); ++i) {
+                    const auto& v = outVertices[i];
+                    const auto& t = dbgTrip[i];
+                    std::cout << "  VTX " << i
+                        << "  p/t/n=" << t.p << "/" << t.t << "/" << t.n
+                        << "  pos=(" << v.pos.x << "," << v.pos.y << "," << v.pos.z << ")"
+                        << "  uv=(" << v.texCoord.x << "," << v.texCoord.y << ")"
+                        << "  n=(" << v.normal.x << "," << v.normal.y << "," << v.normal.z << ")\n";
+                }
+            }
+
+            // last few triangles
+            if (!outIndices.empty()) {
+                std::cout << "Last triangles (by indices):\n";
+                uint32_t triCount = static_cast<uint32_t>(outIndices.size() / 3);
+                uint32_t show = std::min<uint32_t>(6, triCount);
+                for (uint32_t t = triCount - show; t < triCount; ++t) {
+                    uint32_t ia = outIndices[3 * t + 0];
+                    uint32_t ib = outIndices[3 * t + 1];
+                    uint32_t ic = outIndices[3 * t + 2];
+                    glm::vec3 A = outVertices[ia].pos;
+                    glm::vec3 B = outVertices[ib].pos;
+                    glm::vec3 C = outVertices[ic].pos;
+                    std::cout << "  tri " << t << ": "
+                        << ia << "," << ib << "," << ic
+                        << "  A=(" << A.x << "," << A.y << "," << A.z << ")"
+                        << "  B=(" << B.x << "," << B.y << "," << B.z << ")"
+                        << "  C=(" << C.x << "," << C.y << "," << C.z << ")\n";
+                }
+            }
         }
 
-        idxCursor += fv;
+        return true;
     }
 
-    fast_obj_destroy(m);
-    return true;
-}
+} // namespace ObjUtils
 
 ----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\ObjUtils\ObjUtils.h -----
 
@@ -1792,7 +2036,8 @@ public:
             update(obj, k);
         }
     }
-
+    void debugPrintStorage(std::ostream& os) const;
+    void debugPrintObjectPlacement(std::ostream& os) const;
 private:
     // You already have BaseObject::getPosition()
     static glm::vec3 getPos(const BaseObject* obj);
@@ -1862,6 +2107,9 @@ private:
     std::unordered_map<MeshKey, std::vector<BaseObject*>, MeshKeyHash> m_globalBatches;
     std::unordered_map<BaseObject*, ObjectHandle> m_handles;
     std::unordered_map<BaseObject*, SpatialInfo>  m_spatial;
+
+
+
 };
 
 ----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Scene\ChunkGrid.h -----
@@ -1929,29 +2177,29 @@ struct MeshKey {
     VkBuffer indexBuffer{};
     VkDeviceSize ibOffset{};
     uint32_t indexCount{};
-    const void* materialPtr{};
     uint32_t pipelineIndex{};
-
-    uint64_t logicalId{ 0 };
+    uint64_t logicalId{ 0 }; // keep only for debug printing
 
     bool operator==(const MeshKey& o) const {
-        return vertexBuffer == o.vertexBuffer && vbOffset == o.vbOffset &&
-            indexBuffer == o.indexBuffer && ibOffset == o.ibOffset &&
-            indexCount == o.indexCount && materialPtr == o.materialPtr &&
+        return vertexBuffer == o.vertexBuffer &&
+            vbOffset == o.vbOffset &&
+            indexBuffer == o.indexBuffer &&
+            ibOffset == o.ibOffset &&
+            indexCount == o.indexCount &&
             pipelineIndex == o.pipelineIndex;
+        // NOTE: logicalId intentionally ignored -> also ignore in hash
     }
 };
 
 struct MeshKeyHash {
     size_t operator()(const MeshKey& k) const noexcept {
-        auto h = std::hash<uint64_t>{}(reinterpret_cast<uint64_t>(k.vertexBuffer));
+        size_t h = std::hash<uint64_t>{}(reinterpret_cast<uint64_t>(k.vertexBuffer));
         h ^= std::hash<uint64_t>{}(reinterpret_cast<uint64_t>(k.indexBuffer)) + 0x9e3779b9 + (h << 6) + (h >> 2);
-        h ^= std::hash<uint64_t>{}(k.vbOffset) + 0x85ebca6b + (h << 6) + (h >> 2);
-        h ^= std::hash<uint64_t>{}(k.ibOffset) + 0xc2b2ae35 + (h << 6) + (h >> 2);
+        h ^= std::hash<uint64_t>{}(k.vbOffset) + (h << 6) + (h >> 2);
+        h ^= std::hash<uint64_t>{}(k.ibOffset) + (h << 6) + (h >> 2);
         h ^= std::hash<uint32_t>{}(k.indexCount) + (h << 6) + (h >> 2);
-        h ^= std::hash<uint64_t>{}(reinterpret_cast<uint64_t>(k.materialPtr)) + (h << 6) + (h >> 2);
         h ^= std::hash<uint32_t>{}(k.pipelineIndex);
-        h ^= std::hash<uint64_t>{}(k.logicalId);
+        // DO NOT hash logicalId if it's not in operator==.
         return h;
     }
 };
@@ -1966,7 +2214,7 @@ inline MeshKey MakeMeshKey(const BaseObject* obj, uint32_t pipelineIndex) {
         obj->getIndexBuffer(),
         obj->getIBOffset(),
         obj->getIndexCount(),
-        obj->getMaterial().get(),
+        //obj->getMaterial().get(),
         pipelineIndex,
         obj->getLogicalGroupId()   // << NEW
     };
@@ -1989,6 +2237,10 @@ inline MeshKey MakeMeshKey(const BaseObject* obj, uint32_t pipelineIndex) {
 #include <glm\gtx\quaternion.hpp>
 #include "MeshKeyUtil.h"
 #include "ChunkGrid.h"
+#include <unordered_map>
+#include <Engine/Graphics/InstanceData.h>
+#include <Engine/Graphics/VulkanVars.h>
+#include <Engine/Graphics/MeshManager.h>
 
 static inline void basisFromNormal(const glm::vec3& nIn,
     glm::vec3& t, glm::vec3& b, glm::vec3& n)
@@ -2046,48 +2298,27 @@ public:
         return nullptr;
     }
 
+    const ChunkGrid& getChunkGrid() const { return m_chunks; }
+    ChunkGrid& getChunkGrid() { return m_chunks; }
+
     unsigned int addRectangle(const glm::vec3& normal,
         const glm::vec3& color,
         float width, float height,
         glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles,
         const std::shared_ptr<Material> mat = {})
     {
-        float halfW = width * 0.5f;
-        float halfH = height * 0.5f;
+        auto quad = MeshManager::GetInstance().GetUnitQuad();
+        auto* object = new BaseObject{ quad, mat };
 
-        // Build a stable local frame from the normal
-        glm::vec3 T, B, N;
-        basisFromNormal(normal, T, B, N);
+        // align +Z to 'normal'
+        glm::vec3 n = glm::normalize(normal);
+        glm::quat qAlign = glm::rotation(glm::vec3(0, 0, 1), n);
+        glm::quat qUser = glm::quat(glm::radians(rotationAngles));
+        glm::quat qFinal = qUser * qAlign;
 
-        // Positions in that frame: X?T (width), Y?B (height), Z along N
-        glm::vec3 p0 = (-halfW) * T + (-halfH) * B; // bottom-left
-        glm::vec3 p1 = (+halfW) * T + (-halfH) * B; // bottom-right
-        glm::vec3 p2 = (+halfW) * T + (+halfH) * B; // top-right
-        glm::vec3 p3 = (-halfW) * T + (+halfH) * B; // top-left
+        glm::vec3 finalScale = scale * glm::vec3(width, height, 1.0f);
+        object->setPosition(position, finalScale, glm::degrees(glm::eulerAngles(qFinal)));
 
-        glm::vec2 uv0(0.0f, 0.0f);
-        glm::vec2 uv1(1.0f, 0.0f);
-        glm::vec2 uv2(1.0f, 1.0f);
-        glm::vec2 uv3(0.0f, 1.0f);
-
-        std::vector<Vertex> vertices;
-        std::vector<uint32_t> indices;
-
-        vertices.push_back({ p0, N, color, uv0 });
-        vertices.push_back({ p1, N, color, uv1 });
-        vertices.push_back({ p2, N, color, uv2 });
-        vertices.push_back({ p3, N, color, uv3 });
-
-        uint32_t base = 0;
-        indices.push_back(base + 0);
-        indices.push_back(base + 1);
-        indices.push_back(base + 2);
-        indices.push_back(base + 0);
-        indices.push_back(base + 2);
-        indices.push_back(base + 3);
-
-        BaseObject* object = new BaseObject{ vertices, indices, mat };
-        object->setPosition(position, scale, rotationAngles);
         m_BaseObjects.push_back(object);
         m_pendingToRegister.push_back(object);
         return static_cast<unsigned int>(m_BaseObjects.size() - 1);
@@ -2107,14 +2338,6 @@ public:
 
     void setFrameView(const glm::vec3& cameraPos, float renderDistance) {
         m_chunks.setCulling(cameraPos, renderDistance);
-    }
-
-    void drawScene(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer) override {
-        m_chunks.forVisibleBatches([&](const MeshKey& key, const std::vector<BaseObject*>& batch) {
-            for (BaseObject* obj : batch) {
-                obj->draw(pipelineLayout, buffer);
-            }
-            });
     }
 
     void updateLocationObject(unsigned int pos, glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles) {
@@ -2143,9 +2366,14 @@ public:
         m_BaseObjects.clear();
     }
 
+    void drawScene(VkPipelineLayout& pipelineLayout, VkCommandBuffer& cmd);
+    void debugPrintVisibleBatches(std::ostream& os);
 private:
     std::vector<BaseObject*> m_BaseObjects{};
     std::vector<BaseObject*> m_pendingToRegister{};
+    std::unordered_map<MeshKey, std::array<std::unique_ptr<DataBuffer>, MAX_FRAMES_IN_FLIGHT>, MeshKeyHash> m_instanceBuffers;
+    DataBuffer* getOrGrowInstanceBuffer(const MeshKey& key, size_t neededCount);
+    
     ChunkGrid m_chunks;
 };
 
@@ -2346,57 +2574,123 @@ private:
 
 ----- Start of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Scene\GameObjects\BaseObject.h -----
 
+// BaseObject.h
 #pragma once
-
 #include <glm/glm.hpp>
-#include <Engine/Graphics/Mesh.h>
+#include <glm/gtc/matrix_transform.hpp>
 #include <memory>
+#include <vector>
+
+#include <Engine/Graphics/Mesh.h>
+#include <Engine/Graphics/Material.h>
+#include <Engine/Graphics/MeshManager.h>
 
 class BaseObject {
 public:
-    BaseObject(const std::vector<Vertex>& Vertexes, const std::vector<uint32_t>& indices, const std::shared_ptr<Material> mat = {}) {
-        mesh = std::make_unique<Mesh>(Vertexes, indices, mat);
+    // SAME signature as before (call sites unchanged)
+    BaseObject(const std::vector<Vertex>& vertices,
+        const std::vector<uint32_t>& indices,
+        const std::shared_ptr<Material> mat = {})
+        : mesh(MeshManager::GetInstance().GetOrCreate(vertices, indices, mat))
+        , m_material(mat)
+    {
+        recalcModel();
     }
-   
+
+    // Also allow direct shared mesh
+    explicit BaseObject(std::shared_ptr<Mesh> sharedMesh,
+        const std::shared_ptr<Material>& mat = {})
+        : mesh(std::move(sharedMesh))
+        , m_material(mat)
+    {
+        if (mesh && mat) mesh->setMaterial(mat); // legacy-only
+        recalcModel();
+    }
+
     void draw(VkPipelineLayout& pipelineLayout, VkCommandBuffer& buffer) {
+        // Push per-object constants (model + tex IDs) before drawing the shared mesh
+        struct Push {
+            glm::mat4 model;
+            uint32_t AlbedoID, NormalMapID, MetalnessID, RoughnessID, HeightMapID;
+        } pc{};
+
+        pc.model = m_model;
+        auto& m = getMaterial();
+        pc.AlbedoID = m ? m->getAlbedoMapID() : 0u;
+        pc.NormalMapID = m ? m->getNormalMapID() : 0u;
+        pc.MetalnessID = m ? m->getMetalnessMapID() : 0u;
+        pc.RoughnessID = m ? m->getRoughnessMapID() : 0u;
+        pc.HeightMapID = m ? m->getHeightMapID() : 0u;
+
+        vkCmdPushConstants(buffer, pipelineLayout,
+            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+            0, sizeof(Push), &pc);
+
         mesh->draw(pipelineLayout, buffer);
     }
 
-    void setPosition(glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAngles) {
-        mesh->setPosition(position, scale, rotationAngles);
+    // Keep the public API the same, but manage transform per-object
+    void setPosition(glm::vec3 position, glm::vec3 scale, glm::vec3 rotationAnglesDeg) {
+        m_pos = position; m_scale = scale; m_rotDeg = rotationAnglesDeg;
+        recalcModel();
     }
 
-    glm::vec3 getPosition() {
-        return mesh->getPostion();
+    glm::vec3 getPosition() { return m_pos; }
+
+    glm::mat4 getModelMatrix() const { return m_model; }
+
+    void init(VkPhysicalDevice& physicalDevice, VkDevice& device,
+        const VkCommandPool& commandPool, const VkQueue& graphicsQueue) {
+        if (mesh) mesh->initialize(physicalDevice, device, commandPool, graphicsQueue);
     }
 
-    void init(VkPhysicalDevice& physicalDevice, VkDevice& device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue) {
-        mesh->initialize(physicalDevice, device, commandPool, graphicsQueue);
-    }
+    void destroy(VkDevice device) { if (mesh) mesh->destroyMesh(device); }
 
-    void destroy(VkDevice device) {
-        mesh->destroyMesh(device);
-    }
-
-    // --- NEW: pass-through getters for batching ---
+    // --- pass-through for batching ---
     VkBuffer getVertexBuffer() const { return mesh->getVertexBuffer(); }
     VkBuffer getIndexBuffer()  const { return mesh->getIndexBuffer(); }
     VkDeviceSize getVBOffset() const { return mesh->getVBOffset(); }
     VkDeviceSize getIBOffset() const { return mesh->getIBOffset(); }
     uint32_t getIndexCount()   const { return mesh->getIndexCount(); }
-    const std::shared_ptr<Material>& getMaterial() const { return mesh->getMaterial(); }
-    bool isInitialized() const { return mesh->isInitialized(); }
 
-    // Optional:
-    Mesh* rawMesh() { return mesh.get(); }
-    const Mesh* rawMesh() const { return mesh.get(); }
+    // Per-object material (falls back to mesh default if unset)
+    const std::shared_ptr<Material>& getMaterial() const {
+        return m_material ? m_material : mesh->getMaterial();
+    }
+    void setMaterial(std::shared_ptr<Material> m) { m_material = std::move(m); }
+
+    bool isInitialized() const { return mesh->isInitialized(); }
 
     void setLogicalGroupId(uint64_t id) { m_logicalGroupId = id; }
     uint64_t getLogicalGroupId() const { return m_logicalGroupId; }
 
-protected:
-    std::unique_ptr<Mesh> mesh;
-    uint64_t m_logicalGroupId = 0;   // 0 = not grouped
+    Mesh* rawMesh() { return mesh.get(); }
+    const Mesh* rawMesh() const { return mesh.get(); }
+
+private:
+    void recalcModel() {
+        // ZYX euler (deg) ? radians
+        glm::vec3 r = glm::radians(m_rotDeg);
+        glm::mat4 T = glm::translate(glm::mat4(1), m_pos);
+        glm::mat4 R =
+            glm::rotate(glm::mat4(1), r.z, { 0,0,1 }) *
+            glm::rotate(glm::mat4(1), r.y, { 0,1,0 }) *
+            glm::rotate(glm::mat4(1), r.x, { 1,0,0 });
+        glm::mat4 S = glm::scale(glm::mat4(1), m_scale);
+        m_model = T * R * S;
+    }
+
+    // Shared geometry
+    std::shared_ptr<Mesh> mesh;
+
+    // Per-object data
+    std::shared_ptr<Material> m_material;
+    glm::vec3 m_pos{ 0 };
+    glm::vec3 m_scale{ 1 };
+    glm::vec3 m_rotDeg{ 0 };
+    glm::mat4 m_model{ 1 };
+
+    uint64_t m_logicalGroupId = 0;
 };
 
 ----- End of file: C:\Users\briek\Documents\GitHub\VulkanRenderer\project\Engine\Scene\GameObjects\BaseObject.h -----
@@ -2519,9 +2813,9 @@ public:
         addModelToScene(modelFile);
     }
 
-    void initialize() override { std::cout << "ModelMeshComponent initialized.\n"; }
-    void update() override { std::cout << "ModelMeshComponent updated.\n"; }
-    void render() override { std::cout << "ModelMeshComponent rendered.\n"; }
+    void initialize() override { }
+    void update() override {  }
+    void render() override {  }
 
 private:
     void addModelToScene(const std::string& modelFile);
@@ -2559,13 +2853,13 @@ public:
     }
 
     void initialize() override {
-        std::cout << "PrimitiveMeshComponent initialized." << std::endl;
+        
     }
     void update() override {
-        std::cout << "PrimitiveMeshComponent updated." << std::endl;
+        
     }
     void render() override {
-        std::cout << "PrimitiveMeshComponent rendered." << std::endl;
+        
     }
 
 private:
@@ -2596,15 +2890,15 @@ public:
     glm::vec3 rotation;
 
     void initialize() override {
-        std::cout << "TransformComponent initialized." << std::endl;
+        
     }
 
     void update() override {
-        std::cout << "TransformComponent updated." << std::endl;
+        
     }
 
     void render() override {
-        std::cout << "TransformComponent rendered." << std::endl;
+        
     }
 };
 

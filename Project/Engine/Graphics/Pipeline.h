@@ -45,13 +45,18 @@ public:
 		const PipelineConfig& config);
 	void Initialize(const std::string& vertexShaderPath, const std::string& fragmentShaderPath, const VkVertexInputBindingDescription vkVertexInputBindingDesc, std::vector<VkVertexInputAttributeDescription> vkVertexInputAttributeDesc, VkPrimitiveTopology topology);
 	void Record(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene);
-
+	// Pipeline.h (add)
+	void Initialize(const std::string& vs, const std::string& fs,
+		const std::vector<VkVertexInputBindingDescription>& bindings,
+		std::vector<VkVertexInputAttributeDescription> attributes,
+		const PipelineConfig& cfg);
 	void setUbo(const UniformBufferObject& ubo) { m_Ubo = ubo; }
 	void updateDescriptorSets();
 	static VkFormat findDepthFormat(VkPhysicalDevice& vkPhysicalDevice, VkDevice& vkDevice);
 	VkImage getDepthImage() { return m_DepthImage; };
 	VkDeviceMemory getDepthImageMemory() { return m_DepthImageMemory; };
 	VkImageView getDepthImageView() { return m_DepthImageView; };
+	// Pipeline.h (add)
 
 private:
 	void drawScene(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene);

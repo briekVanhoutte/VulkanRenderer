@@ -18,6 +18,77 @@ ShaderBase::ShaderBase(const std::string& vertexShaderPath, const std::string& f
     m_Tex = TextureManager::GetInstance().getOrCreateTexture(kErrorTexturePath);
 }
 
+void ShaderBase::initialize(const VkPhysicalDevice& vkPhysicalDevice, const VkDevice& vkDevice, const std::vector<VkVertexInputBindingDescription>& bindings, std::vector<VkVertexInputAttributeDescription> attributes)
+{
+    device_ = vkDevice;
+
+    vertexShaderModule_ = createShaderModule(vertexShaderCode_);
+    fragmentShaderModule_ = createShaderModule(fragmentShaderCode_);
+
+    // Keep copies alive for the lifetime of this ShaderBase
+    m_VkVertexInputBindingDescs = bindings;
+    m_VkVertexInputAttributeDesc = std::move(attributes);
+
+    // Wire up the vertex input state to those member vectors
+    m_VertexInputStateInfo = {};
+    m_VertexInputStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    m_VertexInputStateInfo.vertexBindingDescriptionCount =
+        static_cast<uint32_t>(m_VkVertexInputBindingDescs.size());
+    m_VertexInputStateInfo.pVertexBindingDescriptions =
+        m_VkVertexInputBindingDescs.data();
+    m_VertexInputStateInfo.vertexAttributeDescriptionCount =
+        static_cast<uint32_t>(m_VkVertexInputAttributeDesc.size());
+    m_VertexInputStateInfo.pVertexAttributeDescriptions =
+        m_VkVertexInputAttributeDesc.data();
+
+    // --- Your existing UBO / descriptor setup (unchanged) ---
+    m_UBOBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+        UniformBufferObject ubo{};
+        ubo.view = glm::mat4(1.0f);
+        ubo.proj = glm::mat4(1.0f);
+
+        m_UBOBuffers[i] = std::make_unique<DataBuffer>(
+            vkPhysicalDevice,
+            vkDevice,
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            sizeof(ubo)
+        );
+        m_UBOBuffers[i]->upload(sizeof(ubo), &ubo);
+    }
+
+    m_DescriptorPool = { vkDevice, sizeof(UniformBufferObject), MAX_FRAMES_IN_FLIGHT };
+    m_DescriptorPool.Initialize(vkDevice);
+
+    std::vector<VkBuffer> buffers;
+    std::vector<std::vector<VkDescriptorImageInfo>> imagesPerFrame(MAX_FRAMES_IN_FLIGHT);
+
+    const auto& defaultTexture = TextureManager::GetInstance().getStandardTexture();
+    auto cachedTextures = TextureManager::GetInstance().getAllCachedTextures(); // copy is fine
+    buffers.reserve(MAX_FRAMES_IN_FLIGHT);
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+        buffers.push_back(m_UBOBuffers[i]->getVkBuffer());
+        imagesPerFrame[i].resize(MAX_TEXTURES);
+
+        for (size_t j = 0; j < MAX_TEXTURES; ++j) {
+            if (j < cachedTextures.size() && cachedTextures[j]) {
+                imagesPerFrame[i][j] = cachedTextures[j]->getDescriptorInfo();
+            }
+            else if (defaultTexture) {
+                imagesPerFrame[i][j] = defaultTexture->getDescriptorInfo();
+            }
+            else {
+                imagesPerFrame[i][j] = VkDescriptorImageInfo{};
+            }
+        }
+    }
+
+    m_DescriptorPool.createDescriptorSets(buffers, imagesPerFrame);
+
+}
+
 ShaderBase::~ShaderBase() {
 
 }
@@ -35,71 +106,8 @@ void ShaderBase::Destroy(const VkDevice& vkDevice)
 }
 
 void ShaderBase::initialize(const VkPhysicalDevice& vkPhysicalDevice, const VkDevice& vkDevice, const VkVertexInputBindingDescription& vkVertexInputBindingDesc, std::vector<VkVertexInputAttributeDescription>& vkVertexInputAttributeDesc) {
-    device_ = vkDevice;
-
-    vertexShaderModule_ = createShaderModule(vertexShaderCode_);
-    fragmentShaderModule_ = createShaderModule(fragmentShaderCode_);
-    m_VkVertexInputBindingDesc = vkVertexInputBindingDesc;
-    m_VkVertexInputAttributeDesc = vkVertexInputAttributeDesc;
-
-    m_VertexInputStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-
-    m_VertexInputStateInfo.vertexBindingDescriptionCount = 1;
-    m_VertexInputStateInfo.pVertexBindingDescriptions = &m_VkVertexInputBindingDesc;
-    m_VertexInputStateInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(m_VkVertexInputAttributeDesc.size());
-    m_VertexInputStateInfo.pVertexAttributeDescriptions = m_VkVertexInputAttributeDesc.data();
-
-    m_UBOBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        UniformBufferObject ubo{};
-        ubo.view = glm::mat4{ {1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1} };
-        ubo.proj = glm::mat4{ {1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1} };
-
-        m_UBOBuffers[i] = std::make_unique<DataBuffer>(
-            vkPhysicalDevice,
-            vkDevice,
-            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            sizeof(ubo)
-        );
-
-        m_UBOBuffers[i]->upload(sizeof(ubo),&ubo);
-
-
-    }
-
-
-
-    m_DescriptorPool = { vkDevice, sizeof(UniformBufferObject), MAX_FRAMES_IN_FLIGHT };
-    m_DescriptorPool.Initialize(vkDevice);
-    std::vector<VkBuffer> buffers{};
-    std::vector<VkDescriptorImageInfo> images{};
-    std::vector<std::vector<VkDescriptorImageInfo>> imagesPerFrame(MAX_FRAMES_IN_FLIGHT);
-
-    const auto& defaultTexture = TextureManager::GetInstance().getStandardTexture();
-    auto& cachedTextures = TextureManager::GetInstance().getAllCachedTextures();
-    size_t numTextures = cachedTextures.size();
-    auto& vulkan_vars = vulkanVars::GetInstance();
-
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        buffers.push_back(m_UBOBuffers[i]->getVkBuffer());
-
-        imagesPerFrame[i].resize(MAX_TEXTURES);
-        for (size_t j = 0; j < MAX_TEXTURES; ++j) {
-            if (j < cachedTextures.size() && cachedTextures[j]  ) {
-                imagesPerFrame[i][j] = cachedTextures[j]->getDescriptorInfo();
-            }
-            else if (defaultTexture ) {
-                imagesPerFrame[i][j] = defaultTexture->getDescriptorInfo();
-            }
-            else {
-                imagesPerFrame[i][j] = VkDescriptorImageInfo{};
-            }
-        }
-    }
-
-    m_DescriptorPool.createDescriptorSets(buffers, imagesPerFrame);
+    std::vector<VkVertexInputBindingDescription> bs{ vkVertexInputBindingDesc };
+    initialize(vkPhysicalDevice, vkDevice, bs, vkVertexInputAttributeDesc);
 
 }
 
