@@ -136,50 +136,61 @@ void Pipeline::Initialize(const std::string& vs, const std::string& fs, const st
 	CreatePipeline(vk.device, (m_Config.renderPass ? m_Config.renderPass : vk.renderPass), m_Config.topology);
 }
 
-void Pipeline::drawScene(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene)
+void Pipeline::drawScene(uint32_t imageIndex,
+	VkRenderPass /*renderPass*/,
+	const std::vector<VkFramebuffer>& /*swapChainFramebuffers*/,
+	VkExtent2D swapChainExtent,
+	Scene& scene)
 {
-	auto& vulkan_vars = vulkanVars::GetInstance();
-	size_t currentSlice = vulkan_vars.currentFrame % MAX_FRAMES_IN_FLIGHT;
-	vkCmdBindPipeline(vulkan_vars.commandBuffers[currentSlice].m_VkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline3d);
+	auto& vk = vulkanVars::GetInstance();
 
+	// Use the frame-in-flight slice for all per-frame resources (UBOs, etc.)
+	const uint32_t slice = static_cast<uint32_t>(vk.currentFrame % MAX_FRAMES_IN_FLIGHT);
+	VkCommandBuffer cmd = vk.commandBuffers[slice].m_VkCommandBuffer;
+
+	// Pipeline
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline3d);
+
+	// Dynamic viewport/scissor
 	VkViewport viewport{};
 	viewport.x = 0.0f;
 	viewport.y = 0.0f;
-	viewport.width = (float)swapChainExtent.width;
-	viewport.height = (float)swapChainExtent.height;
+	viewport.width = static_cast<float>(swapChainExtent.width);
+	viewport.height = static_cast<float>(swapChainExtent.height);
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
-	vkCmdSetViewport(vulkan_vars.commandBuffers[currentSlice].m_VkCommandBuffer, 0, 1, &viewport);
+	vkCmdSetViewport(cmd, 0, 1, &viewport);
 
 	VkRect2D scissor{};
 	scissor.offset = { 0, 0 };
 	scissor.extent = swapChainExtent;
-	vkCmdSetScissor(vulkan_vars.commandBuffers[currentSlice].m_VkCommandBuffer, 0, 1, &scissor);
+	vkCmdSetScissor(cmd, 0, 1, &scissor);
 
+	// Descriptor set binding:
+	// - External sets (e.g., post-process sampling offscreen) are per swapchain image.
+	// - Our UBO-backed set is per frame-in-flight -> bind 'slice'.
 	if (m_UseExternalDescriptors) {
-		const auto& sets = *m_Config.externalSets;
+		const auto& sets = *m_Config.externalSets; // guaranteed non-null when m_UseExternalDescriptors == true
 		if (imageIndex < sets.size()) {
-			vkCmdBindDescriptorSets(vulkan_vars.commandBuffers[currentSlice].m_VkCommandBuffer,
-				VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout,
+			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout,
 				0, 1, &sets[imageIndex], 0, nullptr);
 		}
 	}
 	else {
-		m_Shader->bindDescriptorSet(vulkan_vars.commandBuffers[currentSlice].m_VkCommandBuffer,
-			m_PipelineLayout, imageIndex);
+		m_Shader->bindDescriptorSet(cmd, m_PipelineLayout, slice);
 	}
 
 	if (m_Config.fullscreenTriangle) {
-		// Post-process: no meshes, just a fullscreen tri
-		vkCmdDraw(vulkan_vars.commandBuffers[currentSlice].m_VkCommandBuffer, 3, 1, 0, 0);
+		// Post-process fullscreen triangle
+		vkCmdDraw(cmd, 3, 1, 0, 0);
 	}
 	else {
-		// Normal path: draw your scene (unchanged)
-		scene.drawScene(m_PipelineLayout, vulkan_vars.commandBuffers[currentSlice].m_VkCommandBuffer);
-		// Only update UBOs for the normal path
-		updateUniformBuffer(imageIndex, swapChainExtent);
-	}
+		// Normal scene path
+		scene.drawScene(m_PipelineLayout, cmd);
 
+		// Update the same per-frame UBO slice we just bound
+		updateUniformBuffer(slice, swapChainExtent);
+	}
 }
 
 void Pipeline::CreatePipeline(VkDevice device, VkRenderPass renderPass, VkPrimitiveTopology topology) {
@@ -228,6 +239,9 @@ void Pipeline::CreatePipeline(VkDevice device, VkRenderPass renderPass, VkPrimit
 		VK_DYNAMIC_STATE_VIEWPORT,
 		VK_DYNAMIC_STATE_SCISSOR
 	};
+	if (m_Config.enableDynamicLineWidth) {
+		dynamicStates.push_back(VK_DYNAMIC_STATE_LINE_WIDTH);
+	}
 	VkPipelineDynamicStateCreateInfo dynamicState{};
 	dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
 	dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
@@ -296,7 +310,7 @@ void Pipeline::CreatePipeline(VkDevice device, VkRenderPass renderPass, VkPrimit
 
 
 	VkResult r = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_Pipeline3d);
-	fprintf(stderr, "vkCreateGraphicsPipelines => %d, handle=%p\n", r, (void*)m_Pipeline3d);
+	//fprintf(stderr, "vkCreateGraphicsPipelines => %d, handle=%p\n", r, (void*)m_Pipeline3d);
 	if (r != VK_SUCCESS) throw std::runtime_error("failed to create graphics pipeline!");
 
 	//auto& vertexInput = m_Shader->getVertexInputStateInfo();
@@ -316,9 +330,9 @@ void Pipeline::updateUniformBuffer(uint32_t currentImage, VkExtent2D swapChainEx
 VkPushConstantRange Pipeline::createPushConstantRange()
 {
 	VkPushConstantRange pushConstantRange = {};
-	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+	pushConstantRange.stageFlags = m_Config.pushConstantFlags;
 	pushConstantRange.offset = 0;
-	pushConstantRange.size = sizeof(MeshData);
+	pushConstantRange.size = m_Config.pushConstantSize;
 
 	return pushConstantRange;
 }

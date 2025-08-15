@@ -8,7 +8,7 @@
 #include <Engine/Graphics/CommandPool.h>
 #include <Engine/Scene/Scene.h>
 #include <Engine/Graphics/UniformBufferObject.h>
-
+#include <Engine/Graphics/MeshData.h>
 
 struct PipelineConfig {
 	VkRenderPass renderPass = VK_NULL_HANDLE;           // which render pass to build for
@@ -30,6 +30,10 @@ struct PipelineConfig {
 	VkCompareOp depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 	// If true, Record() draws a fullscreen triangle (3 verts) instead of Scene.
 	bool fullscreenTriangle = false;
+	bool enableDynamicLineWidth = false;
+	uint16_t pushConstantSize = sizeof(MeshData);
+	int pushConstantFlags = (VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+
 };
 
 class Pipeline
@@ -57,7 +61,9 @@ public:
 	VkDeviceMemory getDepthImageMemory() { return m_DepthImageMemory; };
 	VkImageView getDepthImageView() { return m_DepthImageView; };
 	// Pipeline.h (add)
+	VkPipelineLayout getPipelineLayout() { return m_PipelineLayout; };
 
+	PipelineConfig getConfig() { return m_Config; };
 private:
 	void drawScene(uint32_t imageIndex, VkRenderPass renderPass, const std::vector<VkFramebuffer>& swapChainFramebuffers, VkExtent2D swapChainExtent, Scene& scene);
 

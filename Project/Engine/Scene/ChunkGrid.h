@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <glm/glm.hpp>
 #include "MeshKeyUtil.h"
+#include <functional>
 
 class BaseObject;
 
@@ -64,6 +65,14 @@ public:
         float frontConeDegrees,
         bool /*useCenterTestIgnored*/,
         bool invertForward = false);
+
+    static void   SetDefaultChunkSize(float s);
+    static float  DefaultChunkSize();
+    static glm::vec3 MinCornerOf(const ChunkCoord& c);  // world-space, y=0
+    static glm::vec3 MaxCornerOf(const ChunkCoord& c);  // world-space, y=0
+    using CellCallback = std::function<void(const ChunkCoord&,
+        const glm::vec3& /*min*/,
+        const glm::vec3& /*max*/)>;
 
     // Membership
     void add(BaseObject* obj, const MeshKey& key);
@@ -136,8 +145,11 @@ public:
     void debugPrintStorage(std::ostream& os) const;
     void debugPrintObjectPlacement(std::ostream& os) const;
 
+    void forVisibleCells(const CellCallback& fn) const;
+
 private:
     static glm::vec3 getPos(const BaseObject* obj);
+
 
     // Spatial insertion
     void insertAccordingToSpatial(BaseObject* obj, const MeshKey& key);
@@ -151,6 +163,7 @@ private:
     bool passFrontCone(const ChunkCoord& c) const;
 
     // Params
+    static float s_defaultChunkSize;
     float    m_chunkSize{ 32.f };
     glm::vec3 m_camPos{ 0 };
     float     m_renderDistance{ 128.f };

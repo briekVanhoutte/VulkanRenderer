@@ -7,6 +7,7 @@
 #include <Engine/Graphics/Pipeline.h>
 #include <Engine/Graphics/vulkanVars.h>
 #include <Engine/Graphics/SwapChainSupportDetails.h>
+#include <Engine/Scene/LineScene.h>
 
 
 #ifdef NDEBUG
@@ -55,7 +56,7 @@ public:
 
     void Initialize();
 
-   
+
     void RenderFrame(const std::vector<RenderItem>& renderItems, Camera& camera);
 
     void Cleanup();
@@ -146,4 +147,9 @@ private:
 
     void setupStages();
     // Offscreen render target
+
+    Pipeline   m_PipelineDebugLines;
+    LineScene  m_DebugLineScene;
+    bool       m_EnableChunkDebug = true;
+    float       m_ChunkRangeToRender = 100.f;
 };

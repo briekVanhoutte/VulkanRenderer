@@ -8,6 +8,12 @@
 #include <Engine/Graphics/Texture.h>
 #include <Engine/Graphics/TextureManager.h>
 #include <algorithm>
+#include <Engine/Scene/LineScene.h>
+#include <Engine/Scene/MeshScene.h>
+
+
+
+
 ShaderBase::ShaderBase(const std::string& vertexShaderPath, const std::string& fragmentShaderPath)
     :vertexShaderModule_(VK_NULL_HANDLE), fragmentShaderModule_(VK_NULL_HANDLE)
 {

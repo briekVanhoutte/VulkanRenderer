@@ -210,7 +210,7 @@ void Game::initScene() {
         vulkan_vars.graphicsQueue);
 
     auto& sm = SceneModelManager::getInstance();
-    sm.getMeshScene()->debugPrintVisibleBatches(std::cout);   // what will be drawn this frame
+    //sm.getMeshScene()->debugPrintVisibleBatches(std::cout);   // what will be drawn this frame
     //sm.getMeshScene()->getChunkGrid().debugPrintStorage(std::cout); // if you expose getChunkGrid()
     //sm.getMeshScene()->getChunkGrid().debugPrintObjectPlacement(std::cout);
 }

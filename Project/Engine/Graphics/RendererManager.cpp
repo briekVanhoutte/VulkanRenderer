@@ -51,6 +51,67 @@ static void createImage2D(VkPhysicalDevice phys, VkDevice dev, uint32_t w, uint3
 	vkBindImageMemory(dev, img, mem, 0);
 }
 
+inline uint32_t RGBA8(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255) {
+	return (uint32_t)r | ((uint32_t)g << 8) | ((uint32_t)b << 16) | ((uint32_t)a << 24);
+}
+
+static void BuildChunkDebug(LineScene& out,
+	MeshScene& mesh,
+	const glm::vec3& cameraPos,
+	float rangeXZ)
+{
+	out.clear();
+
+	const uint32_t colEdge = RGBA8(80, 180, 255, 255); // edges (cyan-ish)
+	const uint32_t colVert = RGBA8(255, 100, 40, 255); // verticals (orange-ish)
+
+	const float rangeSq = rangeXZ * rangeXZ;
+
+	const auto& grid = mesh.getChunkGrid();
+	grid.forVisibleCells([&](const ChunkCoord& /*c*/,
+		const glm::vec3& mn,
+		const glm::vec3& mx)
+		{
+			// Filter: only chunks whose center is within range in XZ plane
+			glm::vec3 center = 0.5f * (mn + mx);
+			glm::vec2 d = glm::vec2(center.x - cameraPos.x, center.z - cameraPos.z);
+			if (glm::dot(d, d) > rangeSq) return;
+
+			// Line height = chunk size (use horizontal extent)
+			const float chunkSize = std::max(mx.x - mn.x, mx.z - mn.z);
+			const glm::vec3 up(0.0f, chunkSize, 0.0f);
+
+			// Bottom corners at y=0 (same as your previous code)
+			const glm::vec3 p0(mn.x, 0.0f, mn.z);
+			const glm::vec3 p1(mx.x, 0.0f, mn.z);
+			const glm::vec3 p2(mx.x, 0.0f, mx.z);
+			const glm::vec3 p3(mn.x, 0.0f, mx.z);
+
+			// Bottom outline (no fill/checkerboard)
+			out.addLine(p0, p1, colEdge);
+			out.addLine(p1, p2, colEdge);
+			out.addLine(p2, p3, colEdge);
+			out.addLine(p3, p0, colEdge);
+
+			// Verticals
+			out.addLine(p0, p0 + up, colVert);
+			out.addLine(p1, p1 + up, colVert);
+			out.addLine(p2, p2 + up, colVert);
+			out.addLine(p3, p3 + up, colVert);
+
+			// Top outline (connect the top to form a cube)
+			const glm::vec3 q0 = p0 + up;
+			const glm::vec3 q1 = p1 + up;
+			const glm::vec3 q2 = p2 + up;
+			const glm::vec3 q3 = p3 + up;
+
+			out.addLine(q0, q1, colEdge);
+			out.addLine(q1, q2, colEdge);
+			out.addLine(q2, q3, colEdge);
+			out.addLine(q3, q0, colEdge);
+		});
+}
+
 void RendererManager::Initialize() {
 	auto& vulkan_vars = vulkanVars::GetInstance();
 	createInstance();
@@ -134,6 +195,10 @@ void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Ca
 	vp.cameraPos = camera.origin;
 	m_Pipeline3d.setUbo(vp);
 	m_PipelineParticles.setUbo(vp);
+	m_PipelineDebugLines.setUbo(vp);
+
+
+
 
 	float renderDistance = m_RenderDistance; // add a member, e.g. default 200.0f
 
@@ -145,6 +210,13 @@ void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Ca
 
 	auto& texMgr = TextureManager::GetInstance();
 	if (texMgr.isTextureListDirty()) { m_Pipeline3d.updateDescriptorSets(); texMgr.clearTextureListDirty(); }
+
+	if (m_EnableChunkDebug) {
+		auto* mesh = SceneModelManager::getInstance().getMeshScene();
+		if (mesh) {
+			BuildChunkDebug(m_DebugLineScene, *mesh, vp.cameraPos, m_ChunkRangeToRender);
+		}
+	}
 
 	// 5) Record (frameIndex CB, imageIndex FB)
 	vk.commandBuffers[frameIndex].reset();
@@ -165,7 +237,40 @@ void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Ca
 		vkCmdBeginRenderPass(vk.commandBuffers[frameIndex].m_VkCommandBuffer, &begin, VK_SUBPASS_CONTENTS_INLINE);
 
 		for (Pipeline* p : stage.pipelines) {
+
+
+
 			if (p == &m_PipelinePostProcess) continue;
+
+
+
+			if (p == &m_PipelineDebugLines) {
+				if (m_EnableChunkDebug) {
+
+					auto& vk = vulkanVars::GetInstance();
+
+					// Use the frame-in-flight slice for all per-frame resources (UBOs, etc.)
+					const uint32_t slice = static_cast<uint32_t>(vk.currentFrame % MAX_FRAMES_IN_FLIGHT);
+					VkCommandBuffer cmd = vk.commandBuffers[slice].m_VkCommandBuffer;
+
+					DebugLinePC dlp = {};
+					dlp.world = glm::mat4(1.0f);
+					dlp.lineWidth = 1.0f;
+					vkCmdPushConstants(
+						cmd,
+						p->getPipelineLayout(),
+						p->getConfig().pushConstantFlags,
+						0,
+						p->getConfig().pushConstantSize,
+						&dlp
+					);
+
+
+					m_PipelineDebugLines.Record(imageIndex, stage.renderPass, *stage.framebuffers, vk.swapChainExtent, m_DebugLineScene);
+				}
+				continue; // don't iterate renderItems for the line pass
+			}
+
 			for (const RenderItem& item : renderItems) {
 
 				if (p == &m_Pipeline3d && item.pipelineIndex == 0)
@@ -773,6 +878,29 @@ void RendererManager::initPipeLines() {
 		Vertex::getBindingDescription(), // ignored
 		Vertex::getAttributeDescriptions(), // ignored
 		postCfg);
+
+	auto bind = DebugLineVertex::binding(0);
+	auto attrs = DebugLineVertex::attributes(0);
+
+	PipelineConfig lcfg{};
+	lcfg.renderPass = m_RenderPassOffscreen;        // draw into the offscreen color/depth
+	lcfg.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+	lcfg.enableDepthTest = true;   // set false if you want through-walls overlay
+	lcfg.enableDepthWrite = true;  // don’t disturb main depth
+	lcfg.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+	lcfg.useVertexInput = true;
+	lcfg.usePushConstants = true;
+	lcfg.enableDynamicLineWidth = true;
+	lcfg.pushConstantSize = sizeof(DebugLinePC);
+	lcfg.pushConstantFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	
+
+	m_PipelineDebugLines.Initialize(
+		"shaders/debug_lines.vert.spv",
+		"shaders/debug_lines.frag.spv",
+		bind, { attrs.begin(), attrs.end() },
+		lcfg
+	);
 }
 
 void RendererManager::createFrameBuffers()
@@ -876,7 +1004,7 @@ void RendererManager::setupStages() {
 	gbufferStage.name = "GBuffer";
 	gbufferStage.renderPass = m_RenderPassOffscreen;
 	gbufferStage.framebuffers = &m_OffscreenFramebuffers;
-	gbufferStage.pipelines = { &m_Pipeline3d, &m_PipelineParticles, &m_PipelineNormals };
+	gbufferStage.pipelines = { &m_Pipeline3d, &m_PipelineParticles, &m_PipelineNormals, &m_PipelineDebugLines };
 	gbufferStage.hasDepth = true;
 
 	RenderStage postStage;

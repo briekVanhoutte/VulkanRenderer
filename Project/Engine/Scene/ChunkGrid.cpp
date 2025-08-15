@@ -8,6 +8,32 @@
 #include <Engine/Scene/GameObjects/BaseObject.h>
 #include <Engine/ObjUtils/DebugPrint.h>
 
+float ChunkGrid::s_defaultChunkSize = 32.f;
+void ChunkGrid::SetDefaultChunkSize(float s) {
+    s_defaultChunkSize = (s > 0.0f) ? s : s_defaultChunkSize;
+}
+float ChunkGrid::DefaultChunkSize() {
+    return s_defaultChunkSize;
+}
+
+glm::vec3 ChunkGrid::MinCornerOf(const ChunkCoord& c) {
+    const float hs = s_defaultChunkSize * 0.5f;
+    const glm::vec3 center{
+        (c.x + 0.5f) * s_defaultChunkSize,
+        (c.y + 0.5f) * s_defaultChunkSize,
+        (c.z + 0.5f) * s_defaultChunkSize
+    };
+    return { center.x - hs, 0.0f, center.z - hs }; // ground plane (y = 0)
+}
+glm::vec3 ChunkGrid::MaxCornerOf(const ChunkCoord& c) {
+    const float hs = s_defaultChunkSize * 0.5f;
+    const glm::vec3 center{
+        (c.x + 0.5f) * s_defaultChunkSize,
+        (c.y + 0.5f) * s_defaultChunkSize,
+        (c.z + 0.5f) * s_defaultChunkSize
+    };
+    return { center.x + hs, 0.0f, center.z + hs }; // ground plane (y = 0)
+}
 // ---------- debug stringify ----------
 static std::string to_string(const ChunkCoord& c) {
     std::ostringstream ss; ss << "(" << c.x << "," << c.y << "," << c.z << ")"; return ss.str();
@@ -29,7 +55,40 @@ static std::string to_string(const MeshKey& k) {
 glm::vec3 ChunkGrid::getPos(const BaseObject* obj) {
     return const_cast<BaseObject*>(obj)->getPosition(); // your getter is non-const
 }
+void ChunkGrid::forVisibleCells(const CellCallback& fn) const {
+    auto emit = [&](const ChunkCoord& c, bool forceVisible) {
+        if (!forceVisible) {
+            if (!chunkWithinRadius2D(c)) return;
+            if (!passFrontCone(c))      return;
+        }
 
+        // Use this instance's chunk size for AABB, but place on ground plane (y=0)
+        const glm::vec3 ctr = fromChunk(c);
+        const float hs = m_chunkSize * 0.5f;
+        const glm::vec3 mn{ ctr.x - hs, 0.0f, ctr.z - hs };
+        const glm::vec3 mx{ ctr.x + hs, 0.0f, ctr.z + hs };
+        fn(c, mn, mx);
+        };
+
+    // 1) camera chunk first
+    const ChunkCoord camC = toChunk(m_camPos);
+    emit(camC, /*forceVisible*/ true);
+
+    // 2) neighborhood in XZ within render distance
+    const glm::vec3 rvec(m_renderDistance);
+    const glm::vec3 pmin = m_camPos - rvec;
+    const glm::vec3 pmax = m_camPos + rvec;
+
+    const ChunkCoord minC = toChunk({ pmin.x, 0, pmin.z });
+    const ChunkCoord maxC = toChunk({ pmax.x, 0, pmax.z });
+
+    for (int z = minC.z; z <= maxC.z; ++z)
+        for (int x = minC.x; x <= maxC.x; ++x) {
+            ChunkCoord c{ x, 0, z };
+            if (c.x == camC.x && c.y == camC.y && c.z == camC.z) continue;
+            emit(c, /*forceVisible*/ false);
+        }
+}
 // ---------- culling config ----------
 void ChunkGrid::setCulling(const glm::vec3& camPos, float renderDistance,
     const glm::vec3& camForward,
