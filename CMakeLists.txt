@@ -46,8 +46,42 @@ if(NOT fast_obj_POPULATED)
   target_include_directories(fast_obj PUBLIC ${fast_obj_SOURCE_DIR})
 endif()
 
+# --- nlohmann/json (header-only) --------------------------------------------
+include(FetchContent)
+FetchContent_Declare(
+  nlohmann_json
+  GIT_REPOSITORY https://github.com/nlohmann/json.git
+  GIT_TAG        v3.11.3
+)
+FetchContent_MakeAvailable(nlohmann_json)
 
 find_package(Vulkan REQUIRED)
+
+# --- Dear ImGui --------------------------------------------------------------
+# We build a tiny static library that includes core + GLFW/Vulkan backends.
+FetchContent_Declare(
+  imgui
+  GIT_REPOSITORY https://github.com/ocornut/imgui.git
+  GIT_TAG        v1.90.9
+)
+FetchContent_MakeAvailable(imgui)
+
+add_library(ImGui STATIC
+  ${imgui_SOURCE_DIR}/imgui.cpp
+  ${imgui_SOURCE_DIR}/imgui_draw.cpp
+  ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+  ${imgui_SOURCE_DIR}/imgui_tables.cpp
+  ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+  ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
+)
+target_include_directories(ImGui PUBLIC
+  ${imgui_SOURCE_DIR}
+  ${imgui_SOURCE_DIR}/backends
+)
+
+target_link_libraries(ImGui PUBLIC glfw ${Vulkan_LIBRARIES})
+
+
 
 include_directories(${Vulkan_INCLUDE_DIRS})
 

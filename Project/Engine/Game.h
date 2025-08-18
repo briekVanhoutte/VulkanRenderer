@@ -13,6 +13,14 @@
 #include <Engine/Scene/SceneModelManager.h>
 #include <Engine/Scene/GameSceneManager.h>
 
+
+struct SettingsChangeSummary {
+    bool capFpsChanged = false;
+    bool fpsCapChanged = false;
+    bool cameraChanged = false;
+    bool any() const { return capFpsChanged || fpsCapChanged || cameraChanged; }
+};
+
 class Game {
 public:
     Game();
@@ -22,11 +30,12 @@ public:
     void run();
 
 private:
+    SettingsChangeSummary ApplySettingsIfChanged();
     void initScene();
 
     bool m_CapFps = false;
-    const int m_FPSCap = 60;
-    const std::chrono::nanoseconds m_FrameDuration = std::chrono::nanoseconds(1'000'000'000 / m_FPSCap);
+    int m_FPSCap = 60;
+    std::chrono::nanoseconds m_FrameDuration = std::chrono::nanoseconds(1'000'000'000 / m_FPSCap);
 
     WindowManager& m_WindowManager;
     RendererManager* m_Renderer;

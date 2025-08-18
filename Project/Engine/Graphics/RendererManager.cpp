@@ -9,12 +9,14 @@
 #include <Engine/Scene/MeshScene.h>
 #include <Engine/Scene/SceneModelManager.h>
 #include <Engine/Graphics/InstanceData.h>
-
+#include <Engine/Platform/Windows/PlatformWindow_Windows.h>
+#include "Engine/Core/Settings.h"
 
 RendererManager::RendererManager() {
 }
 
 RendererManager::~RendererManager() {
+	Cleanup();
 }
 
 static inline const char* VkResStr(VkResult r) {
@@ -145,11 +147,33 @@ void RendererManager::Initialize() {
 	}
 
 	//createFrameBuffers();
+	loadSettings();
 
 	createFramebuffersOffscreen();
 	createFramebuffersPresent();
 
+#ifdef _WIN32
+	auto* winPtr = static_cast<PlatformWindow_Windows*>(WindowManager::GetInstance().getPlatformWindow());
+	GLFWwindow* glfwWindow = winPtr->getGLFWwindow();
+#else
+	GLFWwindow* glfwWindow = nullptr; // add other platforms as needed
+#endif
 
+	auto& vkvars = vulkanVars::GetInstance();
+	auto qf = findQueueFamilies(vkvars.physicalDevice);
+
+	m_ImGui.Initialize(
+		instance,
+		vkvars.physicalDevice,
+		vkvars.device,
+		qf.graphicsFamily.value(),
+		vkvars.graphicsQueue,
+		m_RenderPassPresent,                                   // render ImGui in the present pass
+		/*minImageCount*/ 2,
+		/*imageCount*/ static_cast<uint32_t>(swapChainImages.size()),
+		glfwWindow,
+		/*uploadCmdPool*/ vkvars.commandPoolModelPipeline.m_CommandPool
+	);
 
 	createSyncObjects();
 	//writePostDescriptors();
@@ -198,7 +222,12 @@ void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Ca
 	m_PipelineDebugLines.setUbo(vp);
 
 
+	SyncSettings();
+	SceneModelManager::getInstance().flushRuntimeAdds();
 
+	// --- Your basic window (example) ---
+	m_ImGui.BeginFrame();
+	m_ImGui.DrawMainUI();  // <—— one call, done
 
 	float renderDistance = m_RenderDistance; // add a member, e.g. default 200.0f
 
@@ -220,6 +249,7 @@ void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Ca
 
 	// 5) Record (frameIndex CB, imageIndex FB)
 	vk.commandBuffers[frameIndex].reset();
+
 	vk.commandBuffers[frameIndex].beginRecording();
 
 	for (const RenderStage& stage : m_RenderStages) {
@@ -290,6 +320,11 @@ void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Ca
 		if (std::find(stage.pipelines.begin(), stage.pipelines.end(), &m_PipelinePostProcess) != stage.pipelines.end()) {
 			static MeshScene dummy;
 			m_PipelinePostProcess.Record(imageIndex, stage.renderPass, *stage.framebuffers, vk.swapChainExtent, dummy);
+
+
+
+
+			m_ImGui.EndFrame(vk.commandBuffers[frameIndex].m_VkCommandBuffer);
 		}
 
 		vkCmdEndRenderPass(vk.commandBuffers[frameIndex].m_VkCommandBuffer);
@@ -345,7 +380,45 @@ void RendererManager::RenderFrame(const std::vector<RenderItem>& renderItems, Ca
 }
 
 void RendererManager::Cleanup() {
+	m_ImGui.Shutdown();
+}
 
+void RendererManager::SyncSettings()
+{
+	auto& S = Settings::GetInstance();
+
+	// Show normals pass
+	{
+		const bool v = S.Get<bool>("renderer.showNormals", m_EnableNormals);
+		if (v != m_EnableNormals) {
+			m_EnableNormals = v;
+			// (optional) log or react
+		}
+	}
+
+	// Chunk debug overlay
+	{
+		const bool v = S.Get<bool>("renderer.chunkDebug", m_EnableChunkDebug);
+		if (v != m_EnableChunkDebug) {
+			m_EnableChunkDebug = v;
+		}
+	}
+
+	// Render distance (affects culling)
+	{
+		const float v = S.Get<float>("renderer.renderDistance", m_RenderDistance);
+		if (std::abs(v - m_RenderDistance) > 1e-3f) {
+			m_RenderDistance = v;
+		}
+	}
+
+	// Chunk debug range
+	{
+		const float v = S.Get<float>("renderer.chunkRange", m_ChunkRangeToRender);
+		if (std::abs(v - m_ChunkRangeToRender) > 1e-3f) {
+			m_ChunkRangeToRender = v;
+		}
+	}
 }
 
 void RendererManager::createInstance()
@@ -1150,6 +1223,15 @@ void RendererManager::createPostDescriptors() {
 
 		vkUpdateDescriptorSets(vk.device, 2, writes, 0, nullptr);
 	}
+}
+
+void RendererManager::loadSettings()
+{
+	auto& S = Settings::GetInstance();
+	m_EnableNormals = S.Get<bool>("renderer.showNormals", m_EnableNormals);
+	m_RenderDistance = S.Get<float>("renderer.renderDistance", m_RenderDistance);
+	m_EnableChunkDebug = S.Get<bool>("renderer.chunkDebug", m_EnableChunkDebug);
+	m_ChunkRangeToRender = S.Get<float>("renderer.chunkRange", m_ChunkRangeToRender);
 }
 
 void RendererManager::writePostDescriptors()

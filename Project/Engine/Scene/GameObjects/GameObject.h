@@ -52,6 +52,15 @@ public:
 
     TransformComponent* getTransform() const { return m_transform; }
 
+    void broadcastTransformChanged() {
+        const auto* t = m_transform;
+        for (auto& up : m_components) {
+            Component* c = up.get();
+            if (c == m_transform) continue; // no need to notify self
+            c->onTransformUpdated(t->position, t->scale, t->rotation);
+        }
+    }
+
 private:
     std::vector<std::unique_ptr<Component>> m_components;
     TransformComponent* m_transform; 

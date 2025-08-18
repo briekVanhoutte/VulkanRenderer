@@ -8,7 +8,7 @@
 #include <Engine/Graphics/vulkanVars.h>
 #include <Engine/Graphics/SwapChainSupportDetails.h>
 #include <Engine/Scene/LineScene.h>
-
+#include <Engine/UI/ImGuiLayer.h> 
 
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
@@ -60,7 +60,8 @@ public:
     void RenderFrame(const std::vector<RenderItem>& renderItems, Camera& camera);
 
     void Cleanup();
-
+    void SyncSettings();
+    ImGuiLayer& GetImGui() { return m_ImGui; }
 private:
     Pipeline m_Pipeline3d;
     Pipeline m_PipelineParticles;
@@ -86,7 +87,7 @@ private:
     void createFramebuffersOffscreen();
     void createFramebuffersPresent();
     void createPostDescriptors();
-
+    void loadSettings();
     void writePostDescriptors();
 
     void createOffscreenDepthTargets();
@@ -152,4 +153,5 @@ private:
     LineScene  m_DebugLineScene;
     bool       m_EnableChunkDebug = true;
     float       m_ChunkRangeToRender = 100.f;
+    ImGuiLayer m_ImGui;
 };

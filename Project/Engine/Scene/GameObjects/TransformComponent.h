@@ -4,6 +4,8 @@
 #include <glm/glm.hpp>
 #include <iostream>
 
+class gameObject; // Forward declaration
+
 class TransformComponent : public Component {
 public:
     TransformComponent()
@@ -17,6 +19,8 @@ public:
     void initialize() override {
         
     }
+
+    void applyNow();
 
     void update() override {
         

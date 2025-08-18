@@ -4,6 +4,7 @@
 #include <Engine/Graphics/MaterialManager.h>
 #include <vector>
 #include <random>
+#include "Engine/Core/Settings.h"
 
 Game::Game()
     : m_WindowManager(WindowManager::GetInstance()),
@@ -21,6 +22,17 @@ Game::~Game() {
 }
 
 void Game::init() {
+
+    Settings::GetInstance().Initialize("settings.json");
+
+    // Optional defaults (only fill if missing)
+    Settings::GetInstance().MergeDefaults({
+        {"renderer", {{"showNormals", false}, {"chunkDebug", true}, {"renderDistance", 200.0}, {"chunkRange", 100.0}}},
+        {"camera",   {{"fov", 90.0}, {"near", 0.1}, {"far", 1000.0}}},
+        {"general",  {{"capFps", false}, {"fpsCap", 60}}}
+        });
+
+
     m_WindowManager.initWindow();
 
 #ifdef WIN32
@@ -46,6 +58,53 @@ void Game::init() {
 
     m_RenderItems.push_back(RenderItem{ m_SceneManager.getMeshScene(), 0 });
     m_RenderItems.push_back(RenderItem{ m_SceneManager.getParticleScene(), 1 });
+}
+
+SettingsChangeSummary Game::ApplySettingsIfChanged()
+{
+    SettingsChangeSummary changes{};
+    auto& S = Settings::GetInstance();
+
+    // --- General / FPS cap ----------------------------------------------------
+    const bool cap = S.Get<bool>("general.capFps", m_CapFps);
+    int        capVal = S.Get<int>("general.fpsCap", m_FPSCap);
+
+    if (cap != m_CapFps) {
+        m_CapFps = cap;
+        changes.capFpsChanged = true;
+    }
+
+    capVal = std::max(1, capVal);
+    if (capVal != m_FPSCap) {
+        m_FPSCap = capVal;
+        m_FrameDuration = std::chrono::nanoseconds(1'000'000'000 / m_FPSCap);
+        changes.fpsCapChanged = true;
+    }
+
+    // --- Camera projection settings ------------------------------------------
+    if (m_Camera) {
+        const float fov = S.Get<float>("camera.fov", m_Camera->fovAngle);
+        const float zN = S.Get<float>("camera.near", m_Camera->nearPlane);
+        const float zF = S.Get<float>("camera.far", m_Camera->farPlane);
+
+        auto nearEq = [](float a, float b, float eps) {
+            return std::fabs(a - b) <= eps * (1.f + std::max(std::fabs(a), std::fabs(b)));
+            };
+
+        bool camDirty = false;
+        if (!nearEq(fov, m_Camera->fovAngle, 1e-3f)) { m_Camera->fovAngle = fov; camDirty = true; }
+        if (!nearEq(zN, m_Camera->nearPlane, 1e-5f)) { m_Camera->nearPlane = zN; camDirty = true; }
+        if (!nearEq(zF, m_Camera->farPlane, 1e-3f)) { m_Camera->farPlane = zF; camDirty = true; }
+
+        if (camDirty) {
+            changes.cameraChanged = true;
+            // If you have a method that rebuilds your projection, call it here:
+            // m_Camera->RecalculateProjection();
+            // (If not, your renderer already recomputes the proj every frame, so this can be omitted.)
+        }
+    }
+
+    return changes;
 }
 
 void Game::initScene() {
@@ -93,6 +152,9 @@ void Game::initScene() {
     std::shared_ptr<Material> kdhMat = std::make_shared<Material>("Resources/Textures/kdh.jpg");
     std::shared_ptr<Material> errorMat = std::make_shared<Material>();
 
+    std::vector<std::shared_ptr<Material>> uiMats = { stoneMat, bronzeMat, testMat, catMat, kdhMat };
+    m_Renderer->GetImGui().SetMaterialChoices(uiMats);
+
     // List used for random selection. Put 3 here if you only want 3.
     std::vector<std::shared_ptr<Material>> cubeMats = {
          testMat, kdhMat
@@ -114,7 +176,7 @@ void Game::initScene() {
     // --- Sprinkle some cats ------------------------------------------------------
     {
         // Tunables
-        const int   maxCats = 20;      // <= max amount
+        const int   maxCats = 1;      // <= max amount
         const float areaR = 10.f;    // place cats in [-areaR, +areaR] on X/Z
         const float baseY = 0.f;     // height to place them at
         const glm::vec3 baseRot = glm::vec3(90, 90.f, 180.f); // your original pitch
@@ -147,7 +209,7 @@ void Game::initScene() {
 
     // --- Tiny randomized stacked cubes ------------------------------------------
     {
-        const int   maxCubes = 100;
+        const int   maxCubes = 1;
         const int   columns = 1800;
         const float areaR = 10.f;
         const float baseY = 0.f;
@@ -231,7 +293,7 @@ void Game::run() {
         lastTime = frameStart;
 
         vulkan_vars.currentFrame = frameCount;
-
+        auto changed = ApplySettingsIfChanged();
         window->pollEvents();
 
         //m_Physics.stepPhysics(false, deltaTime);

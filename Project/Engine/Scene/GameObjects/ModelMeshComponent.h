@@ -6,6 +6,7 @@
 #include <iostream>
 #include <memory>
 #include <Engine/Graphics/Material.h>
+#include <Engine/Scene/GameObjects/BaseObject.h>
 
 class ModelMeshComponent : public Component {
 public:
@@ -27,7 +28,12 @@ public:
     void initialize() override { }
     void update() override {  }
     void render() override {  }
+    const std::vector<BaseObject*>& getBaseObjects() const { return m_bases; }
+    BaseObject* getFirstBase() const { return m_bases.empty() ? nullptr : m_bases[0]; }
 
+    void onTransformUpdated(const glm::vec3& pos,
+        const glm::vec3& scale,
+        const glm::vec3& rot) override;
 private:
     void addModelToScene(const std::string& modelFile);
 
@@ -35,4 +41,5 @@ private:
     std::shared_ptr<Material> m_material;   // NEW
     bool m_makeGlobal = false;
     bool m_groupByFile = true;
+    std::vector<BaseObject*> m_bases;
 };

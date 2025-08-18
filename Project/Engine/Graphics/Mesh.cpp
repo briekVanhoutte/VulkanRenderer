@@ -17,6 +17,11 @@ Mesh::Mesh(const std::vector<Vertex>& Vertexes, const std::vector<uint32_t>& ind
 	m_VertexConstant.model = glm::mat4{ {1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1} };
 	auto& mat_manager = MaterialManager::GetInstance();
 	m_Material = mat;
+
+	if (m_Indices.empty() && !m_Vertices.empty()) {
+		m_Indices.resize(m_Vertices.size());
+		for (uint32_t i = 0; i < m_Indices.size(); ++i) m_Indices[i] = i;
+	}
 }
 
 void Mesh::initialize(VkPhysicalDevice physicalDevice, VkDevice device, const VkCommandPool& commandPool, const VkQueue& graphicsQueue) {

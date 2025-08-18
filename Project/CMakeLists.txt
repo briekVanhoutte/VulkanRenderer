@@ -42,11 +42,13 @@ add_dependencies(${PROJECT_NAME} Shaders)
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/vcpkg/installed/x64-windows/include/physx")
 target_include_directories(${PROJECT_NAME} PUBLIC ${stb_SOURCE_DIR})
+# Link to GLFW + Vulkan; the backend needs both
 
 target_link_libraries(${PROJECT_NAME} PRIVATE ${PhysX} ${PhysX_Common} ${PhysX_FOUNDATION} ${PhysX_COOKER} ${PhysX_EXTENSIONS} ${PhysX_PVD})
 target_link_libraries(${PROJECT_NAME} PRIVATE ${Vulkan_LIBRARIES} glfw)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${Vulkan_LIBRARIES} glm)
 target_link_libraries(${PROJECT_NAME} PRIVATE fast_obj)
+target_link_libraries(${PROJECT_NAME} PRIVATE ImGui nlohmann_json::nlohmann_json)
 # This assumes vcpkg is in ${CMAKE_SOURCE_DIR}/vcpkg
 set(PHYSX_BIN_DIR "${CMAKE_SOURCE_DIR}/vcpkg/installed/x64-windows/bin")
 set(PHYSX_DEBUG_BIN_DIR "${CMAKE_SOURCE_DIR}/vcpkg/installed/x64-windows/debug/bin")

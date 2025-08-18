@@ -35,6 +35,7 @@ class MeshScene : public Scene{
 public:
     explicit MeshScene(float chunkSize = 32.f) : m_chunks(chunkSize) {}
 
+    void flushPendingRuntime();
 
     void setObjectCoverageOverride(BaseObject* obj, glm::vec3 center, glm::vec3 halfExtents) {
         m_chunks.setCoverageOverride(obj, center, halfExtents);
@@ -135,6 +136,7 @@ public:
     void notifyMoved(BaseObject* obj) {
         if (!obj) return;
         m_chunks.update(obj, MakeMeshKey(obj, 0));
+        m_instancesDirty = true;
     }
 
     glm::vec3 getLocation(unsigned int pos) {
@@ -150,7 +152,7 @@ public:
         }
         m_BaseObjects.clear();
     }
-
+	void rebuildAllInstanceBuffersFromCurrentTransforms();
     void drawScene(VkPipelineLayout& pipelineLayout, VkCommandBuffer& cmd);
     void debugPrintVisibleBatches(std::ostream& os);
 
@@ -165,5 +167,6 @@ private:
     
     ChunkGrid m_chunks;
     bool m_chunksEnabled = true;
+    bool m_instancesDirty = false;
 };
 

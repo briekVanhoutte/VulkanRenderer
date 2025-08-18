@@ -22,6 +22,10 @@ public:
         return instance;
     }
 
+    void flushRuntimeAdds() {
+        if (m_meshScene) m_meshScene->flushPendingRuntime();
+    }
+
     SceneModelManager(const SceneModelManager&) = delete;
     SceneModelManager& operator=(const SceneModelManager&) = delete;
 
@@ -87,6 +91,16 @@ public:
             auto* obj = std::get<ParticleGroup*>(so.object);
             if (obj) obj->setPosition(position, scale, rotationAngles);
         }
+    }
+
+    void updateObjectTransform(BaseObject* obj,
+        glm::vec3 position,
+        glm::vec3 scale,
+        glm::vec3 rotationAngles)
+    {
+        if (!obj) return;
+        obj->setPosition(position, scale, rotationAngles);
+        if (m_meshScene) m_meshScene->notifyMoved(obj);
     }
 
     void destroy(VkDevice device) {

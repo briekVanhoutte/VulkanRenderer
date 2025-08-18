@@ -23,8 +23,47 @@ DataBuffer* MeshScene::getOrGrowInstanceBuffer(const MeshKey& key, size_t needed
     return slot.get();
 }
 
+void MeshScene::flushPendingRuntime() {
+    if (m_pendingToRegister.empty()) return;
+
+    auto& vk = vulkanVars::GetInstance();
+    // Move pending into a local list so we can clear and avoid re-processing
+    std::vector<BaseObject*> pending;
+    pending.swap(m_pendingToRegister);
+
+    for (BaseObject* o : pending) {
+        if (!o) continue;
+
+        // Initialize GPU buffers if needed
+        if (!o->isInitialized()) {
+            o->init(vk.physicalDevice,
+                vk.device,
+                vk.commandPoolModelPipeline.m_CommandPool,
+                vk.graphicsQueue);
+        }
+
+        // Register into chunk grid (pipelineIndex = 0 for your 3D pipeline)
+        if (o->isInitialized()) {
+            m_chunks.add(o, MakeMeshKey(o, 0));
+        }
+    }
+}
+
+void MeshScene::rebuildAllInstanceBuffersFromCurrentTransforms()
+{
+    m_chunks.forVisibleBatches([&](const MeshKey& key, const std::vector<BaseObject*>& batch) {
+        getOrGrowInstanceBuffer(key, batch.size());
+        });
+}
+
 void MeshScene::drawScene(VkPipelineLayout& pipelineLayout, VkCommandBuffer& cmd) {
     auto& vk = vulkanVars::GetInstance();
+
+
+    if (m_instancesDirty) {
+        rebuildAllInstanceBuffersFromCurrentTransforms(); // fill per-key InstanceData.model = bo->getModelMatrix()
+        m_instancesDirty = false;
+    }
 
     // Draw one instanced batch (existing logic pulled into a lambda)
     auto drawBatch = [&](const MeshKey& key, const std::vector<BaseObject*>& batch) {
@@ -56,6 +95,13 @@ void MeshScene::drawScene(VkPipelineLayout& pipelineLayout, VkCommandBuffer& cmd
         // 3) Bind mesh VB/IB + instance VB, then draw
         VkBuffer bufs[2] = { key.vertexBuffer, instBuf->getVkBuffer() };
         VkDeviceSize offs[2] = { key.vbOffset, 0 };
+
+        if (key.indexBuffer == VK_NULL_HANDLE || key.indexCount == 0) {
+            // In debug builds you can log once to find the offender.
+            fprintf(stderr, "Skipped batch with missing index buffer.\n");
+            return;
+        }
+
         vkCmdBindVertexBuffers(cmd, 0, 2, bufs, offs);
         vkCmdBindIndexBuffer(cmd, key.indexBuffer, key.ibOffset, VK_INDEX_TYPE_UINT32);
         vkCmdDrawIndexed(cmd, key.indexCount,

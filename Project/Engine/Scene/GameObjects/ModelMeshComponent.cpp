@@ -46,6 +46,15 @@ static glm::vec3 RotatedAABBHalfExtents(const glm::quat& q, const glm::vec3& loc
     );
 }
 
+void ModelMeshComponent::onTransformUpdated(const glm::vec3& pos, const glm::vec3& scale, const glm::vec3& rot)
+{
+    for (auto* bo : m_bases) {
+        if (!bo) continue;
+        bo->setPosition(pos, scale, rot);
+        SceneModelManager::getInstance().updateObjectTransform(bo, pos, scale, rot);
+    }
+}
+
 void ModelMeshComponent::addModelToScene(const std::string& modelFile) {
     auto parent = getParent();
     if (!parent) return;
@@ -57,7 +66,7 @@ void ModelMeshComponent::addModelToScene(const std::string& modelFile) {
     ObjUtils::ParseOBJ(modelFile.c_str(), vertices, indices, false, false,false,true);  // we'll fix UVs below
 
     auto& sceneManager = SceneModelManager::getInstance();
-    BaseObject* obj = sceneManager.addMeshModel(
+    auto bo = sceneManager.addMeshModel(
         vertices, indices,
         parent->getTransform()->position,
         parent->getTransform()->scale,
@@ -65,12 +74,14 @@ void ModelMeshComponent::addModelToScene(const std::string& modelFile) {
         m_material   // <<< pass the material so textures bind like primitives
     );
 
-    if (m_groupByFile && obj) {
-        obj->setLogicalGroupId(HashPath64(modelFile));
+    m_bases.push_back(bo); // store the BaseObject
+
+    if (m_groupByFile && bo) {
+        bo->setLogicalGroupId(HashPath64(modelFile));
     }
 
     // whole-object coverage override (unchanged)
-    if (obj) {
+    if (bo) {
         const glm::vec3 pos = parent->getTransform()->position;
         const glm::vec3 scale = parent->getTransform()->scale;
         const glm::vec3 rdeg = parent->getTransform()->rotation;
@@ -81,10 +92,10 @@ void ModelMeshComponent::addModelToScene(const std::string& modelFile) {
         glm::vec3 localHalf = 0.5f * (vmax - vmin);
         glm::vec3 scaledHalf = glm::abs(localHalf * scale);
         glm::vec3 worldHalf = RotatedAABBHalfExtents(q, scaledHalf);
-        sceneManager.getMeshScene()->setObjectCoverageOverride(obj, pos, worldHalf);
+        sceneManager.getMeshScene()->setObjectCoverageOverride(bo, pos, worldHalf);
     }
 
-    if (m_makeGlobal && obj) {
-        sceneManager.getMeshScene()->setObjectGlobal(obj, true);
+    if (m_makeGlobal && bo) {
+        sceneManager.getMeshScene()->setObjectGlobal(bo, true);
     }
 }
